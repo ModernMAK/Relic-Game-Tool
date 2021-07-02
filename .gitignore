@@ -1,0 +1,20 @@
+# Ignore all files in dump; these are files extracted from ASURA Resource files files
+dump/
+unpack/
+repack/
+
+
+## Custom content
+cc/
+
+# Ignore virtual environment
+venv/
+__pycache__/
+# Ignore Pycharm
+.idea/
+# Ignore 3rd party software
+depends/
+#Ignore pytest
+.pytest_cache/
+
+secrets/
