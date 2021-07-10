@@ -2,11 +2,13 @@ import dataclasses
 import json
 import os
 import struct
-import time
 import zlib
 from dataclasses import dataclass
 from os.path import join
-from typing import BinaryIO, List, Optional, Tuple
+from typing import BinaryIO, List, Tuple
+
+# THIS FILE CAN HANDLE SGA archives
+# poorly implimented, I wanted to have a sparse windowable type but I didn't do that too well
 
 __HEADER = "_ARCHIVE"
 # STOLEN FROM http://wiki.xentax.com/index.php/Dawn_Of_War_SGA
@@ -564,7 +566,7 @@ class FlatArchive:
                 # for p, n, f in folder.walk_all_files():
                 full_name = join(p, n)
                 decomp = f.decompress()
-                n_f = FlatFile(f.info.unk_a, full_name, decomp)
+                n_f = FlatFile(f.info_block.unk_a, full_name, decomp)
                 files.append(n_f)
 
         info = FlatHeader.from_header(archive.info.header)
@@ -638,9 +640,10 @@ def run():
 
         "W40kData-SharedTextures-Full.sga",
     ]
-    shared_dump = "gen/shared_dump"
-    single_dump = "gen/dump"
-    meta_dump = "gen/meta"
+    root = "gen/sga/"
+    shared_dump = root + "shared_dump"
+    single_dump = root + "dump"
+    meta_dump = root + "meta"
 
     for i, file in enumerate(files):
         full = join(root, game, file)
