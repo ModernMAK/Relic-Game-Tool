@@ -1,7 +1,9 @@
 # Ignore all files in dump; these are files extracted from ASURA Resource files files
+# While no longer just asura, these should be ignored, we also include gen
 dump/
 unpack/
 repack/
+gen/
 
 
 ## Custom content
