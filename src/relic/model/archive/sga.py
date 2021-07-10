@@ -4,7 +4,7 @@ import os
 import struct
 import zlib
 from dataclasses import dataclass
-from os.path import join
+from os.path import join, splitext
 from typing import BinaryIO, List, Tuple
 
 # THIS FILE CAN HANDLE SGA archives
@@ -552,21 +552,21 @@ class FlatArchive:
 
     @classmethod
     def create(cls, archive: FullArchive) -> 'FlatArchive':
-        def walk(folder: Folder) -> Tuple[str, str, File]:
+        def walk_archive(folder: Folder) -> Tuple[str, str, File]:
             for f in folder.files:
                 yield folder.name, f.name, f
             for f in folder.folders:
-                for p in walk(f):
+                for p in walk_archive(f):
                     yield p
 
         files = []
         for folder in archive.folders:
             # for full_name, f in walk(folder):
-            for p, n, f in walk(folder):
+            for p, n, f in walk_archive(folder):
                 # for p, n, f in folder.walk_all_files():
                 full_name = join(p, n)
                 decomp = f.decompress()
-                n_f = FlatFile(f.info_block.unk_a, full_name, decomp)
+                n_f = FlatFile(f.info.unk_a, full_name, decomp)
                 files.append(n_f)
 
         info = FlatHeader.from_header(archive.info.header)
@@ -606,6 +606,32 @@ class SGArchive:
 
         return SGArchive(header, descriptions, folders, files)
 
+
+def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
+    ext = ext.lower()
+    for root, _, files in os.walk(folder):
+        for file in files:
+            _, x = splitext(file)
+            if x.lower() != ext:
+                continue
+            yield root, file
+
+
+def shared_dump(file: str, out_dir: str = None):
+    out_dir = out_dir or "gen/sga/shared_dump"
+    with open(file, "rb") as handle:
+        archive = FlatArchive.unpack(handle)
+        for f in archive.files:
+            shared_path = join(out_dir, f.name)
+            dir_path = os.path.dirname(shared_path)
+            try:
+                os.makedirs(dir_path)
+            except FileExistsError:
+                pass
+            with open(shared_path, "wb") as writer:
+                writer.write(f.data)
+
+
 def run():
     class EnhancedJSONEncoder(json.JSONEncoder):
         def default(self, o):
@@ -619,7 +645,6 @@ def run():
                     return o.hex(sep=" ") + f" ... [+{l - 16} Bytes]"
                 return o.hex(sep=" ")
             return super().default(o)
-
 
     root = r"G:\Clients\Steam\Launcher\steamapps\common"
     game = r"Dawn of War Soulstorm\W40k"
@@ -686,5 +711,25 @@ def run():
             with open(meta_path, "w") as writer:
                 writer.write(meta)
 
+
+def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):
+    blacklist = blacklist or []
+    for root, file in walk_ext(folder, ".sga"):
+        full = join(root, file)
+
+        skip = False
+        for word in blacklist:
+            if word in full:
+                skip = True
+                break
+
+        if skip:
+            continue
+        if verbose:
+            print(full)
+        shared_dump(full, out_dir)
+
+
 if __name__ == "__main__":
-    run()
+    dump_all_sga(r"D:\Steam\steamapps\common\Dawn of War Soulstorm", blacklist=[r"-Low", "-Med"],
+                 out_dir=r"D:/Dumps/DOW I/sga", verbose=True)

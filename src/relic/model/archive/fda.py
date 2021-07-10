@@ -404,8 +404,94 @@ def run_new():
                     Converter.Fda2Aiffr(fda_chunky, writer)
 
 
+def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
+    ext = ext.lower()
+    for root, _, files in os.walk(folder):
+        for file in files:
+            _, x = splitext(file)
+            if x.lower() != ext:
+                continue
+            yield root, file
+
+
+def shared_dump(file: str, name: str, out_dir: str = None):
+    out_dir = out_dir or "gen/fda/shared_dump"
+    with open(file, "rb") as handle:
+        try:
+            chunky = RelicChunky.unpack(handle)
+        except ValueError as e:
+            print(e)
+            pass
+            # print(f"\tNot Chunky?!\n\t\t'{e}'")
+
+        fda = FdaChunky.create(chunky)
+        shared_path = join(out_dir, name)
+        dir_path = os.path.dirname(shared_path)
+        try:
+            os.makedirs(dir_path)
+        except FileExistsError:
+            pass
+        with open(shared_path, "wb") as writer:
+            Converter.Fda2Aiffr(fda, writer)
+
+def safe_dump(file:str, name:str, out_dir:str = None):
+    out_dir = out_dir or "gen/safe_fda/shared_dump"
+    full = join(out_dir, name)
+    path = "../../../dll/fda2aifc.exe"
+    path = os.path.abspath(path)
+    try:
+        os.makedirs(dirname(full))
+    except FileExistsError:
+        pass
+
+    import subprocess
+    subprocess.call([path, f"{file}", f"{full}"])
+
+def dump_all_fda(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):
+    blacklist = blacklist or []
+    for root, file in walk_ext(folder, ".fda"):
+        full = join(root, file)
+
+        skip = False
+        for word in blacklist:
+            if word in full:
+                skip = True
+                break
+
+        if skip:
+            continue
+        if verbose:
+            print(full)
+        name = full.lstrip(folder).lstrip("\\").lstrip("/")
+        f, _ = splitext(name)
+
+        shared_dump(full, f + ".aifc", out_dir)
+
+
+def safe_dump_all_fda(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):
+    blacklist = blacklist or []
+    for root, file in walk_ext(folder, ".fda"):
+        full = join(root, file)
+
+        skip = False
+        for word in blacklist:
+            if word in full:
+                skip = True
+                break
+
+        if skip:
+            continue
+        if verbose:
+            print(full)
+        name = full.lstrip(folder).lstrip("\\").lstrip("/")
+        f, _ = splitext(name)
+
+        safe_dump(full, f + ".aifc", out_dir)
+
+
 if __name__ == "__main__":
-    run_new()
+    safe_dump_all_fda(r"D:/Dumps/DOW I/sga",
+                 out_dir=r"D:/Dumps/DOW I/safe_fda", verbose=True)
 
 # FDA are chunky files, but they are wierd; they appear to only be 2 chunks INFO and DATA (unnamed) + a named chunk fileburninfo
 # 4 bytes; size of DATA
