@@ -4,10 +4,12 @@ import dataclasses
 import json
 import math
 import os
+import shutil
 import struct
+import tempfile
 from dataclasses import dataclass
 from io import BytesIO
-from os.path import join, dirname, splitext
+from os.path import join, dirname, splitext, exists, basename
 from typing import BinaryIO, Union, List, Tuple
 
 from relic.model.archive import aiffr
@@ -445,7 +447,19 @@ def safe_dump(file:str, name:str, out_dir:str = None):
         pass
 
     import subprocess
-    subprocess.call([path, f"{file}", f"{full}"])
+
+    def create_temporary_copy(path) -> str:
+        temp_dir = tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, basename(path))
+        shutil.copy2(path, temp_path)
+        return temp_path
+
+    temp_src = create_temporary_copy(file)
+    temp_dst = temp_src + ".aifc"
+    subprocess.call([path, f"{temp_src}", f"{temp_dst}"])
+    if exists(temp_dst):
+        shutil.copy2(temp_dst, full)
+
 
 def dump_all_fda(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):
     blacklist = blacklist or []
@@ -490,8 +504,8 @@ def safe_dump_all_fda(folder: str, out_dir: str = None, blacklist: List[str] = N
 
 
 if __name__ == "__main__":
-    safe_dump_all_fda(r"D:/Dumps/DOW I/sga",
-                 out_dir=r"D:/Dumps/DOW I/safe_fda", verbose=True)
+    dump_all_fda(r"D:/Dumps/DOW I/sga",
+                 out_dir=r"D:/Dumps/DOW I/fda", verbose=True)
 
 # FDA are chunky files, but they are wierd; they appear to only be 2 chunks INFO and DATA (unnamed) + a named chunk fileburninfo
 # 4 bytes; size of DATA

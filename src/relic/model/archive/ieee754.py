@@ -4,25 +4,29 @@ from struct import unpack, pack
 
 
 def unpack_float80(b: bytes) -> float:
-    exponent, mantissa = unpack('<hQ', b)
-    return mantissa * (2 ** (-63 + exponent))
+    raise NotImplementedError
+    # exponent, mantissa = unpack('<hQ', b)
+    # s = exponent & (1 << 15)
 
 
-def pack_float80(v:float) -> bytes:
+
+def pack_float80(v: float) -> bytes:
     packed = pack("<d", v)
-    sign = packed[0] & (1 << 7) == (1 << 7)
-    exponent = (packed[0] << 8 + packed[1]) >> 4
-    fraction = unpack("<Q",packed)[0]
-    fraciton_mask = ~(0b111111111111) << 52
-    fraction &= fraciton_mask
+    unpacked = unpack("<Q", packed)[0]
+    sign_flag = (1 << 63)
+    exponent_mask = ~(0b11111111111) << (52)
+    fraction_mask = ~(0b111111111111) << (52)
 
-    signed_exponent = (1 if sign else 0) << 15 + exponent + 16 # add 16 for missing bits
-    fraction <<= 16 # shift left to keep mantissa sign
-    return pack("<hQ",signed_exponent, fraction)
+    sign = unpacked & sign_flag >> 63  # 1 bit
+    exponent = (unpacked & exponent_mask) >> 52  # 11 bits
+    fraction = (unpacked & fraction_mask)  # 52 bits
 
+    exponent = (exponent - 1023)  # on float64 -/+ scale (centered on 0)
+    exponent = exponent + 16383  # on float80 0/+ scale
+    fraction = fraction << 12
 
-
-
+    signed_exponent = (sign << 15) | exponent
+    return pack("<hQ", signed_exponent, fraction)
 
 #
 # if __name__ == "__main__":

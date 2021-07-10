@@ -76,6 +76,7 @@ COMM_STRUCT = struct.Struct(
 COMM_MINSIZE = 23
 
 def encode_sample_rate(sample_rate:float) -> bytes:
+    return bytes([0x00] * 10)
     return ieee754.pack_float80(sample_rate)
 
 
