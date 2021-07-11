@@ -412,15 +412,6 @@ def run_new():
                     Converter.Fda2Aiffr(fda_chunky, writer)
 
 
-def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
-    ext = ext.lower()
-    for root, _, files in os.walk(folder):
-        for file in files:
-            _, x = splitext(file)
-            if x.lower() != ext:
-                continue
-            yield root, file
-
 
 def shared_dump(file: str, name: str, out_dir: str = None):
     out_dir = out_dir or "gen/fda/shared_dump"
