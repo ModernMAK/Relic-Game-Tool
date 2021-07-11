@@ -9,7 +9,8 @@ SSND_STRUCT = struct.Struct("> 4s l L L H")  # Relic has an extra short inthere
 
 # According to the DOW spec, offset and blocksize is always 0
 def write_SSND(stream: BinaryIO, data: bytes, block_bitrate: int):
-    buffer = SSND_STRUCT.pack(SSND.encode("ascii"), len(data) + 8 + 2, 0, 0, block_bitrate) #+2 for block_bitrate! DOH! its not in the spec so i was confused
+    buffer = SSND_STRUCT.pack(SSND.encode("ascii"), len(data) + 8 + 2, 0, 0,
+                              block_bitrate)  # +2 for block_bitrate! DOH! its not in the spec so i was confused
     total = stream.write(buffer)
     total += stream.write(data)
     return total
@@ -39,14 +40,14 @@ def write_marker(stream: BinaryIO, id: int, pos: int, name: str) -> int:
     buffer = MARKER_STRUCT.pack(id, pos, len(name))
     total = stream.write(buffer)
     total += stream.write(name.encode("ascii"))
-    total += stream.write(bytes(0x00))
+    total += stream.write(bytes([0x00]))
     return total
 
 
 def write_default_markers(stream: BinaryIO) -> int:
-    total = write_marker(stream, 0x01, 0x00, "beg loop\00")
-    total += write_marker(stream, 0x02, 0xffffffff, "end loop\00")
-    total += write_marker(stream, 0x03, 0x00, "start offset\00")
+    total = write_marker(stream, 0x01, 0x00, "beg loop")
+    total += write_marker(stream, 0x02, 0xffffffff, "end loop")
+    total += write_marker(stream, 0x03, 0x00, "start offset")
     return total
 
 
@@ -75,16 +76,43 @@ COMM_STRUCT = struct.Struct(
     "> 4s l h L h 10s 4s b")  # python doesnt have an easy 10byte float, so I head by using a double, and relying on the fact that the fraction's most finite bits will be 0
 COMM_MINSIZE = 23
 
-def encode_sample_rate(sample_rate:float) -> bytes:
-    return bytes([0x00] * 10)
-    return ieee754.pack_float80(sample_rate)
+
+def encode_sample_rate(sample_rate: int) -> bytes:
+    # https://babbage.cs.qc.cuny.edu/IEEE-754/
+    # I'd love to have an algo for this, but it's too much of a pain to do in python
+    lookup = {
+        # "40 0D 58 88  00 00 00 00  00000000 00000000"
+        # "40 0E 58 88 00 00 00 00  00000000 00000000"
+        # "40 0E 77 00 00 00 00 00  00000000 00000000"
+
+        # 40 0D 58 88   00 00 00 00  00 00 00 00  00 00 00 00
+        22050: bytes([0x40, 0x0d, 0x58, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+        # 40 0E 58 88   00 00 00 00  00 00 00 00  00 00 00 00
+        44100: bytes([0x40, 0x0e, 0x58, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+        # 40 0E 77 00   00 00 00 00  00 00 00 00  00 00 00 00
+        48000: bytes([0x40, 0x0e, 0x77, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    }
+
+    if sample_rate in lookup:
+        return lookup[sample_rate]
+    raise KeyError(sample_rate)
+
+    # return bytes([0x00] * 10)
+    # return ieee754.pack_float80(sample_rate)
 
 
 def write_COMM(stream: BinaryIO, channels: int, sample_frames: int, sample_size: int, sample_rate: float, comp: str,
-               desc: str) -> int:
-    encoded_sample_rate = encode_sample_rate(sample_rate)
-    buffer = COMM_STRUCT.pack(COMM.encode("ascii"), COMM_MINSIZE + len(desc), channels, sample_frames, sample_size,
-                              encoded_sample_rate, comp.encode("ascii"),                              len(desc))
+               desc: str,*,use_fixed:bool=False) -> int:
+    _FIXED = bytes([0x40, 0x0e, 0xac, 0x44,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    encoded_sample_rate = _FIXED if use_fixed else encode_sample_rate(sample_rate)
+    buffer = COMM_STRUCT.pack(COMM.encode("ascii"),
+                              COMM_MINSIZE + len(desc),
+                              channels,
+                              sample_frames,
+                              sample_size,
+                              encoded_sample_rate, comp.encode("ascii"), len(desc))
     total = stream.write(buffer)
     total += stream.write(desc.encode("ascii"))
     total += stream.write(bytes([0x00]))

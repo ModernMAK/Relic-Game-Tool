@@ -12,6 +12,8 @@ from io import BytesIO
 from os.path import join, dirname, splitext, exists, basename
 from typing import BinaryIO, Union, List, Tuple
 
+FIXED = True
+
 from relic.model.archive import aiffr
 
 _FILE_MAGIC = "Relic Chunky"
@@ -272,13 +274,17 @@ class Converter:
     COMP_desc = "Relic Codec v1.6"
 
     @classmethod
-    def Fda2Aiffr(cls, chunky: FdaChunky, stream: BinaryIO) -> int:
+    def Fda2Aiffr(cls, chunky: FdaChunky, stream: BinaryIO, *, use_fixed: bool = False) -> int:
         with BytesIO() as temp:
             aiffr.write_default_FVER(temp)
             info = chunky.info_block
-            samples = info.block_bitrate / info.sample_size
-            aiffr.write_COMM(temp, info.channels, int(samples / info.channels), info.sample_size, info.sample_rate,
-                             cls.COMP, cls.COMP_desc)
+            frames = len(chunky.data_block.data) / math.ceil(info.block_bitrate / 8)
+            assert frames == int(frames)
+            frames = int(frames)
+            # samples = info.block_bitrate / info.sample_size
+
+            aiffr.write_COMM(temp, info.channels, frames, info.sample_size, info.sample_rate,
+                             cls.COMP, cls.COMP_desc, use_fixed=use_fixed)
             aiffr.write_SSND(temp, chunky.data_block.data, info.block_bitrate)
             with BytesIO() as marker:
                 aiffr.write_default_markers(marker)
@@ -434,9 +440,10 @@ def shared_dump(file: str, name: str, out_dir: str = None):
         except FileExistsError:
             pass
         with open(shared_path, "wb") as writer:
-            Converter.Fda2Aiffr(fda, writer)
+            Converter.Fda2Aiffr(fda, writer, use_fixed=FIXED)
 
-def safe_dump(file:str, name:str, out_dir:str = None):
+
+def safe_dump(file: str, name: str, out_dir: str = None):
     out_dir = out_dir or "gen/safe_fda/shared_dump"
     full = join(out_dir, name)
     path = "../../../dll/fda2aifc.exe"
