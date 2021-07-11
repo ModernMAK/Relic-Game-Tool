@@ -82,18 +82,21 @@ class DataChunk:
 
 def walk_data_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], parent: str = None) -> Tuple[str, DataChunk]:
     parent = parent or ""
-    for chunk in chunks:
+    for i, chunk in enumerate(chunks):
         if isinstance(chunk, FolderChunk):
             for name, chunk in chunk.walk_data():
                 full = join(parent, name)
                 yield full, chunk
         elif isinstance(chunk, DataChunk):
-            yield join(parent, f"{chunk.header.id}-{chunk.name}"), chunk
+            # safe_name = chunk.name.replace("\\","_").replace("/","_")
+            # yield join(parent, f"{chunk.header.id}-{safe_name}"), chunk
+            yield join(parent, f"{chunk.header.id}-{i}"), chunk
         else:
             raise Exception("Data / Folder type error")
 
 
-def walk_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], flat:bool=False) -> Tuple[Union[DataChunk, 'FolderChunk']]:
+def walk_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], flat: bool = False) -> Tuple[
+    Union[DataChunk, 'FolderChunk']]:
     for chunk in chunks:
         yield chunk
         if not flat:
@@ -102,19 +105,23 @@ def walk_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], flat:bool=False) 
                     yield chunk
 
 
-def get_chunk_by_id(chunks: List[Union[DataChunk, 'FolderChunk']], id: str = None, flat:bool=False) -> Union[DataChunk, 'FolderChunk']:
+def get_chunk_by_id(chunks: List[Union[DataChunk, 'FolderChunk']], id: str = None, flat: bool = False) -> Union[
+    DataChunk, 'FolderChunk']:
     for c in walk_chunks(chunks, flat=flat):
         if c.header.id == id:
             return c
     raise KeyError(id)
 
-def get_all_chunks_by_id(chunks: List[Union[DataChunk, 'FolderChunk']], type: str = None, flat:bool=False) -> List[Union[DataChunk, 'FolderChunk']]:
+
+def get_all_chunks_by_id(chunks: List[Union[DataChunk, 'FolderChunk']], type: str = None, flat: bool = False) -> List[
+    Union[DataChunk, 'FolderChunk']]:
     for c in walk_chunks(chunks, flat=flat):
         if c.header.id == type:
             yield c
 
 
-def get_chunk_by_name(chunks: List[Union[DataChunk, 'FolderChunk']], name: str = None, *, strict_case: bool = False, flat:bool=False) -> Union[DataChunk, 'FolderChunk']:
+def get_chunk_by_name(chunks: List[Union[DataChunk, 'FolderChunk']], name: str = None, *, strict_case: bool = False,
+                      flat: bool = False) -> Union[DataChunk, 'FolderChunk']:
     for c in walk_chunks(chunks, flat=flat):
         if strict_case:
             if c.name == name:
@@ -140,7 +147,7 @@ class FolderChunk:
         return FolderChunk(header, name, chunks)
 
     def walk_data(self) -> Tuple[str, DataChunk]:
-        return walk_data_chunks(self.chunks, parent=f"{self.header.id}-{self.name}")
+        return walk_data_chunks(self.chunks, parent=f"{self.header.id}")
 
     def get_chunk(self, id: str):
         return get_chunk_by_id(self.chunks, id)
@@ -191,10 +198,12 @@ def dump_chunky(full_in: str, full_out: str):
             raise
 
         print("\tWriting Assets...")
+        i = 0
         for name, c in chunky.walk_data():
             print(f"\t{name}")
             dump_name = join(full_out, name)
             print(f"\t=>\t{dump_name}")
+            i += 1
             try:
                 os.makedirs(dirname(dump_name))
             except FileExistsError:
@@ -206,5 +215,8 @@ def dump_chunky(full_in: str, full_out: str):
 def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None):
     for root, file in walk_ext(full_in, exts):
         i = join(root, file)
-        o = join(full_out, i.lstrip(full_in).lstrip("\\").lstrip("/"))
+        j = i.replace(full_in, "", 1)
+        j = j.lstrip("\\")
+        j = j.lstrip("/")
+        o = join(full_out,j)
         dump_chunky(i, o)
