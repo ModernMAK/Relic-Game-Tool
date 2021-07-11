@@ -102,7 +102,7 @@ def encode_sample_rate(sample_rate: int) -> bytes:
 
 
 def write_COMM(stream: BinaryIO, channels: int, sample_frames: int, sample_size: int, sample_rate: float, comp: str,
-               desc: str,*,use_fixed:bool=False) -> int:
+               desc: str, *, use_fixed: bool = False) -> int:
     _FIXED = bytes([0x40, 0x0e, 0xac, 0x44,
                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 

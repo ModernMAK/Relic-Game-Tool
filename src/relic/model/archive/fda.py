@@ -1,5 +1,4 @@
 # Stolen from https://scratchpad.fandom.com/wiki/Relic_Chunky_files
-import aifc
 import dataclasses
 import json
 import math
@@ -10,169 +9,14 @@ import tempfile
 from dataclasses import dataclass
 from io import BytesIO
 from os.path import join, dirname, splitext, exists, basename
-from typing import BinaryIO, Union, List, Tuple
+from typing import BinaryIO, List
+
+from relic.model.archive.chunky import DataChunk, FileHeader, RelicChunky
+from relic.model.archive.shared import walk_ext
 
 FIXED = True
 
 from relic.model.archive import aiffr
-
-_FILE_MAGIC = "Relic Chunky"
-_FILE_MAGIC_STRUCT = struct.Struct("< 12s")
-_FILE_HEADER_STRUCT = struct.Struct("< 4s L L")
-
-_DATA_MAGIC = "DATA"
-_FOLDER_MAGIC = "FOLD"
-_HEADER_STRUCT = struct.Struct("< 4s 4s L L L")
-
-
-@dataclass
-class ChunkHeader:
-    type: str
-
-    @property
-    def is_data(self):
-        return self.type == _DATA_MAGIC
-
-    @property
-    def is_folder(self):
-        return self.type == _FOLDER_MAGIC
-
-    @property
-    def type_valid(self):
-        return self.is_data or self.is_folder
-
-    id: str
-    version: int
-    size: int
-    name_size: int
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'ChunkHeader':
-        buffer = stream.read(_HEADER_STRUCT.size)
-        args = _HEADER_STRUCT.unpack(buffer)
-        header = ChunkHeader(*args)
-        header.id = header.id.decode("ascii")
-        header.type = header.type.decode("ascii")
-        if validate and not header.type_valid:
-            raise TypeError(f"Type not valid! '{header.type}' @{stream.tell() - _HEADER_STRUCT.size} ~ [{buffer}]")
-        return header
-
-
-def read_all_chunks(stream: BinaryIO) -> List[Union['DataChunk', 'FolderChunk']]:
-    chunks = []
-    while True:
-        try:
-            header = ChunkHeader.unpack(stream, True)
-        except struct.error:
-            break
-
-        if header.is_folder:
-            c = FolderChunk.unpack(stream, header)
-        elif header.is_data:
-            c = DataChunk.unpack(stream, header)
-        else:
-            raise Exception("Header isn't folder or data! This should have been caught earlier!")
-        chunks.append(c)
-    return chunks
-
-
-@dataclass
-class DataChunk:
-    header: ChunkHeader
-    name: str
-    data: bytes
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'DataChunk':
-        name = stream.read(header.name_size).decode("ascii").rstrip("\x00")
-        data = stream.read(header.size)
-        return DataChunk(header, name, data)
-
-
-def walk_data_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], parent: str = None) -> Tuple[str, DataChunk]:
-    parent = parent or ""
-    for chunk in chunks:
-        if isinstance(chunk, FolderChunk):
-            for name, chunk in chunk.walk_data():
-                full = join(parent, name)
-                yield full, chunk
-        elif isinstance(chunk, DataChunk):
-            yield join(parent, f"{chunk.header.id}-{chunk.name}"), chunk
-        else:
-            raise Exception("Data / Folder type error")
-
-
-def walk_chunks(chunks: List[Union[DataChunk, 'FolderChunk']]) -> Tuple[Union[DataChunk, 'FolderChunk']]:
-    for chunk in chunks:
-        yield chunk
-        if isinstance(chunk, FolderChunk):
-            for chunk in walk_chunks(chunk.chunks):
-                yield chunk
-
-
-def get_chunk(chunks: List[Union[DataChunk, 'FolderChunk']], id: str = None) -> Union[DataChunk, 'FolderChunk']:
-    for c in walk_chunks(chunks):
-        if c.header.id == id:
-            return c
-    raise KeyError()
-
-
-@dataclass
-class FolderChunk:
-    header: ChunkHeader
-    name: str
-    chunks: List[Union['FolderChunk', DataChunk]]
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'FolderChunk':
-        name = stream.read(header.name_size).decode("ascii").rstrip("\x00")
-        data = stream.read(header.size)
-        with BytesIO(data) as window:
-            chunks = read_all_chunks(window)
-        return FolderChunk(header, name, chunks)
-
-    def walk_data(self) -> Tuple[str, DataChunk]:
-        return walk_data_chunks(self.chunks, parent=f"{self.header.id}-{self.name}")
-
-    def get_chunk(self, id: str):
-        return get_chunk(self.chunks, id)
-
-
-@dataclass
-class FileHeader:
-    type_br: str
-    unk_a: int
-    unk_b: int
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO):
-        buffer = stream.read(_FILE_HEADER_STRUCT.size)
-        type_br, a, b = _FILE_HEADER_STRUCT.unpack_from(buffer)
-        type_br = type_br.decode("ascii")
-        return FileHeader(type_br, a, b)
-
-
-@dataclass
-class RelicChunky:
-    header: FileHeader
-    chunks: List[Union[FolderChunk, DataChunk]]
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO):
-        buffer = stream.read(_FILE_MAGIC_STRUCT.size)
-        magic = _FILE_MAGIC_STRUCT.unpack_from(buffer)[0].decode("ascii")
-        if magic != _FILE_MAGIC:
-            raise ValueError((magic, _FILE_MAGIC))
-        header = FileHeader.unpack(stream)
-        chunks = read_all_chunks(stream)
-        return RelicChunky(header, chunks)
-
-    def walk_data(self) -> Tuple[str, DataChunk]:
-        return walk_data_chunks(self.chunks)
-
-    def get_chunk(self, id: str):
-        return get_chunk(self.chunks, id)
-
 
 _INFO_STRUCT = struct.Struct("< L L L L L L L")
 _DATA_STRUCT = struct.Struct("< L")
@@ -221,8 +65,8 @@ class FdaChunky:
         header = chunky.header
         # fbif = chunky.get_chunk("FBIF")
         fda = chunky.get_chunk("FDA ")
-        info = fda.get_chunk("INFO")
-        data = fda.get_chunk("DATA")
+        info = fda.get_chunk_by_id("INFO")
+        data = fda.get_chunk_by_id("DATA")
 
         fda_info = FdaInfoChunk.create(info)
         fda_data = FdaDataChunk.create(data)

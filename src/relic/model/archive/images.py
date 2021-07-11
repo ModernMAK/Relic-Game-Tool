@@ -7,7 +7,7 @@ from relic.model.archive.shared import walk_ext
 
 
 def walk_images(folder: str, exts: List[str] = None) -> Tuple[str, str]:
-    exts = exts or [".tga", ".dds"]
+    exts = exts or [".tga", ".dds", ".jpg", ".jpeg"]
     return walk_ext(folder, exts)
 
 

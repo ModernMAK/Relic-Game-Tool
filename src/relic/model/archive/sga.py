@@ -9,6 +9,7 @@ from typing import BinaryIO, List, Tuple
 
 # THIS FILE CAN HANDLE SGA archives
 # poorly implimented, I wanted to have a sparse windowable type but I didn't do that too well
+from relic.model.archive.shared import walk_ext, EnhancedJSONEncoder
 
 __HEADER = "_ARCHIVE"
 # STOLEN FROM http://wiki.xentax.com/index.php/Dawn_Of_War_SGA
@@ -607,14 +608,14 @@ class SGArchive:
         return SGArchive(header, descriptions, folders, files)
 
 
-def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
-    ext = ext.lower()
-    for root, _, files in os.walk(folder):
-        for file in files:
-            _, x = splitext(file)
-            if x.lower() != ext:
-                continue
-            yield root, file
+# def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
+#     ext = ext.lower()
+#     for root, _, files in os.walk(folder):
+#         for file in files:
+#             _, x = splitext(file)
+#             if x.lower() != ext:
+#                 continue
+#             yield root, file
 
 
 def shared_dump(file: str, out_dir: str = None):
@@ -633,18 +634,6 @@ def shared_dump(file: str, out_dir: str = None):
 
 
 def run():
-    class EnhancedJSONEncoder(json.JSONEncoder):
-        def default(self, o):
-            if dataclasses.is_dataclass(o):
-                return dataclasses.asdict(o)
-            if isinstance(o, bytes):
-                # return "... Bytes Not Dumped To Avoid Flooding Console ..."
-                l = len(o)
-                if len(o) > 16:
-                    o = o[0:16]
-                    return o.hex(sep=" ") + f" ... [+{l - 16} Bytes]"
-                return o.hex(sep=" ")
-            return super().default(o)
 
     root = r"G:\Clients\Steam\Launcher\steamapps\common"
     game = r"Dawn of War Soulstorm\W40k"
