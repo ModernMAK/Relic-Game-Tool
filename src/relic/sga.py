@@ -1,15 +1,14 @@
-import dataclasses
 import json
 import os
 import struct
 import zlib
 from dataclasses import dataclass
-from os.path import join, splitext
+from os.path import join
 from typing import BinaryIO, List, Tuple
 
 # THIS FILE CAN HANDLE SGA archives
 # poorly implimented, I wanted to have a sparse windowable type but I didn't do that too well
-from relic.model.archive.shared import walk_ext, EnhancedJSONEncoder
+from relic.shared import walk_ext, EnhancedJSONEncoder
 
 __HEADER = "_ARCHIVE"
 # STOLEN FROM http://wiki.xentax.com/index.php/Dawn_Of_War_SGA

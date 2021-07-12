@@ -5,7 +5,7 @@ from io import BytesIO
 from os.path import join, dirname
 from typing import BinaryIO, List, Union, Tuple
 
-from relic.model.archive.sga import walk_ext
+from relic.sga import walk_ext
 
 _FILE_MAGIC = "Relic Chunky"
 _FILE_MAGIC_STRUCT = struct.Struct("< 12s")

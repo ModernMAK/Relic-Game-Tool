@@ -9,6 +9,7 @@ def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
     if isinstance(ext, str):
         ext = [ext]
     ext = [x.lower() for x in ext]
+    ext = [f".{x}" if x[0] != '.' else x for x in ext]
 
     for root, _, files in os.walk(folder):
         for file in files:

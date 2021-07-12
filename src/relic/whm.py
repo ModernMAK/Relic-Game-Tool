@@ -2,11 +2,11 @@ import json
 import os
 import struct
 from dataclasses import dataclass
-from io import BytesIO, FileIO
+from io import BytesIO
 from os.path import join, splitext, dirname
 from typing import BinaryIO, List, TextIO
 
-from relic.model.archive import chunky
+from relic import chunky
 
 # FBIF
 # RGSM (name of model)
@@ -20,8 +20,8 @@ from relic.model.archive import chunky
 # => MARK
 # => ANIM (name)
 # => SKEL
-from relic.model.archive.chunky import DataChunk, RelicChunky, FolderChunk, get_chunk_by_id, get_all_chunks_by_id
-from relic.model.archive.shared import walk_ext, EnhancedJSONEncoder
+from relic.chunky import DataChunk, RelicChunky, FolderChunk, get_chunk_by_id, get_all_chunks_by_id
+from relic.shared import walk_ext, EnhancedJSONEncoder
 
 _UNK_STRUCT = struct.Struct("< L L")
 _NUM = struct.Struct("< L")
@@ -391,4 +391,6 @@ if __name__ == "__main__":
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # UV is inverted
+#   More likely, textures are inverted?
+#       BUT
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

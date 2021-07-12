@@ -1,8 +1,6 @@
 import struct
 from typing import BinaryIO, Tuple
 
-from relic.model.archive import ieee754
-
 SSND = "SSND"
 SSND_STRUCT = struct.Struct("> 4s l L L H")  # Relic has an extra short inthere
 

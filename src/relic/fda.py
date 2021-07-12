@@ -11,12 +11,12 @@ from io import BytesIO
 from os.path import join, dirname, splitext, exists, basename
 from typing import BinaryIO, List
 
-from relic.model.archive.chunky import DataChunk, FileHeader, RelicChunky
-from relic.model.archive.shared import walk_ext
+from relic.chunky import DataChunk, FileHeader, RelicChunky
+from relic.shared import walk_ext
 
 FIXED = True
 
-from relic.model.archive import aiffr
+from relic import aiffr
 
 _INFO_STRUCT = struct.Struct("< L L L L L L L")
 _DATA_STRUCT = struct.Struct("< L")
@@ -72,45 +72,6 @@ class FdaChunky:
         fda_data = FdaDataChunk.create(data)
 
         return FdaChunky(header, fda_info, fda_data)
-
-
-#
-# def get_frames(data: bytes, info: FdaInfoChunk) -> List[bytes]:
-#     # I assume frame size is padded?
-#     # THIS IS AN ASASUMPTION,NOT BASED ON ANY EVIDENCE
-#     frame_size = int(math.ceil(info.block_bitrate / 8))
-#     frame_count = len(data) / frame_size
-#     if frame_count != int(frame_count):
-#         raise ValueError()
-#     else:
-#         frame_count = int(frame_count)
-#     frames = [data[i * frame_size:i * frame_size + frame_size] for i in range(frame_count)]
-#     return frames
-#
-#
-# def get_samples(data: bytes, info: FdaInfoChunk) -> List[int]:
-#     # I assume sample size is padded?
-#     # THIS IS AN ASASUMPTION,NOT BASED ON ANY EVIDENCE
-#     sample_size = int(math.ceil(info.sample_size / 8))
-#     sample_count = len(data) / sample_size
-#     if sample_count != int(sample_count):
-#         raise ValueError()
-#     else:
-#         sample_count = int(sample_count)
-#     byte_samples = [data[i * sample_size:i * sample_size + sample_size] for i in range(sample_count)]
-#     samples = [int.from_bytes(sample, byteorder="little", signed=True) for sample in byte_samples]
-#     return samples
-#
-#
-# def get_channels(data: List[int], info: FdaInfoChunk) -> List[List[bytes]]:
-#     # I assume sample size is padded?
-#     # THIS IS AN ASASUMPTION,NOT BASED ON ANY EVIDENCE
-#     channels = info.channels
-#     if len(data) % channels != 0:
-#         raise ValueError("Channel mismatch!")
-#     channel_samples = len(data) // channels
-#     channels = [[data[s * channels + c] for c in range(channels)] for s in range(channel_samples)]
-#     return channels
 
 
 class Converter:
@@ -281,7 +242,7 @@ def shared_dump(file: str, name: str, out_dir: str = None):
 def safe_dump(file: str, name: str, out_dir: str = None):
     out_dir = out_dir or "gen/safe_fda/shared_dump"
     full = join(out_dir, name)
-    path = "../../../dll/fda2aifc.exe"
+    path = "../dll/fda2aifc.exe"
     path = os.path.abspath(path)
     try:
         os.makedirs(dirname(full))

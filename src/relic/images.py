@@ -3,7 +3,7 @@ from os.path import join, splitext, dirname
 from typing import Tuple, List
 from PIL import Image
 
-from relic.model.archive.shared import walk_ext
+from relic.shared import walk_ext
 
 
 def walk_images(folder: str, exts: List[str] = None) -> Tuple[str, str]:

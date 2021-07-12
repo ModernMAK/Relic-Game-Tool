@@ -19,7 +19,7 @@ def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
 def shared_dump(file: str, name: str, out_dir: str = None):
     out_dir = out_dir or "gen/fda/shared_dump"
     full = join(out_dir, name)
-    path = "../../../dll/dec.exe"
+    path = "../dll/dec.exe"
     path = os.path.abspath(path)
     try:
         os.makedirs(dirname(full))
