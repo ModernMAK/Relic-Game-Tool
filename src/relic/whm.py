@@ -112,7 +112,9 @@ class MslcName:
 
 @dataclass
 class MslcChunk:
-    V_SIZE = 48
+    V_SIZE_39 = 48
+    V_SIZE_37 = 32
+    V_SIZE = {39:V_SIZE_39,37:V_SIZE_37}
     I_SIZE = 2
 
     # name:str
@@ -120,7 +122,7 @@ class MslcChunk:
     header: MsclHeader
     names: List[MslcName]
 
-    unk_b: int
+    buffer_format: int
 
     vertex_data: bytes
 
@@ -139,13 +141,17 @@ class MslcChunk:
     def create(cls, chunk: FolderChunk) -> 'MslcChunk':
         # name = chunk.name
         data = get_chunk_by_id(chunk.chunks, "DATA")
+        # 0x5570 - 0x770 = 0x4E00 ! 48 BITS ?!
+        # 0xe05d - 0xa39d = 0x3CC0 ~ 15552 ! 32 BITS ?!
 
         with BytesIO(data.data) as stream:
             header = MsclHeader.unpack(stream)
             names = [MslcName.unpack(stream) for _ in range(header.name_count)]
-            vertex_count, unk_b = struct.unpack("< L L", stream.read(8))
-            vertex = stream.read(vertex_count * cls.V_SIZE)
-            unk_c, texture_count = struct.unpack("< L L", stream.read(8))
+            vertex_count, buffer_format = struct.unpack("< L L", stream.read(8))
+            # print(chunk.name, "\n","\t", "HEADER:", header.unk_a, header.flag_b, header.unk_c, header.unk_d, "~", buffer_format)
+            vertex = stream.read(vertex_count * cls.V_SIZE.get(buffer_format))
+            buffer = stream.read(8)
+            unk_c, texture_count = struct.unpack("< L L", buffer)
             textures = []
             for _ in range(texture_count):
                 size = _NUM.unpack(stream.read(_NUM.size))[0]
@@ -156,7 +162,7 @@ class MslcChunk:
             index = stream.read(index_count * cls.I_SIZE)
             unk_d, unk_e, unk_f, unk_g = struct.unpack("< L L L L", stream.read(4 * 4))
 
-        return MslcChunk(header, names, unk_b, vertex, unk_c, textures, index, unk_d, unk_e, unk_f, unk_g)
+        return MslcChunk(header, names, buffer_format, vertex, unk_c, textures, index, unk_d, unk_e, unk_f, unk_g)
 
 
 @dataclass
@@ -189,6 +195,7 @@ def print_meta(f: str):
 def write_vertex(stream: TextIO, x, y, z):
     stream.write('v %f %f %f\n' % (x, y, z))
 
+
 def write_normal(stream: TextIO, x, y, z):
     stream.write('vn %f %f %f\n' % (x, y, z))
 
@@ -197,7 +204,7 @@ def write_uv2(stream: TextIO, x, y):
     stream.write('vt %f %f\n' % (x, y))
 
 
-def write_tri(stream: TextIO, *args,v_offset:int=0):
+def write_tri(stream: TextIO, *args, v_offset: int = 0):
     stream.write('f')
     for v in args:
         stream.write(' %i/%i/%i' % (v + v_offset, v + v_offset, v + v_offset))
@@ -215,7 +222,8 @@ def write_obj_name(stream: TextIO, name: str):
 #  UV ~ 2 float32 (8 bytes)
 #       TOTAL ~ 48 bytes
 
-def write_obj(stream: TextIO, vertex: BinaryIO, indexes: BinaryIO, v_count: int, t_count: int, name: str = None, v_offset:int = 0):
+def write_obj(stream: TextIO, vertex: BinaryIO, indexes: BinaryIO, v_count: int, t_count: int, name: str = None,
+              v_offset: int = 0):
     if name:
         write_obj_name(stream, name)
 
@@ -244,7 +252,8 @@ def write_obj(stream: TextIO, vertex: BinaryIO, indexes: BinaryIO, v_count: int,
     for _ in range(t_count):
         buffer = indexes.read(_TRI.size)
         a, b, c = _TRI.unpack(buffer)
-        write_tri(stream, a, b, c, v_offset=v_offset + 1)  # blender is 1th based NOT 0th based, so we add 1 to the offset
+        write_tri(stream, a, b, c,
+                  v_offset=v_offset + 1)  # blender is 1th based NOT 0th based, so we add 1 to the offset
 
 
 def dump_obj(f: str, o: str):
@@ -292,6 +301,22 @@ def dump_model(f: str, o: str):
                 m.write(json.dumps({'vertexes': len(mesh.vertex_data) / 48, 'triangles': len(mesh.index_data) / 6}))
 
 
+def dump_all_full_model(f: str, o: str):
+    for root, file in walk_ext(f, ".whm"):
+        full = join(root, file)
+        dump = full.replace(f, o, 1)
+        dump, _ = splitext(dump)
+        dump += ".obj"
+        try:
+            dump_full_model(full, dump)
+        except Exception as e:
+            print("\t", e)
+            try:
+                os.remove(dump)
+            except:
+                pass
+
+
 def dump_full_model(f: str, o: str):
     print("" + f)
     with open(f, "rb") as handle:
@@ -305,6 +330,8 @@ def dump_full_model(f: str, o: str):
         v_offset = 0
         with open(o, "w") as obj:
             for i, mesh in enumerate(whm.msgr.submeshes):
+                if mesh.buffer_format != 39:
+                    continue
                 v_count = int(len(mesh.vertex_data) / 48)
                 t_count = int(len(mesh.index_data) / 6)
                 name = whm.msgr.parts[i].name
@@ -318,8 +345,10 @@ if __name__ == "__main__":
     # print_meta(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm")
     # dump_model(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm",
     #            r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\\")
-    dump_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm",
-           r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion.obj")
+    # dump_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard\troops\guardsmen.whm",
+    #                 r"D:\Dumps\DOW I\whm-model\art\ebps\races\imperial_guard\troops\guardsmen.obj")
+
+    dump_all_full_model("D:\Dumps\DOW I\sga","D:\Dumps\DOW I\whm-model")
 
     # dump_all_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion")
     # dump_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\aspiring_champion_banner",

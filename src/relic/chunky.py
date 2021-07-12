@@ -45,17 +45,20 @@ class ChunkHeader:
         header.id = header.id.decode("ascii")
         header.type = header.type.decode("ascii")
         if validate and not header.type_valid:
-            raise TypeError(f"Type not valid! '{header.type}' @{stream.tell() - _HEADER_STRUCT.size} ~ [{buffer}]")
+            err_pos = stream.tell() - _HEADER_STRUCT.size
+            raise TypeError(f"Type not valid! '{header.type}' @{err_pos} ~ 0x {hex(err_pos)[2:]} ~ [{buffer}]")
         return header
 
 
 def read_all_chunks(stream: BinaryIO) -> List[Union['DataChunk', 'FolderChunk']]:
     chunks = []
-    while True:
-        try:
-            header = ChunkHeader.unpack(stream, True)
-        except struct.error:
-            break
+    origin = stream.tell()
+    stream.seek(0,2)
+    terminal = stream.tell()
+    stream.seek(origin,0)
+
+    while stream.tell() < terminal:
+        header = ChunkHeader.unpack(stream, True)
 
         if header.is_folder:
             c = FolderChunk.unpack(stream, header)
@@ -149,8 +152,17 @@ class FolderChunk:
     def walk_data(self) -> Tuple[str, DataChunk]:
         return walk_data_chunks(self.chunks, parent=f"{self.header.id}")
 
-    def get_chunk(self, id: str):
-        return get_chunk_by_id(self.chunks, id)
+    def get_chunk(self, id: str, optional:bool=False):
+        try:
+            return get_chunk_by_id(self.chunks, id)
+        except KeyError:
+            if optional:
+                return None
+            else:
+                raise
+
+    def get_all_chunks(self, id: str, flat:bool=False):
+        return get_all_chunks_by_id(self.chunks, id,flat)
 
 
 @dataclass
@@ -189,12 +201,25 @@ class RelicChunky:
         return get_chunk_by_id(self.chunks, id)
 
 
-def dump_chunky(full_in: str, full_out: str):
+def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
     with open(full_in, "rb") as handle:
         try:
             chunky = RelicChunky.unpack(handle)
+        except TypeError as e:
+            if skip_fatal:
+                print(f"\tIgnoring:\n\t\t'{e}'\n\t- - -")
+                return
+            print(f"\tDumping?!\n\t\t'{e}'")
+            log = full_out+".crash"
+            print(f"\n\n@ {log}")
+            with open(log,"wb") as crash:
+                handle.seek(0,0)
+                crash.write(handle.read())
+                raise
         except ValueError as e:
             print(f"\tNot Chunky?!\n\t\t'{e}'")
+            if skip_fatal:
+                return
             raise
 
         print("\tWriting Assets...")
@@ -212,11 +237,11 @@ def dump_chunky(full_in: str, full_out: str):
                 writer.write(c.data)
 
 
-def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None):
+def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None, skip_fatal:bool=False):
     for root, file in walk_ext(full_in, exts):
         i = join(root, file)
         j = i.replace(full_in, "", 1)
         j = j.lstrip("\\")
         j = j.lstrip("/")
         o = join(full_out,j)
-        dump_chunky(i, o)
+        dump_chunky(i, o,skip_fatal)

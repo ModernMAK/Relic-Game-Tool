@@ -10,7 +10,7 @@ from PIL import Image, ImageOps
 
 from relic import chunky
 from relic.chunky import DataChunk, FolderChunk, RelicChunky
-from relic.dxt import get_full_dxt_header, DDS_MAGIC, build_dow_tga_header
+from relic.dxt import get_full_dxt_header, DDS_MAGIC, build_dow_tga_color_header
 from relic.shared import EnhancedJSONEncoder, walk_ext
 
 
@@ -153,7 +153,7 @@ def create_image(stream: BinaryIO, chunk: ImagChunk):
         return
 
     if info.img in _TGA_FORMATS:
-        header = build_dow_tga_header(info.width, info.height)
+        header = build_dow_tga_color_header(info.width, info.height)
         stream.write(header)
         stream.write(data)
         return
@@ -214,5 +214,6 @@ def dump_all_rsh_as_image(f: str, o: str):
 
 
 if __name__ == "__main__":
+    pass
     # dump_all_rsh_as_image("D:\Dumps\DOW I\sga", "D:\Dumps\DOW I\dds")
-    fix_texture_inverstion("D:\Dumps\DOW I\dds")
+    # fix_texture_inverstion("D:\Dumps\DOW I\dds")

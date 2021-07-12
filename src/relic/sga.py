@@ -566,7 +566,7 @@ class FlatArchive:
                 # for p, n, f in folder.walk_all_files():
                 full_name = join(p, n)
                 decomp = f.decompress()
-                n_f = FlatFile(f.info.unk_a, full_name, decomp)
+                n_f = FlatFile(f.info.layer, full_name, decomp)
                 files.append(n_f)
 
         info = FlatHeader.from_header(archive.info.header)
@@ -617,7 +617,7 @@ class SGArchive:
 #             yield root, file
 
 
-def shared_dump(file: str, out_dir: str = None):
+def shared_dump(file: str, out_dir: str = None, verbose:bool=False):
     out_dir = out_dir or "gen/sga/shared_dump"
     with open(file, "rb") as handle:
         archive = FlatArchive.unpack(handle)
@@ -628,6 +628,8 @@ def shared_dump(file: str, out_dir: str = None):
                 os.makedirs(dir_path)
             except FileExistsError:
                 pass
+            if verbose:
+                print("\t",shared_path)
             with open(shared_path, "wb") as writer:
                 writer.write(f.data)
 
@@ -715,7 +717,7 @@ def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, 
             continue
         if verbose:
             print(full)
-        shared_dump(full, out_dir)
+        shared_dump(full, out_dir, verbose)
 
 
 if __name__ == "__main__":

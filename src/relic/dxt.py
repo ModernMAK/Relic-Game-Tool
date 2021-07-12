@@ -62,23 +62,36 @@ def get_full_dxt_header(format: str, width: int, height: int, size: int, mips: i
 # http://www.paulbourke.net/dataformats/tga/
 _TGA_HEADER = struct.Struct("< b b b h h b h h h h b b")
 
+# OH BOY
+_TGA_16_0 = 0x0
+_TGA_16_1 = 0x1
+_TGA_32 = 0x8
+_TGA_24 = 0x0
 
-def build_dow_tga_header(width: int, height: int):
-    # OH BOY
-    _TGA_16_0 = 0x0
-    _TGA_16_1 = 0x1
-    _TGA_32 = 0x8
-    _TGA_24 = 0x0
+_SCREEN_ORGIN_LOWER = 0x0
+_SCREEN_ORGIN_UPPER = 1 << 5
 
-    _SCREEN_ORGIN_LOWER = 0x0
-    _SCREEN_ORGIN_UPPER = 1 << 5
+_NONINTERLAVED = 0x00 << 6
+_EvenOddInterlave = 0x01 << 6
+_FourWay = 0x10 << 6
+_ILLEGAL = 0x11 << 6
 
-    _NONINTERLAVED = 0x00 << 6
-    _EvenOddInterlave = 0x01 << 6
-    _FourWay = 0x10 << 6
-    _ILLEGAL = 0x11 << 6
+# I dont fully understand non-interleaved, but nothing broke when it was set
+#   I'd imagine that RGB(A) would be interleaved as such, but maybe not, idk
+_DOW_FORMAT = _TGA_32 | _SCREEN_ORGIN_LOWER | _NONINTERLAVED
 
-    _DOW_FORMAT = _TGA_32 | _SCREEN_ORGIN_LOWER | _NONINTERLAVED
+# SEE TGA spec linked 'http://www.paulbourke.net/dataformats/tga/'
+_COLOR = 2
+_GRAY = 3
 
-    return _TGA_HEADER.pack(0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, _DOW_FORMAT)
+
+def build_dow_tga_color_header(width: int, height: int):
+    _PIXEL_SIZE = 32
+    return _TGA_HEADER.pack(0, 0, _COLOR, 0, 0, 0, 0, 0, width, height, _PIXEL_SIZE, _DOW_FORMAT)
+
+
+
+def build_dow_tga_gray_header(width: int, height: int):
+    _PIXEL_SIZE = 8 # size seems roughly 1/4th the size of the color
+    return _TGA_HEADER.pack(0, 0, _GRAY, 0, 0, 0, 0, 0, width, height, _PIXEL_SIZE, _DOW_FORMAT)
 
