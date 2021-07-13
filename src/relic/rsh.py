@@ -1,12 +1,11 @@
 import json
 import os
 import struct
+import subprocess
 from dataclasses import dataclass
 from io import BytesIO
 from os.path import join, dirname
-from typing import List, Tuple, BinaryIO
-
-from PIL import Image, ImageOps
+from typing import BinaryIO
 
 from relic import chunky
 from relic.chunky import DataChunk, FolderChunk, RelicChunky
@@ -210,10 +209,19 @@ def dump_all_rsh_as_image(f: str, o: str):
             print("\t\t", e)
 
 
+def directex_fix_texture(f: str, path: str = r"..\dll\texconv.exe"):
+    path = os.path.abspath(path)
+    outdir = dirname(f)
+    subprocess.run([path, "-vflip", f, "-y", "-o", outdir])
 
+
+def fix_texture_inversion(folder: str):
+    for root, file in walk_ext(folder, ["dds"]):
+        f = join(root, file)
+        directex_fix_texture(f)
 
 
 if __name__ == "__main__":
-    pass
-    # dump_all_rsh_as_image("D:\Dumps\DOW I\sga", "D:\Dumps\DOW I\dds")
-    # fix_texture_inverstion("D:\Dumps\DOW I\dds")
+    # pass
+    dump_all_rsh_as_image("D:\Dumps\DOW I\sga", "D:\Dumps\DOW I\dds")
+    fix_texture_inversion("D:\Dumps\DOW I\dds")
