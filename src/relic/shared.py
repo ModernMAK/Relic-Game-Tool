@@ -1,7 +1,7 @@
 import dataclasses
 import json
 import os
-from os.path import splitext
+from os.path import splitext, dirname, basename
 from typing import Tuple, List, Union
 
 
@@ -10,6 +10,14 @@ def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
         ext = [ext]
     ext = [x.lower() for x in ext]
     ext = [f".{x}" if x[0] != '.' else x for x in ext]
+
+
+    if os.path.isfile(folder):
+        root, file = dirname(folder), basename(folder)
+        _,  x = splitext(file)
+        if x.lower() not in ext:
+            return
+        yield root, file
 
     for root, _, files in os.walk(folder):
         for file in files:

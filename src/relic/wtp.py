@@ -49,7 +49,7 @@ def meta_dump():
 #             return HeadChunk(*args)
 #
 #
-from rsh import AttrChunk, ImagChunk, create_image, get_ext
+from relic.rsh import AttrChunk, ImagChunk, create_image, get_ext
 
 
 @dataclass
@@ -224,100 +224,6 @@ def dump_all_wtp_as_image(f: str, o: str):
             dump_wtp_as_image(src, dest)
         except NotImplementedError as e:
             print("\t\t", e)
-
-
-#
-# def get_dds_format(format: int) -> str:
-#     lookup = {
-#         8: "DXT1",
-#         10: "DXT3",
-#         11: "DXT5",
-#     }
-#     return lookup.get(format)
-#
-#
-# _TGA_FORMATS = [0]
-#
-#
-# def get_ext(format: int) -> str:
-#     if format in _TGA_FORMATS:
-#         return ".tga"
-#     elif get_dds_format(format) != None:
-#         return ".dds"
-#     else:
-#         raise NotImplementedError(format)
-#
-#
-# def create_image(stream: BinaryIO, chunk: ImagChunk):
-#     info = chunk.attr
-#     data = chunk.data.data
-#     format = get_dds_format(info.img)
-#     if format is not None:
-#         # DDS
-#         header = get_full_dxt_header(format, info.width, info.height, len(data), info.mips)
-#         stream.write(DDS_MAGIC)
-#         stream.write(header)
-#         stream.write(data)
-#         return
-#
-#     if info.img in _TGA_FORMATS:
-#         header = build_dow_tga_header(info.width, info.height)
-#         stream.write(header)
-#         stream.write(data)
-#         return
-#
-#     if format is None:
-#         raise NotImplementedError(info.img)
-#
-#
-# def get_rsh(f: str):
-#     with open(f, "rb") as handle:
-#         chunky = RelicChunky.unpack(handle)
-#         rsh = RshFile.create(chunky)
-#         return rsh
-#
-#
-# def print_meta(f: str):
-#     with open(f, "rb") as handle:
-#         chunky = RelicChunky.unpack(handle)
-#         rsh = RshFile.create(chunky)
-#         meta = json.dumps(rsh, indent=4, cls=EnhancedJSONEncoder)
-#         print(meta)
-#
-#
-# def dump_rsh_as_image(f: str, o: str):
-#     rsh = get_rsh(f)
-#
-#     ext = get_ext(rsh.shrf.texture.imag.attr.img)
-#     o += ext
-#
-#     try:
-#         os.makedirs(dirname(o))
-#     except FileExistsError:
-#         pass
-#     try:
-#         with open(o, "wb") as writer:
-#             create_image(writer, rsh.shrf.texture.imag)
-#     except NotImplementedError as e:
-#         try:
-#             os.remove(o)
-#         except FileNotFoundError:
-#             pass
-#         raise
-#
-#
-# def dump_all_rsh_as_image(f: str, o: str):
-#     for root, file in walk_ext(f, ["rsh"]):
-#         src = join(root, file)
-#         dest = src.replace(f, o, 1)
-#         print(src)
-#         print("\t", dest)
-#         try:
-#             dump_rsh_as_image(src, dest)
-#         except NotImplementedError as e:
-#             print("\t\t", e)
-#
-#
 
 
 if __name__ == "__main__":
