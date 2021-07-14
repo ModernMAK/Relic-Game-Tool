@@ -72,5 +72,5 @@ def dump_all_aifc(folder: str, out_dir: str = None, blacklist: List[str] = None,
 
 
 if __name__ == "__main__":
-    dump_all_aifc(r"D:/Dumps/DOW I/fda_fixed",
-                  out_dir=r"D:/Dumps/DOW I/wav_fixed", verbose=True)
+    dump_all_aifc(r"D:/Dumps/DOW I/fda",
+                  out_dir=r"D:/Dumps/DOW I/wav", verbose=True)

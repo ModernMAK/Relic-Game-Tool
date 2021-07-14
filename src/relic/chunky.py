@@ -1,6 +1,7 @@
 import os
 import struct
 from dataclasses import dataclass
+from enum import Enum
 from io import BytesIO
 from os.path import join, dirname
 from typing import BinaryIO, List, Union, Tuple
@@ -15,36 +16,41 @@ _DATA_MAGIC = "DATA"
 _FOLDER_MAGIC = "FOLD"
 _HEADER_STRUCT = struct.Struct("< 4s 4s L L L")
 
+class ChunkType(Enum):
+    DATA = "DATA"
+    FOLDER = "FOLD"
+
+    @classmethod
+    def from_str(cls, value: str) -> 'ChunkType':
+        if value == "DATA":
+            return ChunkType.DATA
+        elif value == "FOLD":
+            return ChunkType.FOLDER
+        return value
+
 
 @dataclass
 class ChunkHeader:
-    type: str
-
-    @property
-    def is_data(self):
-        return self.type == _DATA_MAGIC
-
-    @property
-    def is_folder(self):
-        return self.type == _FOLDER_MAGIC
-
-    @property
-    def type_valid(self):
-        return self.is_data or self.is_folder
-
+    type: ChunkType
     id: str
     version: int
     size: int
-    name_size: int
+    name: str
 
     @classmethod
     def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'ChunkHeader':
         buffer = stream.read(_HEADER_STRUCT.size)
-        args = _HEADER_STRUCT.unpack(buffer)
-        header = ChunkHeader(*args)
-        header.id = header.id.decode("ascii")
-        header.type = header.type.decode("ascii")
-        if validate and not header.type_valid:
+        type_str, id, version, size, name_size = _HEADER_STRUCT.unpack(buffer)
+
+        name = stream.read(name_size)
+
+        type_str = type_str.decode("ascii")
+        id = id.decode("ascii")
+        type = ChunkType.from_str(type_str)
+        name = name.decode("ascii")
+
+        header = ChunkHeader(type, id, version, size, name)
+        if validate and type not in [ChunkType.FOLDER, ChunkType.DATA]:
             err_pos = stream.tell() - _HEADER_STRUCT.size
             raise TypeError(f"Type not valid! '{header.type}' @{err_pos} ~ 0x {hex(err_pos)[2:]} ~ [{buffer}]")
         return header
@@ -53,19 +59,19 @@ class ChunkHeader:
 def read_all_chunks(stream: BinaryIO) -> List[Union['DataChunk', 'FolderChunk']]:
     chunks = []
     origin = stream.tell()
-    stream.seek(0,2)
+    stream.seek(0, 2)
     terminal = stream.tell()
-    stream.seek(origin,0)
+    stream.seek(origin, 0)
 
     while stream.tell() < terminal:
         header = ChunkHeader.unpack(stream, True)
 
-        if header.is_folder:
+        if header.type == ChunkType.FOLDER:
             c = FolderChunk.unpack(stream, header)
-        elif header.is_data:
+        elif header.type == ChunkType.DATA:
             c = DataChunk.unpack(stream, header)
         else:
-            raise Exception("Header isn't folder or data! This should have been caught earlier!")
+            raise Exception(f"Header isn't folder or data! ({header.type}) This should have been caught earlier!")
         chunks.append(c)
     return chunks
 
@@ -73,14 +79,12 @@ def read_all_chunks(stream: BinaryIO) -> List[Union['DataChunk', 'FolderChunk']]
 @dataclass
 class DataChunk:
     header: ChunkHeader
-    name: str
     data: bytes
 
     @classmethod
     def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'DataChunk':
-        name = stream.read(header.name_size).decode("ascii").rstrip("\x00")
         data = stream.read(header.size)
-        return DataChunk(header, name, data)
+        return DataChunk(header, data)
 
 
 def walk_data_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], parent: str = None) -> Tuple[str, DataChunk]:
@@ -138,21 +142,19 @@ def get_chunk_by_name(chunks: List[Union[DataChunk, 'FolderChunk']], name: str =
 @dataclass
 class FolderChunk:
     header: ChunkHeader
-    name: str
     chunks: List[Union['FolderChunk', DataChunk]]
 
     @classmethod
     def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'FolderChunk':
-        name = stream.read(header.name_size).decode("ascii").rstrip("\x00")
         data = stream.read(header.size)
         with BytesIO(data) as window:
             chunks = read_all_chunks(window)
-        return FolderChunk(header, name, chunks)
+        return FolderChunk(header, chunks)
 
     def walk_data(self) -> Tuple[str, DataChunk]:
         return walk_data_chunks(self.chunks, parent=f"{self.header.id}")
 
-    def get_chunk(self, id: str, optional:bool=False):
+    def get_chunk(self, id: str, optional: bool = False):
         try:
             return get_chunk_by_id(self.chunks, id)
         except KeyError:
@@ -161,8 +163,8 @@ class FolderChunk:
             else:
                 raise
 
-    def get_all_chunks(self, id: str, flat:bool=False):
-        return get_all_chunks_by_id(self.chunks, id,flat)
+    def get_all_chunks(self, id: str, flat: bool = False):
+        return get_all_chunks_by_id(self.chunks, id, flat)
 
 
 @dataclass
@@ -201,7 +203,7 @@ class RelicChunky:
         return get_chunk_by_id(self.chunks, id)
 
 
-def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
+def dump_chunky(full_in: str, full_out: str, skip_fatal: bool = False):
     with open(full_in, "rb") as handle:
         try:
             chunky = RelicChunky.unpack(handle)
@@ -210,10 +212,10 @@ def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
                 print(f"\tIgnoring:\n\t\t'{e}'\n\t- - -")
                 return
             print(f"\tDumping?!\n\t\t'{e}'")
-            log = full_out+".crash"
+            log = full_out + ".crash"
             print(f"\n\n@ {log}")
-            with open(log,"wb") as crash:
-                handle.seek(0,0)
+            with open(log, "wb") as crash:
+                handle.seek(0, 0)
                 crash.write(handle.read())
                 raise
         except ValueError as e:
@@ -237,11 +239,11 @@ def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
                 writer.write(c.data)
 
 
-def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None, skip_fatal:bool=False):
+def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None, skip_fatal: bool = False):
     for root, file in walk_ext(full_in, exts):
         i = join(root, file)
         j = i.replace(full_in, "", 1)
         j = j.lstrip("\\")
         j = j.lstrip("/")
-        o = join(full_out,j)
-        dump_chunky(i, o,skip_fatal)
+        o = join(full_out, j)
+        dump_chunky(i, o, skip_fatal)

@@ -65,8 +65,8 @@ class FdaChunky:
         header = chunky.header
         # fbif = chunky.get_chunk("FBIF")
         fda = chunky.get_chunk("FDA ")
-        info = fda.get_chunk_by_id("INFO")
-        data = fda.get_chunk_by_id("DATA")
+        info = fda.get_chunk("INFO")
+        data = fda.get_chunk("DATA")
 
         fda_info = FdaInfoChunk.create(info)
         fda_data = FdaDataChunk.create(data)

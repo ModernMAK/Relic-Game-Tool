@@ -566,7 +566,7 @@ class FlatArchive:
                 # for p, n, f in folder.walk_all_files():
                 full_name = join(p, n)
                 decomp = f.decompress()
-                n_f = FlatFile(f.info.layer, full_name, decomp)
+                n_f = FlatFile(f.info.unk_a, full_name, decomp)
                 files.append(n_f)
 
         info = FlatHeader.from_header(archive.info.header)
@@ -721,5 +721,5 @@ def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, 
 
 
 if __name__ == "__main__":
-    dump_all_sga(r"D:\Steam\steamapps\common\Dawn of War Soulstorm", blacklist=[r"-Low", "-Med"],
+    dump_all_sga(r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm", blacklist=[r"-Low", "-Med"],
                  out_dir=r"D:/Dumps/DOW I/sga", verbose=True)
