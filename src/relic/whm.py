@@ -124,17 +124,32 @@ class MslcName:
 
 
 class MslcBlockFormat(enum.Enum):
-    Terminal = 0
-    Vertex32 = 37
-    Vertex48 = 39
+    # Terminal = enum.auto()
+    Vertex32 = enum.auto()  # = 37
+    Vertex48 = enum.auto()  # = 39
 
     # Oh boy; IDK how many 'texture' classes there are but there are enough
-    Texture = 1
-    Texture = 2
-    Texture = 3
+    Texture = enum.auto()  # = 1
+
+    # Texture = 2
+    # Texture = 3
     # Texture = 4
     # Texture = 4
     # IndexBlock = 1
+
+    @classmethod
+    def from_code(cls, code: int):
+        if code <= 4:
+            return MslcBlockFormat.Texture
+
+        lookup = {
+            37: MslcBlockFormat.Vertex32,
+            39: MslcBlockFormat.Vertex48,
+        }
+        value = lookup.get(code)
+        if value:
+            return value
+        raise NotImplementedError(code)
 
     def vertex_buffer_size(self) -> int:
         size = {
@@ -166,13 +181,13 @@ class VertexMsclBlock:
     vertex_buffer: bytes
 
 
-@dataclass
-class TerminalMsclBlock:
-    format: MslcBlockFormat
-    unk_a: int
-    unk_b: int
-    unk_c: int
-    unk_d: int
+# @dataclass
+# class TerminalMsclBlock:
+#     format: MslcBlockFormat
+#     unk_a: int
+#     unk_b: int
+#     unk_c: int
+#     unk_d: int
 
 
 @dataclass
@@ -187,13 +202,23 @@ class TextureMsclSubBlock:
 @dataclass
 class TextureMsclBlock:
     format: MslcBlockFormat
+    zero: int
     # blocks:
     # texture_count:
     blocks: List[TextureMsclSubBlock]
     info: List[Tuple[int, int]]
-    # unk
 
-MslcBlock = Union[VertexMsclBlock, TextureMsclSubBlock, TerminalMsclBlock, TextureMsclBlock, TerminalMsclBlock]
+    unk_a: int
+    unk_b: int
+    unk_c: int
+
+
+MslcBlock = Union[
+    VertexMsclBlock,
+    # TextureMsclSubBlock,
+    # TerminalMsclBlock,
+    TextureMsclBlock
+]
 
 
 class MslcBlockUtil:
@@ -214,11 +239,11 @@ class MslcBlockUtil:
         block_header = stream.read(8)
         count, code = struct.unpack("< L L", block_header)
         try:
-            f = MslcBlockFormat(code)
+            f = MslcBlockFormat.from_code(code)
         except ValueError:
-            print(block_header)
-            print(count)
-            print(code)
+            # print(block_header)
+            # print(count)
+            # print(code)
             raise NotImplementedError(code)
 
         # if f == MslcBlockFormat.Terminal:
@@ -245,35 +270,35 @@ class MslcBlockUtil:
             subs = []
             infos = []
             INFO = struct.Struct("< l l")
-            # for _ in range()
-            while True:
+            for _ in range(texture_count):
                 sub = read_index_block()
+
                 buffer = stream.read(INFO.size)
-                if len(buffer) != INFO.size:
-                    info = _NUM.unpack(buffer)
-                    subs.append(sub)
-                    infos.append(info)
-                    break
-                else:
-                    info = INFO.unpack(buffer)
-                    subs.append(sub)
-                    infos.append(info)
+                info = INFO.unpack(buffer)
 
-                # second = read_index_block()
-                # second_info = INFO.unpack(stream.read(INFO.size))
+                subs.append(sub)
+                infos.append(info)
 
-                # sub_blocks = [first, second]
-                # infos = [first_info, second_info]
-                return TextureMsclBlock(f, subs, infos)
+            UNK = struct.Struct("< l l l")
+
+            buffer = stream.read(UNK.size)
+            unks = UNK.unpack(buffer)
+
+            # second = read_index_block()
+            # second_info = INFO.unpack(stream.read(INFO.size))
+
+            # sub_blocks = [first, second]
+            # infos = [first_info, second_info]
+            return TextureMsclBlock(f, count, subs, infos, *unks)
         # elif f == MslcBlockFormat.Texture:
         #     name_size = _NUM.unpack(stream.read(_NUM.size))[0]
         #     name = stream.read(name_size).decode("ascii")
         #     return TextureMsclBlock(f, name, count)
-        if f == MslcBlockFormat.Terminal:
-            buffer = stream.read(12)
-            unks = struct.unpack("< l l l", buffer)
-
-            return TerminalMsclBlock(f, count, *unks)
+        # if f == MslcBlockFormat.Terminal:
+        #     buffer = stream.read(12)
+        #     unks = struct.unpack("< l l l", buffer)
+        #
+        #     return TerminalMsclBlock(f, count, *unks)
 
         try:
             buffer_size = f.vertex_buffer_size()
@@ -610,7 +635,17 @@ def dump_full_model(f: str, o: str):
     print("" + f)
     with open(f, "rb") as handle:
         chunky = RelicChunky.unpack(handle)
-        whm = WhmChunk.create(chunky)
+        try:
+            whm = WhmChunk.create(chunky)
+        except NotImplementedError as e:
+            if e.args[0] == 55:
+                print("Skipping funky vertex buffer?")
+                return
+            elif e.args[0] == 48:
+                print("Found an invalid index buffer?")
+                return
+            else:
+                raise
 
         try:
             os.makedirs(dirname(o))
@@ -635,13 +670,16 @@ def dump_full_model(f: str, o: str):
 
 
 if __name__ == "__main__":
+    raw_dump()
+    exit()
     # print_meta(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm")
     # dump_model(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm",
     #            r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\\")
     # dump_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard\troops\guardsmen.whm",
     #                 r"D:\Dumps\DOW I\whm-model\art\ebps\races\imperial_guard\troops\guardsmen.obj")
 
-    dump_all_full_model("D:\Dumps\DOW I\sga", "D:\Dumps\DOW I\whm-model")
+    # dump_all_full_model(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-model")
+    dump_all_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races", r"D:\Dumps\DOW I\whm-model\art\ebps\races")
 
     # dump_all_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion")
     # dump_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\aspiring_champion_banner",

@@ -53,9 +53,9 @@ class ChunkHeader:
 def read_all_chunks(stream: BinaryIO) -> List[Union['DataChunk', 'FolderChunk']]:
     chunks = []
     origin = stream.tell()
-    stream.seek(0,2)
+    stream.seek(0, 2)
     terminal = stream.tell()
-    stream.seek(origin,0)
+    stream.seek(origin, 0)
 
     while stream.tell() < terminal:
         header = ChunkHeader.unpack(stream, True)
@@ -87,9 +87,10 @@ def walk_data_chunks(chunks: List[Union[DataChunk, 'FolderChunk']], parent: str 
     parent = parent or ""
     for i, chunk in enumerate(chunks):
         if isinstance(chunk, FolderChunk):
-            for name, chunk in chunk.walk_data():
-                full = join(parent, name)
-                yield full, chunk
+            self = f"{chunk.header.id}-{i}"
+            full = join(parent, self)
+            for children in walk_data_chunks(chunk.chunks, full):
+                yield children
         elif isinstance(chunk, DataChunk):
             # safe_name = chunk.name.replace("\\","_").replace("/","_")
             # yield join(parent, f"{chunk.header.id}-{safe_name}"), chunk
@@ -152,7 +153,7 @@ class FolderChunk:
     def walk_data(self) -> Tuple[str, DataChunk]:
         return walk_data_chunks(self.chunks, parent=f"{self.header.id}")
 
-    def get_chunk(self, id: str, optional:bool=False):
+    def get_chunk(self, id: str, optional: bool = False):
         try:
             return get_chunk_by_id(self.chunks, id)
         except KeyError:
@@ -161,8 +162,8 @@ class FolderChunk:
             else:
                 raise
 
-    def get_all_chunks(self, id: str, flat:bool=False):
-        return get_all_chunks_by_id(self.chunks, id,flat)
+    def get_all_chunks(self, id: str, flat: bool = False):
+        return get_all_chunks_by_id(self.chunks, id, flat)
 
 
 @dataclass
@@ -201,7 +202,7 @@ class RelicChunky:
         return get_chunk_by_id(self.chunks, id)
 
 
-def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
+def dump_chunky(full_in: str, full_out: str, skip_fatal: bool = False):
     with open(full_in, "rb") as handle:
         try:
             chunky = RelicChunky.unpack(handle)
@@ -210,10 +211,10 @@ def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
                 print(f"\tIgnoring:\n\t\t'{e}'\n\t- - -")
                 return
             print(f"\tDumping?!\n\t\t'{e}'")
-            log = full_out+".crash"
+            log = full_out + ".crash"
             print(f"\n\n@ {log}")
-            with open(log,"wb") as crash:
-                handle.seek(0,0)
+            with open(log, "wb") as crash:
+                handle.seek(0, 0)
                 crash.write(handle.read())
                 raise
         except ValueError as e:
@@ -237,11 +238,11 @@ def dump_chunky(full_in: str, full_out: str, skip_fatal:bool=False):
                 writer.write(c.data)
 
 
-def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None, skip_fatal:bool=False):
+def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None, skip_fatal: bool = False):
     for root, file in walk_ext(full_in, exts):
         i = join(root, file)
         j = i.replace(full_in, "", 1)
         j = j.lstrip("\\")
         j = j.lstrip("/")
-        o = join(full_out,j)
-        dump_chunky(i, o,skip_fatal)
+        o = join(full_out, j)
+        dump_chunky(i, o, skip_fatal)
