@@ -1,10 +1,11 @@
+import enum
 import json
 import os
 import struct
 from dataclasses import dataclass
 from io import BytesIO
 from os.path import join, splitext, dirname
-from typing import BinaryIO, List, TextIO
+from typing import BinaryIO, List, TextIO, Tuple, Iterable, Optional, Union, Any
 
 from relic import chunky
 
@@ -93,6 +94,18 @@ class MsclHeader:
         return MsclHeader(*args)
 
 
+# @dataclass
+# class TextureInfo:
+#     name: Optional[str] = None
+#     data: Optional[bytes] = None
+#
+#     def is_local(self) -> bool:
+#         return self.data is not None
+#
+#     def is_remote(self) -> bool:
+#         return self.name is not None
+
+
 @dataclass
 class MslcName:
     name: str
@@ -110,11 +123,173 @@ class MslcName:
         return MslcName(name, unk_a)
 
 
+class MslcBlockFormat(enum.Enum):
+    Terminal = 0
+    Vertex32 = 37
+    Vertex48 = 39
+
+    # Oh boy; IDK how many 'texture' classes there are but there are enough
+    Texture = 1
+    Texture = 2
+    Texture = 3
+    # Texture = 4
+    # Texture = 4
+    # IndexBlock = 1
+
+    def vertex_buffer_size(self) -> int:
+        size = {
+            MslcBlockFormat.Vertex48: 48,
+            MslcBlockFormat.Vertex32: 32,
+        }
+        val = size.get(self)
+        if val is None:
+            raise KeyError(f"'{val}' is not a Vertex Buffer Type")
+        return val
+
+
+#
+# def read_block(stream: BinaryIO) -> Tuple[int, int, bytes]:
+#     count, code = struct.unpack("< L L", stream.read(8))
+#     f = MslcBlockFormat(code)
+#     try:
+#         buffer_size = f.vertex_buffer_size()
+#         return code, count, stream.read(buffer_size * count)
+#     except KeyError:
+#         pass
+#     raise NotImplementedError
+
+
+@dataclass
+class VertexMsclBlock:
+    format: MslcBlockFormat
+    count: int
+    vertex_buffer: bytes
+
+
+@dataclass
+class TerminalMsclBlock:
+    format: MslcBlockFormat
+    unk_a: int
+    unk_b: int
+    unk_c: int
+    unk_d: int
+
+
+@dataclass
+class TextureMsclSubBlock:
+    # format: MslcBlockFormat
+    name: str
+    count: int
+    index_buffer: bytes
+    zero: int
+
+
+@dataclass
+class TextureMsclBlock:
+    format: MslcBlockFormat
+    # blocks:
+    # texture_count:
+    blocks: List[TextureMsclSubBlock]
+    info: List[Tuple[int, int]]
+    # unk
+
+MslcBlock = Union[VertexMsclBlock, TextureMsclSubBlock, TerminalMsclBlock, TextureMsclBlock, TerminalMsclBlock]
+
+
+class MslcBlockUtil:
+    # format: MslcBlockFormat
+    # count: int
+    # block: bytes
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO) -> MslcBlock:
+        def read_index_block() -> TextureMsclSubBlock:
+            name_size = _NUM.unpack(stream.read(_NUM.size))[0]
+            name = stream.read(name_size).decode("ascii")
+            index_size = _NUM.unpack(stream.read(_NUM.size))[0]
+            i_buffer = stream.read(index_size * 2)
+            # unk_a, unk_b =
+            return TextureMsclSubBlock(name, index_size, i_buffer, count)
+
+        block_header = stream.read(8)
+        count, code = struct.unpack("< L L", block_header)
+        try:
+            f = MslcBlockFormat(code)
+        except ValueError:
+            print(block_header)
+            print(count)
+            print(code)
+            raise NotImplementedError(code)
+
+        # if f == MslcBlockFormat.Terminal:
+        #     UNK_FORMAT = struct.Struct("< L L L")
+        #     unks = UNK_FORMAT.unpack(stream.read(UNK_FORMAT.size))
+        #     return TerminalMsclBlock(f, count, *unks)
+        # el
+        if f == MslcBlockFormat.Texture:
+            # if f == MslcBlockFormat.Texture:
+            #     _FORMAT = struct.Struct("< l l l l l")
+            #     buffer = stream.read(_FORMAT.size)
+            #     unks = _FORMAT.unpack(buffer)
+            # elif f == MslcBlockFormat.Texture:
+            #     _FORMAT = struct.Struct("< l l l l")
+            #     buffer = stream.read(_FORMAT.size)
+            #     unks = _FORMAT.unpack(buffer)
+            # else:
+            #     raise NotImplementedError(f)
+            # unks = struct.unpack("< l l l l l", stream.read(20))
+            # if f == MslcBlockFormat.IndexBlock:
+            #     return read_index_block()
+            # else:
+            texture_count = code
+            subs = []
+            infos = []
+            INFO = struct.Struct("< l l")
+            # for _ in range()
+            while True:
+                sub = read_index_block()
+                buffer = stream.read(INFO.size)
+                if len(buffer) != INFO.size:
+                    info = _NUM.unpack(buffer)
+                    subs.append(sub)
+                    infos.append(info)
+                    break
+                else:
+                    info = INFO.unpack(buffer)
+                    subs.append(sub)
+                    infos.append(info)
+
+                # second = read_index_block()
+                # second_info = INFO.unpack(stream.read(INFO.size))
+
+                # sub_blocks = [first, second]
+                # infos = [first_info, second_info]
+                return TextureMsclBlock(f, subs, infos)
+        # elif f == MslcBlockFormat.Texture:
+        #     name_size = _NUM.unpack(stream.read(_NUM.size))[0]
+        #     name = stream.read(name_size).decode("ascii")
+        #     return TextureMsclBlock(f, name, count)
+        if f == MslcBlockFormat.Terminal:
+            buffer = stream.read(12)
+            unks = struct.unpack("< l l l", buffer)
+
+            return TerminalMsclBlock(f, count, *unks)
+
+        try:
+            buffer_size = f.vertex_buffer_size()
+            v_buffer = stream.read(buffer_size * count)
+            return VertexMsclBlock(f, count, v_buffer)
+        except KeyError:
+            pass
+
+        raise NotImplementedError(code)
+
+
 @dataclass
 class MslcChunk:
     V_SIZE_39 = 48
     V_SIZE_37 = 32
-    V_SIZE = {39:V_SIZE_39,37:V_SIZE_37}
+    V_SIZE = {39: V_SIZE_39, 37: V_SIZE_37}
     I_SIZE = 2
 
     # name:str
@@ -122,47 +297,82 @@ class MslcChunk:
     header: MsclHeader
     names: List[MslcName]
 
-    buffer_format: int
+    blocks: List[MslcBlock]
 
-    vertex_data: bytes
+    # unk_buffer_format: int
+    # vertex_data: bytes
+    #
+    # unk_c: int
 
-    unk_c: int
+    # textures: List[TextureInfo]
+    # texture: str
 
-    textures: List[str]
+    # index_data: bytes
 
-    index_data: bytes
+    # unk_d: int
+    # unk_e: int
+    # unk_f: int
+    # unk_g: int
 
-    unk_d: int
-    unk_e: int
-    unk_f: int
-    unk_g: int
+    # vertex_count: int = None
+    # index_count: int = None
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MslcChunk':
         # name = chunk.name
         data = get_chunk_by_id(chunk.chunks, "DATA")
+
         # 0x5570 - 0x770 = 0x4E00 ! 48 BITS ?!
         # 0xe05d - 0xa39d = 0x3CC0 ~ 15552 ! 32 BITS ?!
 
         with BytesIO(data.data) as stream:
             header = MsclHeader.unpack(stream)
             names = [MslcName.unpack(stream) for _ in range(header.name_count)]
-            vertex_count, buffer_format = struct.unpack("< L L", stream.read(8))
+
+            blocks = []
+            # while True:
+
+            start = stream.tell()
+            stream.seek(0, 2)
+            end = stream.tell()
+            stream.seek(start)
+
+            while stream.tell() != end:
+                # print(stream.tell())
+                # print(stream.read(4))
+                # stream.seek(-4, 1)
+                block = MslcBlockUtil.unpack(stream)
+                blocks.append(block)
+            # print(blocks)
+            # vertex_count, buffer_format = struct.unpack("< L L", stream.read(8))
             # print(chunk.name, "\n","\t", "HEADER:", header.unk_a, header.flag_b, header.unk_c, header.unk_d, "~", buffer_format)
-            vertex = stream.read(vertex_count * cls.V_SIZE.get(buffer_format))
-            buffer = stream.read(8)
-            unk_c, texture_count = struct.unpack("< L L", buffer)
-            textures = []
-            for _ in range(texture_count):
-                size = _NUM.unpack(stream.read(_NUM.size))[0]
-                name = stream.read(size).decode("ascii")
-                textures.append(name)
+            # vertex = stream.read(vertex_count * cls.V_SIZE.get(buffer_format))
 
-            index_count = _NUM.unpack(stream.read(_NUM.size))[0]
-            index = stream.read(index_count * cls.I_SIZE)
-            unk_d, unk_e, unk_f, unk_g = struct.unpack("< L L L L", stream.read(4 * 4))
+            # temp_buffer = stream.read(8)
+            # unk_c, texture_count = struct.unpack("< L L", temp_buffer)  #
+            # textures = []
+            # for _ in range(texture_count):
+            # 3977b ~
+            # size = _NUM.unpack(stream.read(_NUM.size))[0]
+            # size_buffer = stream.read(size)
+            # text: TextureInfo
+            # try:
+            # texture = size_buffer.decode("ascii")
+            # tex = TextureInfo(name=name)
+            # except UnicodeDecodeError:
+            #     data = buffer
+            #     tex = TextureInfo(data=data)
+            # textures.append(tex)
+            # index_count = _NUM.unpack(stream.read(_NUM.size))[0]
+            # index = stream.read(index_count * cls.I_SIZE)
+            # unk_d, unk_e, unk_f, unk_g = struct.unpack("< L L L L", stream.read(4 * 4))
 
-        return MslcChunk(header, names, buffer_format, vertex, unk_c, textures, index, unk_d, unk_e, unk_f, unk_g)
+            return MslcChunk(header, names, blocks)
+            # names, buffer_format, vertex,
+            # unk_c,
+            # texture, index,
+            # unk_d, unk_e, unk_f, unk_g,
+            # vertex_count, index_count)
 
 
 @dataclass
@@ -192,7 +402,7 @@ def print_meta(f: str):
         print(meta)
 
 
-def write_vertex(stream: TextIO, x, y, z):
+def write_position(stream: TextIO, x, y, z):
     stream.write('v %f %f %f\n' % (x, y, z))
 
 
@@ -200,7 +410,7 @@ def write_normal(stream: TextIO, x, y, z):
     stream.write('vn %f %f %f\n' % (x, y, z))
 
 
-def write_uv2(stream: TextIO, x, y):
+def write_uv(stream: TextIO, x, y):
     stream.write('vt %f %f\n' % (x, y))
 
 
@@ -221,84 +431,162 @@ def write_obj_name(stream: TextIO, name: str):
 #  NORM? ~ 3 float32 (12 bytes)
 #  UV ~ 2 float32 (8 bytes)
 #       TOTAL ~ 48 bytes
+Float4 = Tuple[float, float, float, float]
+Float3 = Tuple[float, float, float]
+Float2 = Tuple[float, float]
+_Float4 = struct.Struct("< f f f f")
+_Float3 = struct.Struct("< f f f")
+_Float2 = struct.Struct("< f f")
 
-def write_obj(stream: TextIO, vertex: BinaryIO, indexes: BinaryIO, v_count: int, t_count: int, name: str = None,
-              v_offset: int = 0):
+Short3 = Tuple[int, int, int]
+_Short3 = struct.Struct("< h h h")
+
+
+def read_float4_list(vertex_buffer: BinaryIO, vertex_count: int) -> Iterable[Float4]:
+    for _ in range(vertex_count):
+        buffer = vertex_buffer.read(_Float4.size)
+        value = _Float4.unpack(buffer)
+        yield value
+
+
+def read_float3_list(vertex_buffer: BinaryIO, vertex_count: int) -> Iterable[Float3]:
+    for _ in range(vertex_count):
+        buffer = vertex_buffer.read(_Float3.size)
+        value = _Float3.unpack(buffer)
+        yield value
+
+
+def read_float2_list(vertex_buffer: BinaryIO, vertex_count: int) -> Iterable[Float2]:
+    for _ in range(vertex_count):
+        buffer = vertex_buffer.read(_Float2.size)
+        value = _Float2.unpack(buffer)
+        yield value
+
+
+def read_short3_list(index_buffer: BinaryIO, index_count):
+    for _ in range(index_count):
+        buffer = index_buffer.read(_Short3.size)
+        value = _Short3.unpack(buffer)
+        yield value
+
+
+def seek_float4_list(vertex_buffer: BinaryIO, vertex_count: int):
+    vertex_buffer.seek(vertex_count * _Float3.size, 1)
+
+
+def seek_float3_list(vertex_buffer: BinaryIO, vertex_count: int):
+    vertex_buffer.seek(vertex_count * _Float3.size, 1)
+
+
+def seek_float2_list(vertex_buffer: BinaryIO, vertex_count: int):
+    vertex_buffer.seek(vertex_count * _Float2.size, 1)
+
+
+def read_write_positions(stream: TextIO, vertex: BinaryIO, count: int):
+    for pos in read_float3_list(vertex, count):
+        write_position(stream, *pos)
+
+
+def read_write_normals(stream: TextIO, vertex: BinaryIO, count: int):
+    for normal in read_float3_list(vertex, count):
+        write_normal(stream, *normal)
+
+
+def read_write_uvs(stream: TextIO, vertex: BinaryIO, count: int):
+    for normal in read_float2_list(vertex, count):
+        write_uv(stream, *normal)
+
+
+def read_write_triangles(stream: TextIO, index: BinaryIO, count: int, offset: int = 0):
+    for tri in read_short3_list(index, count):
+        write_tri(stream, *tri, v_offset=offset)
+
+
+_BufferSize32 = 37
+_BufferSize48 = 39
+
+
+def write_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0) -> int:
     if name:
         write_obj_name(stream, name)
 
-    _POS = struct.Struct("< f f f")
-    # _UNK_A = struct.Struct("< f f f")
-    _UV = struct.Struct("< f f")
-    for _ in range(v_count):
-        buffer = vertex.read(_POS.size)
-        x, y, z = _POS.unpack(buffer)
-        write_vertex(stream, x, y, z)
+    v_local_offset = 0
 
-    vertex.seek(4 * 4 * v_count, 1)
+    for block in chunk.blocks:
+        if isinstance(block, VertexMsclBlock):
+            if block.format not in [MslcBlockFormat.Vertex48, MslcBlockFormat.Vertex32]:
+                raise NotImplementedError(block.format)
 
-    for _ in range(v_count):
-        buffer = vertex.read(_POS.size)
-        x, y, z = _POS.unpack(buffer)
-        write_normal(stream, x, y, z)
+            with BytesIO(block.vertex_buffer) as vertex:
+                v_count = block.count
 
-    for _ in range(v_count):
-        buffer = vertex.read(_UV.size)
-        u, v = _UV.unpack(buffer)
-        write_uv2(stream, u, v)
-    # vertex.seek(4 * 1 * v_count, 1)
+                read_write_positions(stream, vertex, v_count)
 
-    _TRI = struct.Struct("< h h h")
-    for _ in range(t_count):
-        buffer = indexes.read(_TRI.size)
-        a, b, c = _TRI.unpack(buffer)
-        write_tri(stream, a, b, c,
-                  v_offset=v_offset + 1)  # blender is 1th based NOT 0th based, so we add 1 to the offset
+                if block.format in [MslcBlockFormat.Vertex48]:
+                    seek_float4_list(vertex, v_count)
 
+                read_write_normals(stream, vertex, v_count)
+                read_write_uvs(stream, vertex, v_count)
 
-def dump_obj(f: str, o: str):
-    try:
-        os.makedirs(dirname(o))
-    except FileExistsError:
-        pass
+            v_local_offset += v_count
 
-    with open(o + ".obj", "w") as obj:
-        with open(f + ".meta") as m:
-            meta = json.loads(m.read())
+        elif isinstance(block, TextureMsclSubBlock):
+            with BytesIO(block.index_buffer) as index:
+                i_count = int(block.count / 3)
+                read_write_triangles(stream, index, i_count, v_offset + 1)
 
-        with open(f + ".vert", "rb") as vertex:
-            with open(f + ".tri", "rb") as index:
-                write_obj(obj, vertex, index, meta['vertexes'], meta['triangles'])
+    return v_offset + v_local_offset
+    # for _ in range(t_count):
+    #     buffer = indexes.read(_TRI.size)
+    #     a, b, c = _TRI.unpack(buffer)
+    #     write_tri(stream, a, b, c,
+    #               v_offset=v_offset + 1)  # blender is 1th based NOT 0th based, so we add 1 to the offset
 
 
-def dump_all_obj(f: str):
-    for root, file in walk_ext(f, ".vert"):
-        full = join(root, file)
-        full, _ = splitext(full)
-        dump_obj(full, full)
+#
+# def dump_obj(f: str, o: str):
+#     try:
+#         os.makedirs(dirname(o))
+#     except FileExistsError:
+#         pass
+#
+#     with open(o + ".obj", "w") as obj:
+#         with open(f + ".meta") as m:
+#             meta = json.loads(m.read())
+#
+#         with open(f + ".vert", "rb") as vertex:
+#             with open(f + ".tri", "rb") as index:
+#                 write_obj(obj, vertex, index, meta['vertexes'], meta['triangles'])
+#
+#
+# def dump_all_obj(f: str):
+#     for root, file in walk_ext(f, ".vert"):
+#         full = join(root, file)
+#         full, _ = splitext(full)
+#         dump_obj(full, full)
 
 
-def dump_model(f: str, o: str):
-    print("" + f)
-    with open(f, "rb") as handle:
-        chunky = RelicChunky.unpack(handle)
-        whm = WhmChunk.create(chunky)
-
-        for i, mesh in enumerate(whm.msgr.submeshes):
-            name = whm.msgr.parts[i].name
-            full_o = join(o, name)
-            try:
-                os.makedirs(dirname(full_o))
-            except FileExistsError:
-                pass
-            print("\t" + full_o)
-
-            with open(full_o + ".vert", "wb") as v:
-                v.write(mesh.vertex_data)
-            with open(full_o + ".tri", "wb") as t:
-                t.write(mesh.index_data)
-            with open(full_o + ".meta", "w") as m:
-                m.write(json.dumps({'vertexes': len(mesh.vertex_data) / 48, 'triangles': len(mesh.index_data) / 6}))
+# def dump_model(f: str, o: str):
+#     print("" + f)
+#     with open(f, "rb") as handle:
+#         chunky = RelicChunky.unpack(handle)
+#         whm = WhmChunk.create(chunky)
+#
+#         for i, mesh in enumerate(whm.msgr.submeshes):
+#             name = whm.msgr.parts[i].name
+#             full_o = join(o, name)
+#             try:
+#                 os.makedirs(dirname(full_o))
+#             except FileExistsError:
+#                 pass
+#             print("\t" + full_o)
+#
+#             with open(full_o + ".vert", "wb") as v:
+#                 v.write(mesh.vertex_data)
+#             with open(full_o + ".tri", "wb") as t:
+#                 t.write(mesh.index_data)
+#             with open(full_o + ".meta", "w") as m:
+#                 m.write(json.dumps({'vertexes': len(mesh.vertex_data) / 48, 'triangles': len(mesh.index_data) / 6}))
 
 
 def dump_all_full_model(f: str, o: str):
@@ -315,6 +603,7 @@ def dump_all_full_model(f: str, o: str):
                 os.remove(dump)
             except:
                 pass
+            raise
 
 
 def dump_full_model(f: str, o: str):
@@ -330,15 +619,19 @@ def dump_full_model(f: str, o: str):
         v_offset = 0
         with open(o, "w") as obj:
             for i, mesh in enumerate(whm.msgr.submeshes):
-                if mesh.buffer_format != 39:
-                    continue
-                v_count = int(len(mesh.vertex_data) / 48)
-                t_count = int(len(mesh.index_data) / 6)
+                # if mesh.unk_buffer_format != 39:
+                #     continue
+                # v_count = int(len(mesh.vertex_data) / 48)
+                # t_count = int(len(mesh.index_data) / 6)
+                # t_count = mesh.index_count
                 name = whm.msgr.parts[i].name
-                with BytesIO(mesh.vertex_data) as v_data:
-                    with BytesIO(mesh.index_data) as i_data:
-                        write_obj(obj, v_data, i_data, v_count, t_count, name, v_offset=v_offset)
-                        v_offset += v_count
+                v_offset += write_obj(obj, mesh, name, v_offset=v_offset)
+                # v_offset += mesh.vertex_count
+                # with BytesIO(mesh.vertex_data) as v_data:
+                #     with BytesIO(mesh.index_data) as i_data:
+                #
+                #         write_obj(obj, v_data, i_data, v_count, t_count, name, v_offset=v_offset)
+                #         v_offset += v_count
 
 
 if __name__ == "__main__":
@@ -348,7 +641,7 @@ if __name__ == "__main__":
     # dump_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard\troops\guardsmen.whm",
     #                 r"D:\Dumps\DOW I\whm-model\art\ebps\races\imperial_guard\troops\guardsmen.obj")
 
-    dump_all_full_model("D:\Dumps\DOW I\sga","D:\Dumps\DOW I\whm-model")
+    dump_all_full_model("D:\Dumps\DOW I\sga", "D:\Dumps\DOW I\whm-model")
 
     # dump_all_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion")
     # dump_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\aspiring_champion_banner",
