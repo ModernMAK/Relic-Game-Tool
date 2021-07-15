@@ -58,6 +58,6 @@ def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None):
 
 
 if __name__ == "__main__":
-    # dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])
-    import cProfile
-    cProfile.run('dump_all_chunky(r"D:\Dumps\DOW I\sga\\art\ebps\environment", r"D:\Dumps\DOW I\whm-chunky\\art\ebps\environment", [".whm"])')
+    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])
+    # import cProfile
+    # cProfile.run('dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])')
