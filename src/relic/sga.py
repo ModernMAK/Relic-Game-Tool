@@ -531,9 +531,7 @@ class FullArchive:
 
         # names = archive.names
 
-        return FullArchive(info, desc, folders
-                           , files
-                           # , names
+        return FullArchive(info, desc, folders                           , files
                            )
 
 
@@ -566,7 +564,7 @@ class FlatArchive:
                 # for p, n, f in folder.walk_all_files():
                 full_name = join(p, n)
                 decomp = f.decompress()
-                n_f = FlatFile(f.info.layer, full_name, decomp)
+                n_f = FlatFile(f.info.unk_a, full_name, decomp)
                 files.append(n_f)
 
         info = FlatHeader.from_header(archive.info.header)
@@ -617,7 +615,7 @@ class SGArchive:
 #             yield root, file
 
 
-def shared_dump(file: str, out_dir: str = None, verbose:bool=False):
+def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
     out_dir = out_dir or "gen/sga/shared_dump"
     with open(file, "rb") as handle:
         archive = FlatArchive.unpack(handle)
@@ -629,19 +627,18 @@ def shared_dump(file: str, out_dir: str = None, verbose:bool=False):
             except FileExistsError:
                 pass
             if verbose:
-                print("\t",shared_path)
+                print("\t", shared_path)
             with open(shared_path, "wb") as writer:
                 writer.write(f.data)
 
 
 def run():
-
     root = r"G:\Clients\Steam\Launcher\steamapps\common"
     game = r"Dawn of War Soulstorm\W40k"
     files = [
-        "Locale\English\W40kDataKeys.sga",
-        "Locale\English\W40kDataLoc.sga",
-        "Locale\English\W40kData-Sound-Speech.sga",
+        r"Locale\English\W40kDataKeys.sga",
+        r"Locale\English\W40kDataLoc.sga",
+        r"Locale\English\W40kData-Sound-Speech.sga",
 
         "W40kData-Sound-Low.sga",
         "W40kData-Sound-Med.sga",
