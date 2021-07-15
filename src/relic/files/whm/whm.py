@@ -1,6 +1,7 @@
 import enum
 import json
 import os
+import shutil
 import struct
 from dataclasses import dataclass
 from io import BytesIO
@@ -143,7 +144,7 @@ class MslcBlockFormat(enum.Enum):
 
     @classmethod
     def from_code(cls, code: int):
-        if code <= 4:
+        if code <= 6:
             return MslcBlockFormat.Texture
 
         lookup = {
@@ -441,10 +442,11 @@ def write_uv(stream: TextIO, x, y):
     stream.write('vt %f %f\n' % (x, y))
 
 
-def write_tri(stream: TextIO, *args, v_offset: int = 0):
+def write_tri(stream: TextIO, *args, v_offset: int = 0, zero_based:bool=False):
     stream.write('f')
     for v in args:
-        stream.write(' %i/%i/%i' % (v + v_offset, v + v_offset, v + v_offset))
+        stream.write(' %i' % (v + v_offset + (1 if zero_based else 0))) # OBJ is 1 based
+        # stream.write(' %i/%i/%i' % (v + v_offset, v + v_offset, v + v_offset))
     stream.write("\n")
 
 
@@ -526,7 +528,7 @@ def read_write_uvs(stream: TextIO, vertex: BinaryIO, count: int):
 
 def read_write_triangles(stream: TextIO, index: BinaryIO, count: int, offset: int = 0):
     for tri in read_short3_list(index, count):
-        write_tri(stream, *tri, v_offset=offset)
+        write_tri(stream, *tri, v_offset=offset, zero_based=True)
 
 
 _BufferSize32 = 37
@@ -539,28 +541,33 @@ def write_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int 
 
     v_local_offset = 0
 
-    for block in chunk.blocks:
-        if isinstance(block, VertexMsclBlock):
-            if block.format not in [MslcBlockFormat.Vertex48, MslcBlockFormat.Vertex32]:
-                raise NotImplementedError(block.format)
+    vertex_blocks = [block for block in chunk.blocks if isinstance(block, VertexMsclBlock)]
+    index_blocks = [block for block in chunk.blocks if isinstance(block, TextureMsclBlock)]
 
-            with BytesIO(block.vertex_buffer) as vertex:
-                v_count = block.count
+    for block in vertex_blocks:
+        if block.format not in [MslcBlockFormat.Vertex48, MslcBlockFormat.Vertex32]:
+            raise NotImplementedError(block.format)
 
-                read_write_positions(stream, vertex, v_count)
+        with BytesIO(block.vertex_buffer) as vertex:
+            v_count = block.count
 
-                if block.format in [MslcBlockFormat.Vertex48]:
-                    seek_float4_list(vertex, v_count)
+            read_write_positions(stream, vertex, v_count)
 
-                read_write_normals(stream, vertex, v_count)
-                read_write_uvs(stream, vertex, v_count)
+            if block.format in [MslcBlockFormat.Vertex48]:
+                seek_float4_list(vertex, v_count)
 
-            v_local_offset += v_count
+            read_write_normals(stream, vertex, v_count)
+            read_write_uvs(stream, vertex, v_count)
 
-        elif isinstance(block, TextureMsclSubBlock):
-            with BytesIO(block.index_buffer) as index:
-                i_count = int(block.count / 3)
-                read_write_triangles(stream, index, i_count, v_offset + 1)
+        v_local_offset += v_count
+
+    for block in index_blocks:
+        for sub in block.blocks:
+            with BytesIO(sub.index_buffer) as index:
+                i_count = int(sub.count / 3)
+                read_write_triangles(stream, index, i_count, v_offset)
+                return v_offset + v_local_offset
+        # else:
 
     return v_offset + v_local_offset
     # for _ in range(t_count):
@@ -616,25 +623,36 @@ def write_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int 
 #                 m.write(json.dumps({'vertexes': len(mesh.vertex_data) / 48, 'triangles': len(mesh.index_data) / 6}))
 
 
-def dump_all_full_model(f: str, o: str):
+def dump_all_model(f: str, o: str, full:bool=True):
     for root, file in walk_ext(f, ".whm"):
-        full = join(root, file)
-        dump = full.replace(f, o, 1)
+        full_path = join(root, file)
+        dump = full_path.replace(f, o, 1)
         dump, _ = splitext(dump)
         dump += ".obj"
         try:
-            dump_full_model(full, dump)
-        except Exception as e:
+            dump_model(full_path, dump, full)
+        except (NotImplementedError, struct.error, UnicodeDecodeError, Exception) as e:
             print("\t", e)
             try:
                 os.remove(dump)
             except Exception:
                 pass
-            raise
+
+            # To allow me to examine them closely without manually doing it
+            full = join(root, file)
+            dump = full.replace(f, o + "-funky", 1)
+            try:
+                os.makedirs(dump)
+            except FileExistsError:
+                pass
+            print("\t" + full + "\t=>\t" + dump)
+            shutil.move(full, dump)
+
+            # raise
 
 
-def dump_full_model(f: str, o: str):
-    print("" + f)
+def dump_model(f: str, o: str, full: bool = True):
+    print(f + "\t=>\t" + o)
     with open(f, "rb") as handle:
         chunky = RelicChunky.unpack(handle)
         try:
@@ -642,27 +660,48 @@ def dump_full_model(f: str, o: str):
         except NotImplementedError as e:
             if e.args[0] == 55:
                 print("Skipping funky vertex buffer?")
+                raise
                 return
             elif e.args[0] == 48:
                 print("Found an invalid index buffer?")
+                raise
                 return
             else:
                 raise
 
-        try:
-            os.makedirs(dirname(o))
-        except FileExistsError:
-            pass
-        v_offset = 0
-        with open(o, "w") as obj:
+        if full:
+            try:
+                os.makedirs(dirname(o))
+            except FileExistsError:
+                pass
+            with open(o, "w") as obj:
+                v_offset = 0
+                for i, mesh in enumerate(whm.msgr.submeshes):
+                    # if mesh.unk_buffer_format != 39:
+                    #     continue
+                    # v_count = int(len(mesh.vertex_data) / 48)
+                    # t_count = int(len(mesh.index_data) / 6)
+                    # t_count = mesh.index_count
+                    name = whm.msgr.parts[i].name
+                    v_offset += write_obj(obj, mesh, name, v_offset=v_offset)
+        else:
+            o, _ = splitext(o)
+            try:
+
+                os.makedirs(o)
+            except FileExistsError:
+                pass
             for i, mesh in enumerate(whm.msgr.submeshes):
-                # if mesh.unk_buffer_format != 39:
-                #     continue
-                # v_count = int(len(mesh.vertex_data) / 48)
-                # t_count = int(len(mesh.index_data) / 6)
-                # t_count = mesh.index_count
                 name = whm.msgr.parts[i].name
-                v_offset += write_obj(obj, mesh, name, v_offset=v_offset)
+                o_part = join(o,name+".obj")
+                with open(o_part, "w") as obj:
+                    # if mesh.unk_buffer_format != 39:
+                    #     continue
+                    # v_count = int(len(mesh.vertex_data) / 48)
+                    # t_count = int(len(mesh.index_data) / 6)
+                    # t_count = mesh.index_count
+                    # v_offset += \
+                    write_obj(obj, mesh, name, v_offset=0)
                 # v_offset += mesh.vertex_count
                 # with BytesIO(mesh.vertex_data) as v_data:
                 #     with BytesIO(mesh.index_data) as i_data:
@@ -672,15 +711,15 @@ def dump_full_model(f: str, o: str):
 
 
 if __name__ == "__main__":
-    raw_dump()
-    exit()
+    # raw_dump()
+    # exit()
     # print_meta(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm")
     # dump_model(r"D:\Dumps\DOW I\sga\art\ebps\races\chaos\troops\aspiring_champion.whm",
     #            r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\\")
     # dump_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard\troops\guardsmen.whm",
     #                 r"D:\Dumps\DOW I\whm-model\art\ebps\races\imperial_guard\troops\guardsmen.obj")
 
-    dump_all_full_model(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-model")
+    dump_all_model(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-model", True)
 
     # dump_all_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion")
     # dump_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\aspiring_champion_banner",
