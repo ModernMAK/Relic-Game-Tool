@@ -566,10 +566,10 @@ def write_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int 
             with BytesIO(sub.index_buffer) as index:
                 i_count = int(sub.count / 3)
                 read_write_triangles(stream, index, i_count, v_offset)
-                return v_offset + v_local_offset
+                # return  + v_local_offset
         # else:
 
-    return v_offset + v_local_offset
+    return v_local_offset
     # for _ in range(t_count):
     #     buffer = indexes.read(_TRI.size)
     #     a, b, c = _TRI.unpack(buffer)
@@ -701,7 +701,7 @@ def dump_model(f: str, o: str, full: bool = True):
                     # t_count = int(len(mesh.index_data) / 6)
                     # t_count = mesh.index_count
                     # v_offset += \
-                    write_obj(obj, mesh, name, v_offset=0)
+                    write_obj(obj, mesh, name)
                 # v_offset += mesh.vertex_count
                 # with BytesIO(mesh.vertex_data) as v_data:
                 #     with BytesIO(mesh.index_data) as i_data:
