@@ -7,7 +7,11 @@ from io import BytesIO
 from os.path import join, splitext, dirname
 from typing import BinaryIO, List, TextIO, Tuple, Iterable, Optional, Union, Any
 
-from relic import chunky
+from relic.chunky.data_chunk import DataChunk
+from relic.chunky.dumper import dump_all_chunky
+from relic.chunky.folder_chunk import FolderChunk
+from relic.chunky.relic_chunky import RelicChunky
+from relic.shared import walk_ext, EnhancedJSONEncoder
 
 # FBIF
 # RGSM (name of model)
@@ -21,8 +25,6 @@ from relic import chunky
 # => MARK
 # => ANIM (name)
 # => SKEL
-from relic.chunky import DataChunk, RelicChunky, FolderChunk, get_chunk_by_id, get_all_chunks_by_id
-from relic.shared import walk_ext, EnhancedJSONEncoder
 
 _UNK_STRUCT = struct.Struct("< L L")
 _NUM = struct.Struct("< L")
@@ -53,12 +55,14 @@ class MsgrChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MsgrChunk':
-        data = get_chunk_by_id(chunk.chunks, "DATA", flat=True)
+        data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
+        # the id is DATA not the type (alhough it is coincidentally, a ChunkType.Data)
+        # data = get_chunk_by_id(chunk.chunks, "DATA", flat=True)
         with BytesIO(data.data) as stream:
             buffer = stream.read(_NUM.size)
             count = _NUM.unpack(buffer)[0]
             parts = [MsgrName.unpack(stream) for _ in range(count)]
-        submeshes = [MslcChunk.create(mscl) for mscl in get_all_chunks_by_id(chunk.chunks, "MSLC")]
+        submeshes = [MslcChunk.create(mscl) for mscl in chunk.get_chunks(id="MSLC")]
 
         return MsgrChunk(parts, submeshes)
 
@@ -345,8 +349,7 @@ class MslcChunk:
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MslcChunk':
         # name = chunk.name
-        data = get_chunk_by_id(chunk.chunks, "DATA")
-
+        data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
         # 0x5570 - 0x770 = 0x4E00 ! 48 BITS ?!
         # 0xe05d - 0xa39d = 0x3CC0 ~ 15552 ! 32 BITS ?!
 
@@ -407,16 +410,15 @@ class WhmChunk:
 
     @classmethod
     def create(cls, chunky: RelicChunky) -> 'WhmChunk':
-        sshr = [SshrChunk.create(c) for c in get_all_chunks_by_id(chunky.chunks, 'SSHR')]
-        msgr = MsgrChunk.create(get_chunk_by_id(chunky.chunks, "MSGR"))
-
+        sshr = [SshrChunk.create(c) for c in chunky.get_chunks(id='SSHR')]
+        msgr = MsgrChunk.create(chunky.get_chunk(id="MSGR"))
         return WhmChunk(sshr, msgr)
 
 
 # after MSCL texture name is the index count, multiply by two due to the size (short)?
 
 def raw_dump():
-    chunky.dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])
+    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])
 
 
 def print_meta(f: str):
@@ -626,7 +628,7 @@ def dump_all_full_model(f: str, o: str):
             print("\t", e)
             try:
                 os.remove(dump)
-            except:
+            except Exception:
                 pass
             raise
 
@@ -678,8 +680,7 @@ if __name__ == "__main__":
     # dump_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard\troops\guardsmen.whm",
     #                 r"D:\Dumps\DOW I\whm-model\art\ebps\races\imperial_guard\troops\guardsmen.obj")
 
-    # dump_all_full_model(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-model")
-    dump_all_full_model(r"D:\Dumps\DOW I\sga\art\ebps\races", r"D:\Dumps\DOW I\whm-model\art\ebps\races")
+    dump_all_full_model(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-model")
 
     # dump_all_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion")
     # dump_obj(r"D:\Dumps\DOW I\whm-model\art\ebps\races\chaos\troops\aspiring_champion\aspiring_champion_banner",
