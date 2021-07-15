@@ -20,7 +20,8 @@ from relic import chunky
 # => MARK
 # => ANIM (name)
 # => SKEL
-from relic.chunky import DataChunk, RelicChunky, FolderChunk, get_chunk_by_id, get_all_chunks_by_id
+
+# from relic.chunky import DataChunk, RelicChunky, FolderChunk, get_chunk_by_id, get_all_chunks_by_id
 from relic.shared import walk_ext, EnhancedJSONEncoder
 
 _UNK_STRUCT = struct.Struct("< L L")
