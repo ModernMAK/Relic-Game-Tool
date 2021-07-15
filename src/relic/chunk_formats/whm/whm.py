@@ -14,24 +14,9 @@ from relic.chunky.folder_chunk import FolderChunk
 from relic.chunky.relic_chunky import RelicChunky
 from relic.shared import walk_ext, EnhancedJSONEncoder
 
-# FBIF
-# RGSM (name of model)
-# => MSGR
-# => => MSLC (submodel? body part?)
-# => => => BVOL
-# => => => DATA
-# => => BVOL
-# => => DATA
-# => SSHR (names are paths to textures [as images])
-# => MARK
-# => ANIM (name)
-# => SKEL
-
 _UNK_STRUCT = struct.Struct("< L L")
 _NUM = struct.Struct("< L")
 
-
-# MSGR
 
 @dataclass
 class MsgrName:
@@ -56,9 +41,8 @@ class MsgrChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MsgrChunk':
-        data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
         # the id is DATA not the type (alhough it is coincidentally, a ChunkType.Data)
-        # data = get_chunk_by_id(chunk.chunks, "DATA", flat=True)
+        data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
         with BytesIO(data.data) as stream:
             buffer = stream.read(_NUM.size)
             count = _NUM.unpack(buffer)[0]
@@ -68,7 +52,6 @@ class MsgrChunk:
         return MsgrChunk(parts, submeshes)
 
 
-# SSHR
 @dataclass
 class SshrChunk:
     name: str
@@ -99,18 +82,6 @@ class MsclHeader:
         return MsclHeader(*args)
 
 
-# @dataclass
-# class TextureInfo:
-#     name: Optional[str] = None
-#     data: Optional[bytes] = None
-#
-#     def is_local(self) -> bool:
-#         return self.data is not None
-#
-#     def is_remote(self) -> bool:
-#         return self.name is not None
-
-
 @dataclass
 class MslcName:
     name: str
@@ -129,18 +100,12 @@ class MslcName:
 
 
 class MslcBlockFormat(enum.Enum):
-    # Terminal = enum.auto()
     Vertex32 = enum.auto()  # = 37
     Vertex48 = enum.auto()  # = 39
 
     # Oh boy; IDK how many 'texture' classes there are but there are enough
-    Texture = enum.auto()  # = 1
+    Texture = enum.auto()
 
-    # Texture = 2
-    # Texture = 3
-    # Texture = 4
-    # Texture = 4
-    # IndexBlock = 1
 
     @classmethod
     def from_code(cls, code: int):
@@ -167,18 +132,6 @@ class MslcBlockFormat(enum.Enum):
         return val
 
 
-#
-# def read_block(stream: BinaryIO) -> Tuple[int, int, bytes]:
-#     count, code = struct.unpack("< L L", stream.read(8))
-#     f = MslcBlockFormat(code)
-#     try:
-#         buffer_size = f.vertex_buffer_size()
-#         return code, count, stream.read(buffer_size * count)
-#     except KeyError:
-#         pass
-#     raise NotImplementedError
-
-
 @dataclass
 class VertexMsclBlock:
     format: MslcBlockFormat
@@ -186,18 +139,8 @@ class VertexMsclBlock:
     vertex_buffer: bytes
 
 
-# @dataclass
-# class TerminalMsclBlock:
-#     format: MslcBlockFormat
-#     unk_a: int
-#     unk_b: int
-#     unk_c: int
-#     unk_d: int
-
-
 @dataclass
 class TextureMsclSubBlock:
-    # format: MslcBlockFormat
     name: str
     count: int
     index_buffer: bytes
@@ -208,8 +151,6 @@ class TextureMsclSubBlock:
 class TextureMsclBlock:
     format: MslcBlockFormat
     zero: int
-    # blocks:
-    # texture_count:
     blocks: List[TextureMsclSubBlock]
     info: List[Tuple[int, int]]
 
@@ -220,17 +161,11 @@ class TextureMsclBlock:
 
 MslcBlock = Union[
     VertexMsclBlock,
-    # TextureMsclSubBlock,
-    # TerminalMsclBlock,
     TextureMsclBlock
 ]
 
 
 class MslcBlockUtil:
-    # format: MslcBlockFormat
-    # count: int
-    # block: bytes
-
     @classmethod
     def unpack(cls, stream: BinaryIO) -> MslcBlock:
         def read_index_block() -> TextureMsclSubBlock:
@@ -238,7 +173,6 @@ class MslcBlockUtil:
             name = stream.read(name_size).decode("ascii")
             index_size = _NUM.unpack(stream.read(_NUM.size))[0]
             i_buffer = stream.read(index_size * 2)
-            # unk_a, unk_b =
             return TextureMsclSubBlock(name, index_size, i_buffer, count)
 
         block_header = stream.read(8)
@@ -246,31 +180,9 @@ class MslcBlockUtil:
         try:
             f = MslcBlockFormat.from_code(code)
         except ValueError:
-            # print(block_header)
-            # print(count)
-            # print(code)
             raise NotImplementedError(code)
 
-        # if f == MslcBlockFormat.Terminal:
-        #     UNK_FORMAT = struct.Struct("< L L L")
-        #     unks = UNK_FORMAT.unpack(stream.read(UNK_FORMAT.size))
-        #     return TerminalMsclBlock(f, count, *unks)
-        # el
         if f == MslcBlockFormat.Texture:
-            # if f == MslcBlockFormat.Texture:
-            #     _FORMAT = struct.Struct("< l l l l l")
-            #     buffer = stream.read(_FORMAT.size)
-            #     unks = _FORMAT.unpack(buffer)
-            # elif f == MslcBlockFormat.Texture:
-            #     _FORMAT = struct.Struct("< l l l l")
-            #     buffer = stream.read(_FORMAT.size)
-            #     unks = _FORMAT.unpack(buffer)
-            # else:
-            #     raise NotImplementedError(f)
-            # unks = struct.unpack("< l l l l l", stream.read(20))
-            # if f == MslcBlockFormat.IndexBlock:
-            #     return read_index_block()
-            # else:
             texture_count = code
             subs = []
             infos = []
@@ -289,21 +201,7 @@ class MslcBlockUtil:
             buffer = stream.read(UNK.size)
             unks = UNK.unpack(buffer)
 
-            # second = read_index_block()
-            # second_info = INFO.unpack(stream.read(INFO.size))
-
-            # sub_blocks = [first, second]
-            # infos = [first_info, second_info]
             return TextureMsclBlock(f, count, subs, infos, *unks)
-        # elif f == MslcBlockFormat.Texture:
-        #     name_size = _NUM.unpack(stream.read(_NUM.size))[0]
-        #     name = stream.read(name_size).decode("ascii")
-        #     return TextureMsclBlock(f, name, count)
-        # if f == MslcBlockFormat.Terminal:
-        #     buffer = stream.read(12)
-        #     unks = struct.unpack("< l l l", buffer)
-        #
-        #     return TerminalMsclBlock(f, count, *unks)
 
         try:
             buffer_size = f.vertex_buffer_size()
@@ -322,44 +220,20 @@ class MslcChunk:
     V_SIZE = {39: V_SIZE_39, 37: V_SIZE_37}
     I_SIZE = 2
 
-    # name:str
-
     header: MsclHeader
     names: List[MslcName]
 
     blocks: List[MslcBlock]
 
-    # unk_buffer_format: int
-    # vertex_data: bytes
-    #
-    # unk_c: int
-
-    # textures: List[TextureInfo]
-    # texture: str
-
-    # index_data: bytes
-
-    # unk_d: int
-    # unk_e: int
-    # unk_f: int
-    # unk_g: int
-
-    # vertex_count: int = None
-    # index_count: int = None
-
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MslcChunk':
-        # name = chunk.name
         data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
-        # 0x5570 - 0x770 = 0x4E00 ! 48 BITS ?!
-        # 0xe05d - 0xa39d = 0x3CC0 ~ 15552 ! 32 BITS ?!
 
         with BytesIO(data.data) as stream:
             header = MsclHeader.unpack(stream)
             names = [MslcName.unpack(stream) for _ in range(header.name_count)]
 
             blocks = []
-            # while True:
 
             start = stream.tell()
             stream.seek(0, 2)
@@ -367,41 +241,10 @@ class MslcChunk:
             stream.seek(start)
 
             while stream.tell() != end:
-                # print(stream.tell())
-                # print(stream.read(4))
-                # stream.seek(-4, 1)
                 block = MslcBlockUtil.unpack(stream)
                 blocks.append(block)
-            # print(blocks)
-            # vertex_count, buffer_format = struct.unpack("< L L", stream.read(8))
-            # print(chunk.name, "\n","\t", "HEADER:", header.unk_a, header.flag_b, header.unk_c, header.unk_d, "~", buffer_format)
-            # vertex = stream.read(vertex_count * cls.V_SIZE.get(buffer_format))
-
-            # temp_buffer = stream.read(8)
-            # unk_c, texture_count = struct.unpack("< L L", temp_buffer)  #
-            # textures = []
-            # for _ in range(texture_count):
-            # 3977b ~
-            # size = _NUM.unpack(stream.read(_NUM.size))[0]
-            # size_buffer = stream.read(size)
-            # text: TextureInfo
-            # try:
-            # texture = size_buffer.decode("ascii")
-            # tex = TextureInfo(name=name)
-            # except UnicodeDecodeError:
-            #     data = buffer
-            #     tex = TextureInfo(data=data)
-            # textures.append(tex)
-            # index_count = _NUM.unpack(stream.read(_NUM.size))[0]
-            # index = stream.read(index_count * cls.I_SIZE)
-            # unk_d, unk_e, unk_f, unk_g = struct.unpack("< L L L L", stream.read(4 * 4))
 
             return MslcChunk(header, names, blocks)
-            # names, buffer_format, vertex,
-            # unk_c,
-            # texture, index,
-            # unk_d, unk_e, unk_f, unk_g,
-            # vertex_count, index_count)
 
 
 @dataclass
@@ -416,8 +259,6 @@ class WhmChunk:
         return WhmChunk(sshr, msgr)
 
 
-# after MSCL texture name is the index count, multiply by two due to the size (short)?
-
 def raw_dump():
     dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])
 
@@ -430,36 +271,7 @@ def print_meta(f: str):
         print(meta)
 
 
-def write_position(stream: TextIO, x, y, z):
-    stream.write('v %f %f %f\n' % (x, y, z))
 
-
-def write_normal(stream: TextIO, x, y, z):
-    stream.write('vn %f %f %f\n' % (x, y, z))
-
-
-def write_uv(stream: TextIO, x, y):
-    stream.write('vt %f %f\n' % (x, y))
-
-
-def write_tri(stream: TextIO, *args, v_offset: int = 0, zero_based:bool=False):
-    stream.write('f')
-    for v in args:
-        stream.write(' %i' % (v + v_offset + (1 if zero_based else 0))) # OBJ is 1 based
-        # stream.write(' %i/%i/%i' % (v + v_offset, v + v_offset, v + v_offset))
-    stream.write("\n")
-
-
-def write_obj_name(stream: TextIO, name: str):
-    stream.write(f'o {name}\n')
-
-
-# DOW VERTEX FORMAT:
-#  POS ~ 3 float32 (12 bytes)
-#  ??? ~ 4 float32 (16 bytes)?
-#  NORM? ~ 3 float32 (12 bytes)
-#  UV ~ 2 float32 (8 bytes)
-#       TOTAL ~ 48 bytes
 Float4 = Tuple[float, float, float, float]
 Float3 = Tuple[float, float, float]
 Float2 = Tuple[float, float]
@@ -623,7 +435,7 @@ def write_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int 
 #                 m.write(json.dumps({'vertexes': len(mesh.vertex_data) / 48, 'triangles': len(mesh.index_data) / 6}))
 
 
-def dump_all_model(f: str, o: str, full:bool=True):
+def dump_all_model(f: str, o: str, full: bool = True):
     for root, file in walk_ext(f, ".whm"):
         full_path = join(root, file)
         dump = full_path.replace(f, o, 1)
@@ -693,7 +505,7 @@ def dump_model(f: str, o: str, full: bool = True):
                 pass
             for i, mesh in enumerate(whm.msgr.submeshes):
                 name = whm.msgr.parts[i].name
-                o_part = join(o,name+".obj")
+                o_part = join(o, name + ".obj")
                 with open(o_part, "w") as obj:
                     # if mesh.unk_buffer_format != 39:
                     #     continue

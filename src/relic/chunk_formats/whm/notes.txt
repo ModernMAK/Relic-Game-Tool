@@ -1,0 +1,25 @@
+
+# FBIF
+# RGSM (name of model)
+# => MSGR
+# => => MSLC (submodel? body part?)
+# => => => BVOL
+# => => => DATA
+# => => BVOL
+# => => DATA
+# => SSHR (names are paths to textures [as images])
+# => MARK
+# => ANIM (name)
+# => SKEL
+
+# 0x5570 - 0x770 = 0x4E00 ! 48 BITS ?!
+# 0xe05d - 0xa39d = 0x3CC0 ~ 15552 ! 32 BITS ?!
+
+# after MSCL texture name is the index count, multiply by two due to the size (short)?
+
+# DOW VERTEX FORMAT:
+#  POS ~ 3 float32 (12 bytes)
+#  ??? ~ 4 float32 (16 bytes)?
+#  NORM? ~ 3 float32 (12 bytes)
+#  UV ~ 2 float32 (8 bytes)
+#       TOTAL ~ 48 bytes
