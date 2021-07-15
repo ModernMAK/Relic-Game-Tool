@@ -1,26 +1,14 @@
-import struct
-from typing import Tuple, TextIO, Iterable
-
-Float2 = Tuple[float, float]
-Float2_Layout = struct.Struct("< f f")
-
-Float3 = Tuple[float, float, float]
-Float3_Layout = struct.Struct("< f f f")
-
-Float4 = Tuple[float, float, float, float]
-Float4_Layout = struct.Struct("< f f f f")
-
-Short3 = Tuple[int, int, int]
-Short3_Layout = struct.Struct("< h h h")
+from typing import TextIO, Iterable
 
 
 class ObjWriter:
     def __init__(self, stream: TextIO):
         self._stream = stream
 
-    def __write_index(self, code: str, *indexes: Iterable[int]):
-        line = code + ' %i' * len(indexes)
-        line = line % indexes
+    def __write_index(self, code: str, *indexes: int, offset:int = 0, zero_based: bool=False):
+        line = code + ' %i' * len(indexes) + "\n"
+        indexes = [i + offset + (1 if zero_based else 0) for i in indexes]
+        line = line % tuple(indexes)
         return self._stream.write(line)
 
     def __write_name(self, code: str, name: str):
@@ -45,14 +33,14 @@ class ObjWriter:
         return self._stream.write(line)
 
     # Index Info
-    def write_face(self, *indexes: Iterable[int]):
-        return self.__write_index("f", *indexes)
+    def write_face(self, *indexes: int, offset: int = 0, zero_based: bool = False):
+        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based)
 
-    def write_line(self, *indexes: Iterable[int]):
-        return self.__write_index("l", *indexes)
+    def write_line(self, *indexes: int, offset: int = 0, zero_based: bool = False):
+        return self.__write_index("l", *indexes, offset=offset, zero_based=zero_based)
 
-    def write_point(self, *indexes: Iterable[int]):
-        return self.__write_index("p", *indexes)
+    def write_point(self, *indexes: int, offset: int = 0, zero_based: bool = False):
+        return self.__write_index("p", *indexes, offset=offset, zero_based=zero_based)
 
     # Structure Info
     def write_group_name(self, name: str):
