@@ -2,49 +2,61 @@
 # Secondary, Trim & Splat 2 - Weapon, Detail, Dirt Dirt is inclluded in Splat2 so that both pngs can be RGB instead
 # of RGBA's (although having dirt be in both Alphas would also be a decent solution)
 import os
+from contextlib import contextmanager
 from io import BytesIO
-from os.path import join, splitext, basename
-from typing import List, Dict
+from os.path import join, split
+from typing import List, Dict, BinaryIO, Tuple, Union
 
 from PIL import Image
 from PIL.Image import Image as PilImage
+
 from relic.chunk_formats.rsh import create_image
+from relic.chunk_formats.wtp import get_wtp, create_mask_image, WtpFile
+from relic.sga import FlatArchive, FullArchive
 from relic.shared import walk_ext
-from relic.chunk_formats.wtp import get_wtp, create_mask_image
 
 
-def dump_wtp_as_compact(f: str, o: str):
+def dump_file_as_compact(f: str, o: str):
+    wtp = get_wtp(f)
+    dump_wtp_as_compact(wtp, o)
+
+
+def dump_wtp_as_compact(wtp: WtpFile, o: str):
+    compacts = open_streams(o)
+    write_compact(wtp, compacts)
+
+
+@contextmanager
+def open_streams(o: str) -> Tuple[BinaryIO, BinaryIO, BinaryIO]:
+    dirname, filename = split(o)
     MAIN_EXT = "_Albedo.png"
     SPLAT_1_EXT = "_TeamMajorSplat.png"  # IDK what to call them
     SPLAT_2_EXT = "_TeamMinorSplat.png"
-
-    n = basename(o)
-
-    wtp_chunky = get_wtp(f)
-
-    if wtp_chunky is None:
-        raise NotImplementedError(f"'{f} couldn't be processed.")
-
     try:
         os.makedirs(o)
     except FileExistsError:
         pass
 
-    # Create a 'file' that we can write our TGAs to
-    # Shared buffer seems to not work? I assume its because Pillow is lazy
+    with open(join(dirname, filename, filename + MAIN_EXT), "wb") as albedo:
+        with open(join(dirname, filename, filename + SPLAT_1_EXT), "wb") as splat1:
+            with open(join(dirname, filename, filename + SPLAT_2_EXT), "wb") as splat2:
+                yield albedo, splat1, splat2
+
+
+def write_compact(wtp: WtpFile, compacts: Tuple[BinaryIO, BinaryIO, BinaryIO]):
+    albedo, splat_major, splat_minor = compacts
     with BytesIO() as main_buffer:
         # Start by dumping main
-        create_image(main_buffer, wtp_chunky.tpat.imag)
+        create_image(main_buffer, wtp.tpat.imag)
         # Fix file pointer to allow for reading
         main_buffer.seek(0)
         # Read
         main: PilImage = Image.open(main_buffer)
         # Save
-        with open(join(o, n + MAIN_EXT), "wb") as handle:
-            main.save(handle, format="png")
+        main.save(albedo)
 
     # Setup vars for team layers
-    info = wtp_chunky.tpat.info
+    info = wtp.tpat.info
     size = (info.width, info.height)
 
     # Read in layer images, to merge them they need to be all loaded in
@@ -52,7 +64,7 @@ def dump_wtp_as_compact(f: str, o: str):
     # but this allows me to easily replace it with the black/white default layers
     imgs: Dict[int, PilImage] = {}
     buffers: List[BytesIO] = []
-    for ptld in wtp_chunky.tpat.ptld:
+    for ptld in wtp.tpat.ptld:
         buffer = BytesIO()
         create_mask_image(buffer, ptld, info)
         buffer.seek(0)
@@ -68,17 +80,11 @@ def dump_wtp_as_compact(f: str, o: str):
             # Write First Splat
             with Image.merge("RGB", channels_1) as splat_1:
                 splat_1: PilImage
-                # channels_1[0].show()
-                # channels_1[1].show()
-                # channels_1[2].show()
-                # splat_1.show()
-                with open(join(o, n + SPLAT_1_EXT), "wb") as handle:
-                    splat_1.save(handle, format="png")
+                splat_1.save(splat_major, format="png")
             # Write second splat
             with Image.merge("RGB", channels_2) as splat_2:
                 splat_2: PilImage
-                with open(join(o, n + SPLAT_2_EXT), "wb") as handle:
-                    splat_2.save(handle, format="png")
+                splat_2.save(splat_minor, format="png")
 
         for img in imgs.values():
             img.close()
@@ -86,21 +92,19 @@ def dump_wtp_as_compact(f: str, o: str):
             buffer.close()
 
 
-def dump_all_wtp_as_image(f: str, o: str):
+def dump_all_wtp_in_archive(sga: Union[FlatArchive, FullArchive], o: str):
+    for path, file in sga.walk_files(exts="wtp"):
+        wtp = WtpFile.create(file)
+        dump_wtp_as_compact(wtp, join(o, path))
 
+
+def dump_all_wtp_in_folder(f: str, o: str):
     for root, file in walk_ext(f, ["wtp"]):
-        src = join(root, file)
-        partial = src.replace(f, "", 1).lstrip("\\").lstrip("/")
-        dest = join(o, partial)
-        dest, _ = splitext(dest)
-        print(f"...\\{partial}")
-        try:
-            dump_wtp_as_compact(src, dest)
-        except NotImplementedError as e:
-            print("\t", e)
+        full = join(root, file)
+        dump = full.replace(f, o, 1)
+        dump_file_as_compact(full, dump)
+
 
 
 if __name__ == "__main__":
-    dump_all_wtp_as_image(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\teamable textures")
-    # dump_all_wtp_as_image(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard", r"D:\Dumps\DOW I\teamable textures\art\ebps\races\imperial_guard")
-    # dump_all_wtp_as_image(r"D:\Dumps\DOW I\sga\art\ebps\races\imperial_guard\texture_share\ig_guardsmen_sergeant_default.wtp", r"D:\Dumps\DOW I\teamable textures\art\ebps\races\imperial_guard\texture_share\ig_guardsmen_sergeant_default")
+    dump(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\teamable textures")

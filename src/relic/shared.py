@@ -13,13 +13,17 @@ def get_stream_size(stream: BinaryIO) -> int:
     return terminal
 
 
-def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
+def fix_exts(ext:Union[str,List[str]]) -> List[str]:
     if isinstance(ext, str):
         ext = [ext]
 
     ext = [x.lower() for x in ext]
     ext = [f".{x}" if x[0] != '.' else x for x in ext]
+    return ext
 
+
+def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
+    ext = fix_exts(ext)
     if os.path.isfile(folder):
         root, file = dirname(folder), basename(folder)
         _, x = splitext(file)

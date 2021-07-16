@@ -5,7 +5,7 @@ import shutil
 import struct
 from dataclasses import dataclass
 from io import BytesIO
-from os.path import join, splitext, dirname, basename, split
+from os.path import join, splitext, dirname, split
 from typing import BinaryIO, List, TextIO, Tuple, Union
 
 from relic.chunky.data_chunk import DataChunk
@@ -361,7 +361,7 @@ def write_matlib_name(obj: TextIO, obj_path: str) -> str:
     matlib_writer = ObjWriter(obj)
     matlib_writer.write_material_library(filename)
 
-    return join(dirname,filename)
+    return join(dirname, filename)
 
 
 def dump_model(f: str, o: str, full: bool = True):
@@ -405,38 +405,36 @@ def dump_model(f: str, o: str, full: bool = True):
                     write_matlib_name(obj, o_part)
                     write_obj(obj, mesh, name)
 
+
 @dataclass
 class SkelBone:
-     # This chunk is also super easy
-    name:str
-    index:int
-    floats:List[int]
+    # This chunk is also super easy
+    name: str
+    index: int
+    floats: List[int]
 
     @classmethod
-    def unpack(cls, stream:BinaryIO) -> 'SkelBone':
+    def unpack(cls, stream: BinaryIO) -> 'SkelBone':
         buffer = stream.read(_NUM.size)
         name_size = _NUM.unpack(buffer)[0]
         name = stream.read(name_size)
         data = stream.read(32)
         args = struct.unpack("< l 7f", data)
 
-        return SkelBone(name,args[0],args[1:])
+        return SkelBone(name, args[0], args[1:])
+
 
 @classmethod
 class SkelChunk:
-     # This chunk is super easy
-    bones:List[SkelBone]
+    # This chunk is super easy
+    bones: List[SkelBone]
 
-    def unpack(self, chunk:DataChunk) -> 'SkelChunk':
+    def unpack(self, chunk: DataChunk) -> 'SkelChunk':
         with BytesIO(chunk.data) as stream:
             buffer = stream.read(_NUM.size)
             bone_size = _NUM.unpack(buffer)[0]
             bones = [SkelBone.unpack(stream) for _ in range(bone_size)]
         return SkelChunk(bones)
-
-
-
-
 
 
 if __name__ == "__main__":

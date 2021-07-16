@@ -161,10 +161,3 @@ def dump_all_fda(folder: str, out_dir: str = None, blacklist: List[str] = None, 
 if __name__ == "__main__":
     dump_all_fda(r"D:/Dumps/DOW I/sga",
                  out_dir=r"D:/Dumps/DOW I/fda", verbose=True)
-
-# FDA are chunky files, but they are wierd; they appear to only be 2 chunks INFO and DATA (unnamed) + a named chunk fileburninfo
-# 4 bytes; size of DATA
-# 256 X; blocks of sound
-#   According to the relic tool, this was aifc then converted to fda (I imagined they saved space by having the engine reconstruct it?)
-#
-#       Downloading the tool comes with FDA Specs
