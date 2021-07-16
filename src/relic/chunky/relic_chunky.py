@@ -1,6 +1,6 @@
 import struct
 from dataclasses import dataclass
-from typing import List, Union, BinaryIO, Tuple
+from typing import BinaryIO
 
 from relic.chunky.chunk_collection import ChunkCollection
 from relic.chunky.relic_chunky_header import RelicChunkyHeader

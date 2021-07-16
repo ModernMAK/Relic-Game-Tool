@@ -13,9 +13,6 @@ class ChunkType(Enum):
     Data = "DATA"
 
 
-#class ChunkId(Enum):
-    # Info = "INFO"
-
 
 @dataclass
 class ChunkHeader:
