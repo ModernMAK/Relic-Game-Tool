@@ -29,7 +29,7 @@ def write_matlib_name(stream: TextIO, obj_path: str) -> str:
     return join(dirname, filename)
 
 
-def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0) -> int:
+def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0, validate:bool=True) -> int:
     writer = ObjWriter(stream)
     v_local_offset = 0
 
@@ -47,16 +47,16 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
             reader = MeshReader(vertex)
             v_count = block.count
 
-            for pos in reader.read_float3(v_count):
+            for pos in reader.read_float3(v_count, validate=validate):
                 writer.write_vertex_position(*pos)
 
             if block.format in [MslcBlockFormat.Vertex48]:
                 reader.seek_float4(v_count)
 
-            for normal in reader.read_float3(v_count):
+            for normal in reader.read_float3(v_count, validate=validate):
                 writer.write_vertex_normal(*normal)
 
-            for uv in reader.read_float2(v_count):
+            for uv in reader.read_float2(v_count, validate=validate):
                 writer.write_vertex_uv(*uv)
 
         v_local_offset += v_count

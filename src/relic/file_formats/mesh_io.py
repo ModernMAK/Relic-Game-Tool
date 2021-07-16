@@ -1,3 +1,4 @@
+import math
 import struct
 from typing import Tuple, BinaryIO, Iterable, Any
 
@@ -31,25 +32,45 @@ class MeshReader:
         for _ in range(size):
             yield self.__read(layout)
 
-    def read_float3(self, size: int = 1) -> Iterable[Any]:
-        return self.__read_list(Float3_Layout, size)
+    @classmethod
+    def _validate_float(cls, validate: bool, *values:float):
+        if validate:
+            for value in values:
+                assert not math.isnan(value)
+
+
+    @classmethod
+    def _validate_float_list(cls, validate: bool, *value_lists:Iterable[float]):
+        if validate:
+            for list in value_lists:
+                for value in list:
+                    assert not math.isnan(value)
+
+    def read_float3(self, size: int = 1, validate: bool = False) -> Iterable[Float3]:
+        values = self.__read_list(Float3_Layout, size)
+        self._validate_float_list(validate, *values)
+        return values
 
     def seek_float3(self, size: int = 1):
         self.__seek(Float3_Layout, size)
 
-    def read_float4(self, size: int = 1) -> Iterable[Any]:
-        return self.__read_list(Float4_Layout, size)
+    def read_float4(self, size: int = 1, validate: bool = False) -> Iterable[Float4]:
+        values = self.__read_list(Float4_Layout, size)
+        self._validate_float_list(validate, *values)
+        return values
 
     def seek_float4(self, size: int = 1):
         self.__seek(Float4_Layout, size)
 
-    def read_float2(self, size: int = 1) -> Iterable[Any]:
-        return self.__read_list(Float2_Layout, size)
+    def read_float2(self, size: int = 1, validate: bool = False) -> Iterable[Float2]:
+        values = self.__read_list(Float2_Layout, size)
+        self._validate_float_list(validate, *values)
+        return values
 
     def seek_float2(self, size: int = 1):
         self.__seek(Float2_Layout, size)
 
-    def read_short3(self, size: int = 1) -> Iterable[Any]:
+    def read_short3(self, size: int = 1, validate: bool = False) -> Iterable[Short3]:
         return self.__read_list(Short3_Layout, size)
 
     def seek_short3(self, size: int = 1):
