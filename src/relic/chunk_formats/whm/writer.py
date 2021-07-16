@@ -110,7 +110,9 @@ def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None
         tex_name = get_name_from_texture_path(texture)
         mtl_writer.write_default_texture(tex_name)
         full_texture = join(texture_root, texture) if texture_root else texture
-        mtl_writer.write_texture_diffuse(full_texture + texture_ext)
+        full_texture += texture_ext
+        mtl_writer.write_texture_diffuse(full_texture)
+        mtl_writer.write_texture_alpha(full_texture)
 
 
 def write_obj_mtl(dest: str, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None):

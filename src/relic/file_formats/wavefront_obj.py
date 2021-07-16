@@ -99,11 +99,13 @@ class MtlWriter:
         return self.__write_float("Ni", value)
 
     def write_dissolve(self, value: float):
-        return self.__write_float("d", value)
+        written = self.__write_float("d", value)
+        written += self.__write_float("Tr", 1.0-value)
+        return written
 
     # Enum
     def write_illum_mode(self, value: int):
-        return self.__write_int("d", value)
+        return self.__write_int("illum", value)
 
     # Starts a block
     def write_new_material(self, name: str) -> int:
@@ -150,7 +152,7 @@ class MtlWriter:
         written += self.write_color_ambient(WHITE)
         written += self.write_color_diffuse(WHITE)
         written += self.write_color_specular(BLACK)
-        written += self.write_dissolve(1)
+        written += self.write_dissolve(0)
         written += self.write_specular_highlight(0)
         written += self.write_optical_density(1)
         written += self.write_illum_mode(2)
