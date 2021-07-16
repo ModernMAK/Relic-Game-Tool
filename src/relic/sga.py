@@ -408,12 +408,18 @@ class Folder:
                     raise Exception("File matches multiple folders!")
                 files[i]._folder = self
 
-    def walk_files(self, exts: List[str]) -> Iterable[Tuple[str, str, 'File']]:
+    def walk_files(self, exts: List[str] = None) -> Iterable[Tuple[str, str, 'File']]:
         if exts:
             exts = fix_exts(exts)
 
+
         for f in self.files:
+            if exts:
+                _, ext = splitext(f.name)
+                if ext not in exts:
+                    continue
             yield self.name, f.name, f
+
         for f in self.folders:
             for p in f.walk_files(exts):
                 yield p
@@ -654,7 +660,7 @@ def walk_sga_paths(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[s
         yield root, file
 
 
-def walk_sga_archive(folder: str, blacklist: List[str] = None) -> Iterable[str, FlatArchive]:
+def walk_sga_archive(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, FlatArchive]]:
     for root, file in walk_sga_paths(folder, blacklist):
         full = join(root, file)
         with open(full, "rb") as handle:

@@ -1,11 +1,13 @@
 import enum
 import struct
-from ctypes import Union
 from dataclasses import dataclass
 from enum import Enum
-from typing import Tuple, List, BinaryIO
+from io import BytesIO
+from typing import Tuple, List, BinaryIO, Union
 
 from relic.chunk_formats.whm.shared import num_layout
+from relic.chunky import FolderChunk, DataChunk
+
 
 @dataclass
 class MsclHeader:
@@ -100,10 +102,7 @@ class TextureMsclBlock:
     unk_c: int
 
 
-MslcBlock = Union[
-    VertexMsclBlock,
-    TextureMsclBlock
-]
+MslcBlock = Union[VertexMsclBlock, TextureMsclBlock]
 
 
 class MslcBlockUtil:

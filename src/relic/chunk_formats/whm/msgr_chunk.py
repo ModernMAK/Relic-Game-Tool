@@ -1,10 +1,12 @@
-import struct
 from dataclasses import dataclass
 from io import BytesIO
 from typing import BinaryIO, List
 
-from relic.chunk_formats.whm.whm import MslcChunk
+from relic.chunk_formats.whm.mslc_chunk import MslcChunk
+from relic.chunk_formats.whm.shared import num_layout, _UNK_STRUCT
 from relic.chunky import DataChunk, FolderChunk
+
+_NUM = num_layout
 
 @dataclass
 class MsgrName:

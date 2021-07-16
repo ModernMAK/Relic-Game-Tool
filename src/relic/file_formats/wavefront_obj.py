@@ -8,9 +8,10 @@ class ObjWriter:
         self._stream = stream
 
     def __write_index(self, code: str, *indexes: int, offset: int = 0, zero_based: bool = False):
-        line = code + ' %i' * len(indexes) + "\n"
         indexes = [i + offset + (1 if zero_based else 0) for i in indexes]
-        line = line % tuple(indexes)
+        part = "%i/%i/%i"
+        parts = [part % (i, i, i) for i in indexes]
+        line = code + " " + " ".join(parts) + "\n"
         return self._stream.write(line)
 
     def __write_name(self, code: str, name: str):
@@ -106,11 +107,14 @@ class MtlWriter:
 
     # Starts a block
     def write_new_material(self, name: str) -> int:
-        return self._stream.write(f"newmtl {name}")
+        return self._stream.write(f"newmtl {name}\n")
 
     # Textures
     def write_texture_diffuse(self, path: str) -> int:
-        return self.__write_texture("Ka", path)
+        return self.__write_texture("Kd", path)
+
+    def write_texture_ambient(self, path: str) -> int:
+        return self.__write_texture("Kd", path)
 
     def write_texture_specular_color(self, path: str) -> int:
         return self.__write_texture("Ks", path)
@@ -141,11 +145,13 @@ class MtlWriter:
     def write_default_texture(self, name: str) -> int:
         written = 0
         WHITE = (1, 1, 1)
+        BLACK = (0, 0, 0)
         written += self.write_new_material(name)
         written += self.write_color_ambient(WHITE)
         written += self.write_color_diffuse(WHITE)
-        written += self.write_color_specular(WHITE)
+        written += self.write_color_specular(BLACK)
+        written += self.write_dissolve(1)
         written += self.write_specular_highlight(0)
         written += self.write_optical_density(1)
-        written += self.write_illum_mode(0)
+        written += self.write_illum_mode(2)
         return written

@@ -4,20 +4,17 @@ import struct
 import subprocess
 from dataclasses import dataclass
 from io import BytesIO
-from os.path import join, dirname
+from os.path import join, dirname, splitext
 from typing import BinaryIO
 
 from relic import chunky
-# from relic.chunky import DataChunk, FolderChunk, RelicChunky
-from relic.chunky.data_chunk import DataChunk
-from relic.chunky.folder_chunk import FolderChunk
-from relic.chunky.relic_chunky import RelicChunky
+from relic.chunky import DataChunk, FolderChunk, RelicChunky
 from relic.file_formats.dxt import get_full_dxt_header, DDS_MAGIC, build_dow_tga_color_header
 from relic.shared import EnhancedJSONEncoder, walk_ext
 
 
-def raw_dump():
-    chunky.dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\rsh-chunky", [".rsh"])
+# def raw_dump():
+#     chunky.dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\rsh-chunky", [".rsh"])
 
 
 @dataclass
@@ -68,8 +65,8 @@ class ImagChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'ImagChunk':
-        attr_chunk = chunk.get_chunk("ATTR")
-        data_chunk = chunk.get_chunk("DATA")
+        attr_chunk = chunk.get_chunk(id="ATTR")
+        data_chunk = chunk.get_chunk(id="DATA")
 
         attr = AttrChunk.create(attr_chunk)
         data = data_chunk
@@ -84,8 +81,8 @@ class TxtrChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'TxtrChunk':
-        head_chunk = chunk.get_chunk("HEAD")
-        imag_chunk = chunk.get_chunk("IMAG")
+        head_chunk = chunk.get_chunk(id="HEAD")
+        imag_chunk = chunk.get_chunk(id="IMAG")
 
         head = HeadChunk.create(head_chunk)
         imag = ImagChunk.create(imag_chunk)
@@ -101,7 +98,7 @@ class ShrfChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'ShrfChunk':
-        txtr_chunk = chunk.get_chunk("TXTR")
+        txtr_chunk = chunk.get_chunk(id="TXTR")
         # shdr_chunk = chunk.get_chunk("SHDR")
 
         txtr = TxtrChunk.create(txtr_chunk)
@@ -116,7 +113,7 @@ class RshFile:
 
     @classmethod
     def create(cls, chunky: RelicChunky) -> 'RshFile':
-        shrf_folder = chunky.get_chunk("SHRF")
+        shrf_folder = chunky.get_chunk(id="SHRF", recursive=True)
         shrf = ShrfChunk.create(shrf_folder)
         return RshFile(shrf)
 
@@ -136,7 +133,7 @@ _TGA_FORMATS = [0]
 def get_ext(format: int) -> str:
     if format in _TGA_FORMATS:
         return ".tga"
-    elif get_dds_format(format) != None:
+    elif get_dds_format(format) is not None:
         return ".dds"
     else:
         raise NotImplementedError(format)
@@ -183,6 +180,7 @@ def dump_rsh_as_image(f: str, o: str):
     rsh = get_rsh(f)
 
     ext = get_ext(rsh.shrf.texture.imag.attr.img)
+    o, _ = splitext(o)
     o += ext
 
     try:
@@ -212,7 +210,7 @@ def dump_all_rsh_as_image(f: str, o: str):
             print("\t\t", e)
 
 
-def directex_fix_texture(f: str, path: str = r"..\dll\texconv.exe"):
+def directex_fix_texture(f: str, path: str = r"..\..\dll\texconv.exe"):
     path = os.path.abspath(path)
     outdir = dirname(f)
     subprocess.run([path, "-vflip", f, "-y", "-o", outdir])
@@ -224,7 +222,23 @@ def fix_texture_inversion(folder: str):
         directex_fix_texture(f)
 
 
+def convert_all(f: str, o: str, fmt: str = "png", path: str = r"..\..\dll\texconv.exe"):
+    path = os.path.abspath(path)
+    for root, _, files in os.walk(f):
+        for file in files:
+            file_path = join(root, file)
+            output_dir = root.replace(f, o, 1)
+            try:
+                os.makedirs(output_dir)
+            except FileExistsError:
+                pass
+            subprocess.run([path, "-vflip", file_path, "-y", "-ft", fmt, "-o", output_dir])
+
+
 if __name__ == "__main__":
     # pass
-    dump_all_rsh_as_image("D:\Dumps\DOW I\sga", "D:\Dumps\DOW I\dds")
-    fix_texture_inversion("D:\Dumps\DOW I\dds")
+    dump_all_rsh_as_image(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\rsh")
+    # fix_texture_inversion(r"D:\Dumps\DOW I\rsh")
+    convert_all(r"D:\Dumps\DOW I\rsh", r"D:\Dumps\DOW I\textures",fmt="tga")
+    # dump_all_rsh_as_image(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\textures\png")
+    # fix_texture_inversion("D:\Dumps\DOW I\dds")
