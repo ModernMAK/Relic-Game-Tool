@@ -2,7 +2,6 @@ import os
 from os.path import join, dirname
 from typing import List
 
-from relic.chunky.chunk_header import ChunkType
 from relic.chunky.relic_chunky import RelicChunky
 from relic.shared import walk_ext
 
@@ -58,6 +57,7 @@ def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None):
 
 
 if __name__ == "__main__":
-    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])
+    #dump all Warhammer Models as bin
+    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\chunky-bin","whm")
     # import cProfile
     # cProfile.run('dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])')

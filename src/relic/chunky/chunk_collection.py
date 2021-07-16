@@ -122,16 +122,22 @@ class ChunkCollection:
     def walk_chunks(self, recursive: bool = True) -> Iterable[WalkResult]:
         return walk_chunks(self.chunks, recursive=recursive)
 
-    def get_chunks(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None) -> \
-    Iterable[AbstractChunk]:
+    def get_chunk_list(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None, optional:bool=False) -> List[AbstractChunk]:
+        chunks = [chunk for chunk in self.get_chunks(recursive,id=id,type=type,name=name)]
+        if len(chunks) == 0 and not optional:
+            raise Exception(f"No chunk found! ('{id}' '{type}' '{name}'). To allow missing chunks, set optional=True")
+        else:
+            return chunks
+
+
+    def get_chunks(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None) -> Iterable[AbstractChunk]:
         for _, _, folders, data in self.walk_chunks_filtered(recursive=recursive, ids=id, types=type, names=name):
             for folder in folders:
                 yield folder
             for d in data:
                 yield d
 
-    def get_chunk(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None,
-                  optional: bool = False) -> AbstractChunk:
+    def get_chunk(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None, optional: bool = False) -> AbstractChunk:
         for chunk in self.get_chunks(recursive=recursive, id=id, type=type, name=name):
             return chunk
         if optional:

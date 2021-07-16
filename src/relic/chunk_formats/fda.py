@@ -11,12 +11,13 @@ from io import BytesIO
 from os.path import join, dirname, splitext, exists, basename
 from typing import BinaryIO, List
 
-from relic.chunky import DataChunk, FileHeader, RelicChunky
+from relic.chunky.data_chunk import DataChunk
+from relic.chunky.folder_chunk import FolderChunk
+from relic.chunky.relic_chunky import RelicChunky
+from relic.chunky.relic_chunky_header import RelicChunkyHeader
+from relic.file_formats import aiff
 from relic.shared import walk_ext
 
-FIXED = True
-
-from relic import aiffr
 
 _INFO_STRUCT = struct.Struct("< L L L L L L L")
 _DATA_STRUCT = struct.Struct("< L")
@@ -45,29 +46,28 @@ class FdaDataChunk:
 
     @classmethod
     def create(cls, chunk: DataChunk) -> 'FdaDataChunk':
-        args = _DATA_STRUCT.unpack_from(chunk.data, 0)[0]
+        args = _DATA_STRUCT.unpack(chunk.data)[0]
         data = chunk.data[4:]
         return FdaDataChunk(args, data)
 
 
 @dataclass
 class FdaChunky:
-    header: FileHeader
-    # fbif: DataChunk
-    # fda: FolderChunk
-    # info: DataChunk
-    # data: DataChunk
+    header: RelicChunkyHeader
     info_block: FdaInfoChunk
     data_block: FdaDataChunk
 
     @classmethod
     def create(cls, chunky: RelicChunky) -> 'FdaChunky':
         header = chunky.header
-        # fbif = chunky.get_chunk("FBIF")
-        fda = chunky.get_chunk("FDA ")
-        info = fda.get_chunk_by_id("INFO")
-        data = fda.get_chunk_by_id("DATA")
+        # We ignore burn info ~ FBIF
+        fda: FolderChunk = chunky.get_chunk(id="FDA ")
 
+        # We fetch 'FDA ' and get the Info/Data block from FDA
+        info = fda.get_chunk(id="INFO")
+        data = fda.get_chunk(id="DATA")
+
+        # parse the blocks
         fda_info = FdaInfoChunk.create(info)
         fda_data = FdaDataChunk.create(data)
 
@@ -79,46 +79,44 @@ class Converter:
     COMP_desc = "Relic Codec v1.6"
 
     @classmethod
-    def Fda2Aiffr(cls, chunky: FdaChunky, stream: BinaryIO, *, use_fixed: bool = False) -> int:
+    def Fda2Aiffr(cls, chunky: FdaChunky, stream: BinaryIO) -> int:
         with BytesIO() as temp:
-            aiffr.write_default_FVER(temp)
+            aiff.write_default_FVER(temp)
             info = chunky.info_block
             frames = len(chunky.data_block.data) / math.ceil(info.block_bitrate / 8)
             assert frames == int(frames)
             frames = int(frames)
-            # samples = info.block_bitrate / info.sample_size
 
-            aiffr.write_COMM(temp, info.channels, frames, info.sample_size, info.sample_rate,
-                             cls.COMP, cls.COMP_desc, use_fixed=use_fixed)
-            aiffr.write_SSND(temp, chunky.data_block.data, info.block_bitrate)
+            aiff.write_COMM(temp, info.channels, frames, info.sample_size, info.sample_rate, cls.COMP, cls.COMP_desc, use_fixed=True)
+            aiff.write_SSND(temp, chunky.data_block.data, info.block_bitrate)
             with BytesIO() as marker:
-                aiffr.write_default_markers(marker)
+                aiff.write_default_markers(marker)
                 marker.seek(0, 0)
                 buffer = marker.read()
-                aiffr.write_MARK(temp, 3, buffer)
+                aiff.write_MARK(temp, 3, buffer)
 
             temp.seek(0, 0)
             buffer = temp.read()
-            return aiffr.write_FORM(stream, buffer)
+            return aiff.write_FORM(stream, buffer)
 
     @classmethod
     def Aiffr2Fda(cls, stream: BinaryIO) -> FdaChunky:
-        buffer = aiffr.read_FORM(stream)
+        buffer = aiff.read_FORM(stream)
         info = FdaInfoChunk(None, None, None, None, 0, 0xffffffff, 0)
         data = None
         with BytesIO(buffer) as form:
             while form.tell() != len(buffer):
-                type = form.read(4).decode("ascii")
+                block_type = form.read(4).decode("ascii")
                 form.seek(-4, 1)
 
-                if type == aiffr.FVER:
-                    _ = aiffr.read_FVER(form)
-                elif type == aiffr.COMM:
-                    info.channels, _, info.sample_size, info.sample_rate, _, _ = aiffr.read_COMM(form)
-                elif type == aiffr.SSND:
-                    data, info.block_bitrate = aiffr.read_SSND(form)
-        header = FileHeader("\r\n\x00\x00", 1, 1)
-        return FdaChunky(header, info, FdaDataChunk(len(data), data))
+                if block_type == aiff.FVER:
+                    _ = aiff.read_FVER(form)
+                elif block_type == aiff.COMM:
+                    info.channels, _, info.sample_size, info.sample_rate, _, _ = aiff.read_COMM(form)
+                elif block_type == aiff.SSND:
+                    data, info.block_bitrate = aiff.read_SSND(form)
+
+        return FdaChunky(RelicChunkyHeader.default(), info, FdaDataChunk(len(data), data))
 
 
 def run_old():
@@ -217,7 +215,6 @@ def run_new():
                     Converter.Fda2Aiffr(fda_chunky, writer)
 
 
-
 def shared_dump(file: str, name: str, out_dir: str = None):
     out_dir = out_dir or "gen/fda/shared_dump"
     with open(file, "rb") as handle:
@@ -226,7 +223,6 @@ def shared_dump(file: str, name: str, out_dir: str = None):
         except ValueError as e:
             print(e)
             pass
-            # print(f"\tNot Chunky?!\n\t\t'{e}'")
 
         fda = FdaChunky.create(chunky)
         shared_path = join(out_dir, name)
@@ -236,13 +232,13 @@ def shared_dump(file: str, name: str, out_dir: str = None):
         except FileExistsError:
             pass
         with open(shared_path, "wb") as writer:
-            Converter.Fda2Aiffr(fda, writer, use_fixed=FIXED)
+            Converter.Fda2Aiffr(fda, writer, use_fixed=True)
 
 
 def safe_dump(file: str, name: str, out_dir: str = None):
     out_dir = out_dir or "gen/safe_fda/shared_dump"
     full = join(out_dir, name)
-    path = "../dll/fda2aifc.exe"
+    path = "../../dll/fda2aifc.exe"
     path = os.path.abspath(path)
     try:
         os.makedirs(dirname(full))
@@ -314,5 +310,5 @@ if __name__ == "__main__":
 # 4 bytes; size of DATA
 # 256 X; blocks of sound
 #   According to the relic tool, this was aifc then converted to fda (I imagined they saved space by having the engine reconstruct it?)
-#   https://www.moddb.com/mods/ultimate-apocalypse-mod/tutorials/extracting-the-music-from-dawn-of-war-mods
+#
 #       Downloading the tool comes with FDA Specs

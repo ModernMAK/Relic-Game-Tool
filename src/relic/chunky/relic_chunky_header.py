@@ -17,3 +17,7 @@ class RelicChunkyHeader:
         type_br, v_major, v_minor = _relic_chunky_header_layout.unpack_from(buffer)
         type_br = type_br.decode("ascii")
         return RelicChunkyHeader(type_br, v_major, v_minor)
+
+    @classmethod
+    def default(cls) -> 'RelicChunkyHeader':
+        return RelicChunkyHeader("\r\n\0\0", 1, 1)

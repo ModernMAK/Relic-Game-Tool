@@ -8,8 +8,11 @@ from os.path import join, dirname
 from typing import BinaryIO
 
 from relic import chunky
-from relic.chunky import DataChunk, FolderChunk, RelicChunky
-from relic.dxt import get_full_dxt_header, DDS_MAGIC, build_dow_tga_color_header
+# from relic.chunky import DataChunk, FolderChunk, RelicChunky
+from relic.chunky.data_chunk import DataChunk
+from relic.chunky.folder_chunk import FolderChunk
+from relic.chunky.relic_chunky import RelicChunky
+from relic.file_formats.dxt import get_full_dxt_header, DDS_MAGIC, build_dow_tga_color_header
 from relic.shared import EnhancedJSONEncoder, walk_ext
 
 

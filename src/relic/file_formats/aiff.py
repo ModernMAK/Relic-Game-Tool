@@ -2,7 +2,7 @@ import struct
 from typing import BinaryIO, Tuple
 
 SSND = "SSND"
-SSND_STRUCT = struct.Struct("> 4s l L L H")  # Relic has an extra short inthere
+SSND_STRUCT = struct.Struct("> 4s l L L H")  # Relic has an extra short in there
 
 
 # According to the DOW spec, offset and blocksize is always 0
@@ -94,9 +94,6 @@ def encode_sample_rate(sample_rate: int) -> bytes:
     if sample_rate in lookup:
         return lookup[sample_rate]
     raise KeyError(sample_rate)
-
-    # return bytes([0x00] * 10)
-    # return ieee754.pack_float80(sample_rate)
 
 
 def write_COMM(stream: BinaryIO, channels: int, sample_frames: int, sample_size: int, sample_rate: float, comp: str,

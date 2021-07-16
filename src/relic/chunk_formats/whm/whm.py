@@ -12,8 +12,8 @@ from relic.chunky.data_chunk import DataChunk
 from relic.chunky.dumper import dump_all_chunky
 from relic.chunky.folder_chunk import FolderChunk
 from relic.chunky.relic_chunky import RelicChunky
-from relic.file.mesh_io import MeshReader
-from relic.file.obj import ObjWriter
+from relic.file_formats.mesh_io import MeshReader
+from relic.file_formats.obj import ObjWriter
 from relic.shared import walk_ext, EnhancedJSONEncoder
 
 _UNK_STRUCT = struct.Struct("< L L")
@@ -404,6 +404,39 @@ def dump_model(f: str, o: str, full: bool = True):
                 with open(o_part, "w") as obj:
                     write_matlib_name(obj, o_part)
                     write_obj(obj, mesh, name)
+
+@dataclass
+class SkelBone:
+     # This chunk is also super easy
+    name:str
+    index:int
+    floats:List[int]
+
+    @classmethod
+    def unpack(cls, stream:BinaryIO) -> 'SkelBone':
+        buffer = stream.read(_NUM.size)
+        name_size = _NUM.unpack(buffer)[0]
+        name = stream.read(name_size)
+        data = stream.read(32)
+        args = struct.unpack("< l 7f", data)
+
+        return SkelBone(name,args[0],args[1:])
+
+@classmethod
+class SkelChunk:
+     # This chunk is super easy
+    bones:List[SkelBone]
+
+    def unpack(self, chunk:DataChunk) -> 'SkelChunk':
+        with BytesIO(chunk.data) as stream:
+            buffer = stream.read(_NUM.size)
+            bone_size = _NUM.unpack(buffer)[0]
+            bones = [SkelBone.unpack(stream) for _ in range(bone_size)]
+        return SkelChunk(bones)
+
+
+
+
 
 
 if __name__ == "__main__":

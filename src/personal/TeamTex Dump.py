@@ -1,6 +1,6 @@
-# A personal script using what I have so far to dump WTP files as 3 PNGs (1 Albedo, 2 Splat Masks)
-#   Splat 1 - Primary, Secondary, Trim & Splat 2 - Weapon, Detail, Dirt
-#       Dirt is inclluded in Splat2 so that both pngs can be RGB instead of RGBA's (although having dirt be in both Alphas would also be a decent solution)
+# A personal script using what I have so far to dump WTP files as 3 PNGs (1 Albedo, 2 Splat Masks) Splat 1 - Primary,
+# Secondary, Trim & Splat 2 - Weapon, Detail, Dirt Dirt is inclluded in Splat2 so that both pngs can be RGB instead
+# of RGBA's (although having dirt be in both Alphas would also be a decent solution)
 import os
 from io import BytesIO
 from os.path import join, splitext, basename
@@ -8,9 +8,9 @@ from typing import List, Dict
 
 from PIL import Image
 from PIL.Image import Image as PilImage
-from relic.rsh import create_image
+from relic.chunk_formats.rsh import create_image
 from relic.shared import walk_ext
-from relic.wtp import get_wtp, create_mask_image, _LAYER_NAMES
+from relic.chunk_formats.wtp import get_wtp, create_mask_image
 
 
 def dump_wtp_as_compact(f: str, o: str):
