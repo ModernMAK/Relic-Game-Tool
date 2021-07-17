@@ -1,8 +1,7 @@
 import os
 import shutil
 import tempfile
-from os.path import splitext, join, dirname, basename, exists
-from time import sleep
+from os.path import splitext, join, dirname, exists
 from typing import List, Tuple
 
 
@@ -30,10 +29,10 @@ def shared_dump(file: str, name: str, out_dir: str = None):
     # then copy the temp-dest to the actual location to avoid arbitrary path errors / read errors
     import subprocess
 
-    def create_temporary_copy(path, name: str = "temp.aifc") -> str:
+    def create_temporary_copy(p, n: str = "temp.aifc") -> str:
         temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, name)
-        shutil.copy2(path, temp_path)
+        temp_path = os.path.join(temp_dir, n)
+        shutil.copy2(p, temp_path)
         return temp_path
 
     temp_src = create_temporary_copy(file)

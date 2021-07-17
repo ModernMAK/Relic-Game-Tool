@@ -3,16 +3,11 @@ import os
 import struct
 import zlib
 from dataclasses import dataclass
-from os.path import join
-from typing import BinaryIO, List, Tuple
-
-# THIS FILE CAN HANDLE SGA archives
-# poorly implimented, I wanted to have a sparse windowable type but I didn't do that too well
-from relic.shared import walk_ext, EnhancedJSONEncoder
+from os.path import join, split, splitext
+from typing import BinaryIO, List, Tuple, Iterable
+from relic.shared import walk_ext, EnhancedJSONEncoder, fix_exts
 
 __HEADER = "_ARCHIVE"
-# STOLEN FROM http://wiki.xentax.com/index.php/Dawn_Of_War_SGA
-# While i trust this is probably right, I dont believe the info on EG was 100% perfect (adimttedly it was info for sniper elite, but same format)
 
 # HEADER CONSTS
 _MAGIC_FMT = "< 8s"
@@ -32,7 +27,6 @@ _HEADER_FMT = "< " + (_MAGIC_FMT + _VERSION_FMT + _UNK_A_FMT + _NAME_FMT + _UNK_
     "<", "")
 _HEADER_STRUCT = struct.Struct(_HEADER_FMT)
 _HEADER_OFFSET = 180  # Ours includes the 24 for the OFFSET_FOLDER_SECTION and _FILE_DATA_OFFSET
-assert _HEADER_STRUCT.size == _HEADER_OFFSET, (_HEADER_STRUCT.size, _HEADER_OFFSET)  # TODO move to tests
 
 # DESCRIPTION CONSTS
 _DESC_DIR_STRUCT = struct.Struct("< 64s 64s H L L")
@@ -40,8 +34,6 @@ _FOLDER_DIR_STRUCT = struct.Struct("< L H H H H")
 _FOLDER_NO_SUBS = 36  # IDK what this means
 
 _FILES_DIR_STRUCT = struct.Struct("< L L L L L")
-
-# _FILENAME_DIR_STRUCT = Exception("_FILENAME_DIR_STRUCT is N/A") X + 1 terminal
 
 _FILEDATA_STRUCT = struct.Struct("< 235s Q")  # + X
 
@@ -118,9 +110,7 @@ class DataOffsetInfo:
         return archive
 
     def pack(self, stream: BinaryIO) -> int:
-        buffer: bytes = bytearray(_FILE_DATA_OFFSET_STRUCT.size)
-        tuple = (self.offset_relative, self.offset_absolute)
-        _FILE_DATA_OFFSET_STRUCT.pack_into(buffer, 0, tuple)
+        buffer = _FILE_DATA_OFFSET_STRUCT.pack(self.offset_relative, self.offset_absolute)
         return stream.write(buffer)
 
 
@@ -231,16 +221,13 @@ class OffsetInfo:
         return archive
 
     def pack(self, stream: BinaryIO) -> int:
-        buffer: bytes = bytearray(_OFFSET_FOLDER_SECTION_STRUCT.size)
-        tuple = (self.offset_relative, self.count)
-        _OFFSET_FOLDER_SECTION_STRUCT.pack_into(buffer, 0, tuple)
+        buffer = _OFFSET_FOLDER_SECTION_STRUCT.pack(self.offset_relative, self.count)
         return stream.write(buffer)
 
 
 @dataclass
 class ArchiveInfo:
     header: Header
-    # file_data_info: DataOffsetInfo
     descriptions_info: OffsetInfo
     folders_info: OffsetInfo
     files_info: OffsetInfo
@@ -249,15 +236,11 @@ class ArchiveInfo:
     @classmethod
     def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'ArchiveInfo':
         header = Header.unpack(stream, validate)
-        # file_data = DataOffsetInfo.unpack(stream, validate)
         descriptions_info = OffsetInfo.unpack(stream)
         folders_info = OffsetInfo.unpack(stream)
         files_info = OffsetInfo.unpack(stream)
         filenames_info = OffsetInfo.unpack(stream)
-        args = (header,
-                # file_data,
-                descriptions_info, folders_info, files_info, filenames_info)
-        return ArchiveInfo(*args)
+        return ArchiveInfo(header, descriptions_info, folders_info, files_info, filenames_info)
 
 
 def read_until_terminal(stream: BinaryIO, chunk_size: int = 512, strip_terminal: bool = True) -> str:
@@ -309,9 +292,7 @@ class Description:
         return desc
 
     def pack(self, stream: BinaryIO) -> int:
-        buffer: bytes = bytearray(_DESC_DIR_STRUCT.size)
-        tuple = (self.category, self.name, self.unk_a1, self.unk_a2, self.unk_a3)
-        _DESC_DIR_STRUCT.pack_into(buffer, 0, tuple)
+        buffer = _DESC_DIR_STRUCT.pack(self.category, self.name, self.unk_a1, self.unk_a2, self.unk_a3)
         return stream.write(buffer)
 
 
@@ -372,14 +353,17 @@ class File:
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: SparseFile) -> 'File':
         name = info.read_name(stream, archive_info.filenames_info)
         data = info.read_data(stream, archive_info.header.data_info)
-        args = (info, name, data)
-        return File(*args)
+        return File(info, name, data)
 
     def decompress(self) -> bytes:
         if self.info.compressed:
             return zlib.decompress(self.data)
         else:
             return self.data
+
+    @property
+    def folder(self) -> 'Folder':
+        return self._folder
 
 
 @dataclass
@@ -397,40 +381,12 @@ class Folder:
     files: List[File]
     _folder: 'Folder' = None
 
-    # def walk_folders(self, parent: str = None, include_self:bool=False) -> Tuple[str, str, File]:
-    #     if parent is None:
-    #         parent = ""
-    #
-    #     if include_self:
-    #         f_name = self.name
-    #         yield parent, f_name, self
-    #         parent = join(parent, f_name)
-    #
-    #     for folder in self.folders:
-    #         f_name = folder.name
-    #         yield parent, f_name, folder
-    #         parent = join(parent, f_name)
-    #         for pair in folder.walk_folders(parent):
-    #             yield pair
-    #
-    # def walk_files(self, parent: str = None) -> Tuple[str, str, File]:
-    #     if parent is None:
-    #         parent = ""
-    #     for file in self.files:
-    #         yield parent, file.name, file
-    #
-    # def walk_all_files(self, parent: str = None) -> Tuple[str, str, File]:
-    #     for p, _, f in self.walk_folders(parent, include_self=True):
-    #         for pair in f.walk_files(p):
-    #             yield pair
-
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: SparseFolder) -> 'Folder':
         name = info.read_name(stream, archive_info.filenames_info)
         folders = [None] * (info.last_sub - info.first_sub)
         files = [None] * (info.last_filename - info.first_filename)
-        args = (info, name, folders, files)
-        return Folder(*args)
+        return Folder(info, name, folders, files, None)
 
     def load_folders(self, folders: List['Folder']):
         if self._info.first_sub < len(folders):
@@ -452,6 +408,22 @@ class Folder:
                     raise Exception("File matches multiple folders!")
                 files[i]._folder = self
 
+    def walk_files(self, exts: List[str] = None) -> Iterable[Tuple[str, str, 'File']]:
+        if exts:
+            exts = fix_exts(exts)
+
+
+        for f in self.files:
+            if exts:
+                _, ext = splitext(f.name)
+                if ext not in exts:
+                    continue
+            yield self.name, f.name, f
+
+        for f in self.folders:
+            for p in f.walk_files(exts):
+                yield p
+
 
 @dataclass
 class SparseArchive:
@@ -463,37 +435,22 @@ class SparseArchive:
     # names: List[str]
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, validate: bool = True):
+    def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'SparseArchive':
         info = ArchiveInfo.unpack(stream, validate)
         return cls.create(stream, info)
 
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo) -> 'SparseArchive':
-        info = archive_info
-        descriptions: List[Description] = [None] * info.descriptions_info.count
+        stream.seek(archive_info.descriptions_info.offset_absolute, 0)
+        descriptions = [Description.unpack(stream) for _ in range(archive_info.descriptions_info.count)]
 
-        stream.seek(info.descriptions_info.offset_absolute, 0)
-        for i in range(info.descriptions_info.count):
-            descriptions[i] = Description.unpack(stream)
+        stream.seek(archive_info.folders_info.offset_absolute, 0)
+        folders = [SparseFolder.unpack(stream) for _ in range(archive_info.folders_info.count)]
 
-        stream.seek(info.folders_info.offset_absolute, 0)
-        folders: List[SparseFolder] = [None] * info.folders_info.count
-        for j in range(info.folders_info.count):
-            folders[j] = SparseFolder.unpack(stream)
+        stream.seek(archive_info.files_info.offset_absolute, 0)
+        files = [SparseFile.unpack(stream) for _ in range(archive_info.files_info.count)]
 
-        stream.seek(info.files_info.offset_absolute, 0)
-        files: List[SparseFile] = [None] * info.files_info.count
-        for k in range(info.files_info.count):
-            files[k] = SparseFile.unpack(stream)
-
-        # stream.seek(info.filenames_info.offset_absolute, 0)
-        # names: List[str] = [None] * info.filenames_info.count
-        # for k in range(info.filenames_info.count):
-        #     names[k] = read_until_terminal(stream)
-
-        return SparseArchive(info, descriptions, folders, files
-                             # , names
-                             )
+        return SparseArchive(archive_info, descriptions, folders, files)
 
 
 @dataclass
@@ -531,10 +488,22 @@ class FullArchive:
 
         # names = archive.names
 
-        return FullArchive(info, desc, folders
-                           , files
-                           # , names
-                           )
+        return FullArchive(info, desc, folders, files)
+
+    def walk_files(self, exts: List[str] = None) -> Iterable[Tuple[str, str, 'File']]:
+        if exts:
+            exts = fix_exts(exts)
+        for folder in self.folders:
+            for pair in folder.walk_files(exts):
+                yield pair
+
+        for file in self.files:
+            dirname, fname = split(file.name)
+            if exts:
+                _, ext = splitext(fname)
+                if ext.lower() not in exts:
+                    continue
+            yield dirname, fname, file
 
 
 @dataclass
@@ -543,8 +512,6 @@ class FlatArchive:
     descriptions: List[Description]
     files: List[FlatFile]
 
-    # names: List[str]
-
     @classmethod
     def unpack(cls, stream: BinaryIO, validate: bool = False) -> 'FlatArchive':
         archive = FullArchive.unpack(stream, validate)
@@ -552,18 +519,9 @@ class FlatArchive:
 
     @classmethod
     def create(cls, archive: FullArchive) -> 'FlatArchive':
-        def walk_archive(folder: Folder) -> Tuple[str, str, File]:
-            for f in folder.files:
-                yield folder.name, f.name, f
-            for f in folder.folders:
-                for p in walk_archive(f):
-                    yield p
-
         files = []
         for folder in archive.folders:
-            # for full_name, f in walk(folder):
-            for p, n, f in walk_archive(folder):
-                # for p, n, f in folder.walk_all_files():
+            for p, n, f in folder.walk_files():
                 full_name = join(p, n)
                 decomp = f.decompress()
                 n_f = FlatFile(f.info.unk_a, full_name, decomp)
@@ -572,52 +530,20 @@ class FlatArchive:
         info = FlatHeader.from_header(archive.info.header)
         return FlatArchive(info, archive.descriptions, files)
 
+    def walk_files(self, exts: List[str] = None) -> Iterable[Tuple[str, str, 'File']]:
+        if exts:
+            exts = fix_exts(exts)
 
-@dataclass
-class SGArchive:
-    header: Header
-    descriptions: List[Description]
-    folders: List[Folder]
-    files: List[File]
-
-    @staticmethod
-    def check_magic(stream: BinaryIO, peek: bool = True) -> bool:
-        return Header.check_magic(stream, peek)
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'SGArchive':
-        origin = stream.tell()
-        header = Header.unpack(stream, validate)
-
-        stream.seek(origin + header.desc_dir_offset_relative + _HEADER_OFFSET)
-        descriptions = [Description.unpack(stream) for _ in range(header.desc_count)]
-
-        stream.seek(origin + header.folder_dir_offset_relative + _HEADER_OFFSET)
-        folders = [Folder.unpack(stream) for _ in range(header.folder_count)]
-
-        stream.seek(origin + header.file_dir_offset_relative + _HEADER_OFFSET)
-        files = [File.unpack(stream) for _ in range(header.file_count)]
-
-        for f in folders:
-            f.read_name(stream, origin, header)
-        for f in files:
-            f.read_name(stream, origin, header)
-            f.read_data(stream, origin, header)
-
-        return SGArchive(header, descriptions, folders, files)
+        for f in self.files:
+            dirname, fname = split(f.name)
+            if exts:
+                _, ext = splitext(fname)
+                if ext.lower() not in exts:
+                    continue
+            yield dirname, fname, f
 
 
-# def walk_ext(folder: str, ext: str) -> Tuple[str, str]:
-#     ext = ext.lower()
-#     for root, _, files in os.walk(folder):
-#         for file in files:
-#             _, x = splitext(file)
-#             if x.lower() != ext:
-#                 continue
-#             yield root, file
-
-
-def shared_dump(file: str, out_dir: str = None, verbose:bool=False):
+def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
     out_dir = out_dir or "gen/sga/shared_dump"
     with open(file, "rb") as handle:
         archive = FlatArchive.unpack(handle)
@@ -629,19 +555,35 @@ def shared_dump(file: str, out_dir: str = None, verbose:bool=False):
             except FileExistsError:
                 pass
             if verbose:
-                print("\t",shared_path)
+                print("\t", shared_path)
+            with open(shared_path, "wb") as writer:
+                writer.write(f.data)
+
+
+def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
+    out_dir = out_dir or "gen/sga/shared_dump"
+    with open(file, "rb") as handle:
+        archive = FlatArchive.unpack(handle)
+        for f in archive.files:
+            shared_path = join(out_dir, f.name)
+            dir_path = os.path.dirname(shared_path)
+            try:
+                os.makedirs(dir_path)
+            except FileExistsError:
+                pass
+            if verbose:
+                print("\t", shared_path)
             with open(shared_path, "wb") as writer:
                 writer.write(f.data)
 
 
 def run():
-
     root = r"G:\Clients\Steam\Launcher\steamapps\common"
     game = r"Dawn of War Soulstorm\W40k"
     files = [
-        "Locale\English\W40kDataKeys.sga",
-        "Locale\English\W40kDataLoc.sga",
-        "Locale\English\W40kData-Sound-Speech.sga",
+        r"Locale\English\W40kDataKeys.sga",
+        r"Locale\English\W40kDataLoc.sga",
+        r"Locale\English\W40kData-Sound-Speech.sga",
 
         "W40kData-Sound-Low.sga",
         "W40kData-Sound-Med.sga",
@@ -700,6 +642,30 @@ def run():
                 pass
             with open(meta_path, "w") as writer:
                 writer.write(meta)
+
+
+def walk_sga_paths(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, str]]:
+    blacklist = blacklist or []
+    for root, file in walk_ext(folder, ".sga"):
+        full = join(root, file)
+
+        skip = False
+        for word in blacklist:
+            if word in full:
+                skip = True
+                break
+
+        if skip:
+            continue
+        yield root, file
+
+
+def walk_sga_archive(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, FlatArchive]]:
+    for root, file in walk_sga_paths(folder, blacklist):
+        full = join(root, file)
+        with open(full, "rb") as handle:
+            archive = FullArchive.unpack(handle)
+            yield full, archive
 
 
 def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):

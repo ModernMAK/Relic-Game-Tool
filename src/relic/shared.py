@@ -2,19 +2,31 @@ import dataclasses
 import json
 import os
 from os.path import splitext, dirname, basename
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, BinaryIO
+
+
+def get_stream_size(stream: BinaryIO) -> int:
+    origin = stream.tell()
+    stream.seek(0, 2)
+    terminal = stream.tell()
+    stream.seek(origin, 0)
+    return terminal
+
+
+def fix_exts(ext:Union[str,List[str]]) -> List[str]:
+    if isinstance(ext, str):
+        ext = [ext]
+
+    ext = [x.lower() for x in ext]
+    ext = [f".{x}" if x[0] != '.' else x for x in ext]
+    return ext
 
 
 def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
-    if isinstance(ext, str):
-        ext = [ext]
-    ext = [x.lower() for x in ext]
-    ext = [f".{x}" if x[0] != '.' else x for x in ext]
-
-
+    ext = fix_exts(ext)
     if os.path.isfile(folder):
         root, file = dirname(folder), basename(folder)
-        _,  x = splitext(file)
+        _, x = splitext(file)
         if x.lower() not in ext:
             return
         yield root, file

@@ -3,14 +3,14 @@ import os
 import struct
 from dataclasses import dataclass
 from io import BytesIO
-from os.path import join, dirname
-from typing import List, Tuple, BinaryIO, Optional
-
-from PIL import Image, ImageOps
-
-from relic import chunky
-from relic.chunky import DataChunk, FolderChunk, RelicChunky
-from relic.dxt import get_full_dxt_header, DDS_MAGIC, build_dow_tga_color_header, build_dow_tga_gray_header
+from os.path import join
+from typing import List, BinaryIO, Optional
+from relic.chunk_formats.rsh import ImagChunk, create_image, get_ext
+from relic.chunky.data_chunk import DataChunk
+from relic.chunky.dumper import dump_all_chunky
+from relic.chunky.folder_chunk import FolderChunk
+from relic.chunky.relic_chunky import RelicChunky
+from relic.file_formats.dxt import build_dow_tga_gray_header
 from relic.shared import EnhancedJSONEncoder, walk_ext
 
 _LAYER_NAMES = {
@@ -24,32 +24,13 @@ _LAYER_NAMES = {
 
 
 def raw_dump():
-    chunky.dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\wtp-chunky", [".wtp"], skip_fatal=True)
+    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\wtp-chunky", [".wtp"])
 
 
 def meta_dump():
     for root, file in walk_ext(r"D:\Dumps\DOW I\sga", [".wtp"]):
         full = join(root, file)
         print_meta(full)
-
-
-#
-# @dataclass
-# class HeadChunk:
-#     _DATA = struct.Struct("< l l")
-#     image_format: int
-#     unk_a: int  # tex_count maybe?
-#
-#     @classmethod
-#     def create(cls, chunk: DataChunk) -> 'HeadChunk':
-#         with BytesIO(chunk.data) as stream:
-#             buffer = stream.read(cls._DATA.size)
-#             args = cls._DATA.unpack(buffer)
-#             # excess = stream.read()
-#             return HeadChunk(*args)
-#
-#
-from relic.rsh import AttrChunk, ImagChunk, create_image, get_ext
 
 
 @dataclass
@@ -137,11 +118,11 @@ class TpatChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'TpatChunk':
-        info_chunk = chunk.get_chunk("INFO")
-        imag_chunk = chunk.get_chunk("IMAG")
-        ptld_chunks = chunk.get_all_chunks("PTLD", True)
-        ptbd_chunk = chunk.get_chunk("PTBD", True)
-        ptbn_chunk = chunk.get_chunk("PTBN", True)
+        info_chunk = chunk.get_chunk(id="INFO")
+        imag_chunk = chunk.get_chunk(id="IMAG")
+        ptld_chunks = chunk.get_chunk_list(id="PTLD", optional=True)
+        ptbd_chunk = chunk.get_chunk(id="PTBD", optional=True)
+        ptbn_chunk = chunk.get_chunk(id="PTBN", optional=True)
 
         info = InfoChunk.create(info_chunk)
         imag = ImagChunk.create(imag_chunk)
