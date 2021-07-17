@@ -687,5 +687,5 @@ def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, 
 
 
 if __name__ == "__main__":
-    dump_all_sga(r"D:\Steam\steamapps\common\Dawn of War Soulstorm", blacklist=[r"-Low", "-Med"],
+    dump_all_sga(r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm", blacklist=[r"-Low", "-Med"],
                  out_dir=r"D:/Dumps/DOW I/sga", verbose=True)
