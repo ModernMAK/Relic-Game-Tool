@@ -33,6 +33,10 @@ class MagicUtil:
         magic = cls.read_magic_word(stream, layout=layout, advance=advance)
         return magic == word
 
+    @classmethod
+    def write_magic_word(cls, stream: BinaryIO, layout: Struct, word: str) -> int:
+        return pack_into_stream(layout, stream, word.encode("ascii")) # We could just as easily write the word directly, but we don't
+
 
 @dataclass
 class Magic:
@@ -41,6 +45,9 @@ class Magic:
 
     def read_magic_word(self, stream: BinaryIO, advance: bool = True) -> str:
         return MagicUtil.read_magic_word(stream, self.layout, advance)
+
+    def write_magic_word(self, stream: BinaryIO) -> int:
+        return MagicUtil.write_magic_word(stream, self.layout, self.word)
 
     def assert_magic_word(self, stream: BinaryIO, advance: bool = True):
         MagicUtil.assert_magic_word(stream, self.layout, self.word, advance)
@@ -86,7 +93,8 @@ def has_ext(path: str, exts: List[str]) -> bool:
 # Pass in the os.walk() generator
 # Root and Folders will remain unchanged
 # Files will be filtered to match the given extensions
-def walk_ext(walk: Iterable[WALK_RESULT], whitelist: List[str] = None, blacklist: List[str] = None) -> Iterable[WALK_RESULT]:
+def walk_ext(walk: Iterable[WALK_RESULT], whitelist: List[str] = None, blacklist: List[str] = None) -> Iterable[
+    WALK_RESULT]:
     def validate_path(p: str) -> bool:
         if blacklist and has_ext(p, blacklist):
             return False
@@ -105,6 +113,7 @@ def get_stream_size(stream: BinaryIO) -> int:
     terminal = stream.tell()
     stream.seek(origin, 0)
     return terminal
+
 
 #
 # def fix_exts(ext: Union[str, List[str]]) -> List[str]:

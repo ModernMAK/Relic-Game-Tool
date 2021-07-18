@@ -15,7 +15,7 @@ class Archive(FolderCollection[Folder], FileCollection[File]):
     descriptions: List[Description]
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, read_magic: bool = True):
+    def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'Archive':
         info = SparseArchive.unpack(stream, read_magic)
         return cls.create(stream, info)
 
@@ -30,3 +30,7 @@ class Archive(FolderCollection[Folder], FileCollection[File]):
             f.load_files(files)
 
         return Archive(files, folders, info, desc)
+
+    @classmethod
+    def repack(cls, stream: BinaryIO, write_magic:bool=True):
+        raise NotImplementedError
