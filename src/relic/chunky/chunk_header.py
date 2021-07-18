@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import BinaryIO
 
+from relic.shared import unpack_from_stream
+
 _data_chunk_magic_word = "DATA"
 _folder_chunk_magic_word = "FOLD"
 _chunk_header_layout = struct.Struct("< 4s 4s L L L")
@@ -25,11 +27,11 @@ class ChunkHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'ChunkHeader':
-        buffer = stream.read(_chunk_header_layout.size)
-        type_str, id_str, version, size, name_size = _chunk_header_layout.unpack(buffer)
-        type = ChunkType(type_str.decode("ascii"))
-        id = id_str.decode("ascii")
-        name = stream.read(name_size).decode("ascii").rstrip("\x00")
+        args = unpack_from_stream(_chunk_header_layout, stream)
+        type = ChunkType(args[0].decode("ascii"))
+        id = args[1].decode("ascii")
+        version, size = args[2:3]
+        name = stream.read(args[4]).decode("ascii").rstrip("\x00")
 
         header = ChunkHeader(type, id, version, size, name)
         if validate and type not in [ChunkType.Folder, ChunkType.Data]:
