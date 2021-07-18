@@ -8,22 +8,11 @@ from typing import List
 
 from relic.chunk_formats.whm.msgr_chunk import MsgrChunk
 from relic.chunk_formats.whm.sshr_chunk import SshrChunk
+from relic.chunk_formats.whm.whm_file import WhmChunky
 from relic.chunk_formats.whm.writer import write_obj_mtl
 from relic.chunky import RelicChunky
 from relic.chunky.dumper import dump_all_chunky
 from relic.shared import walk_ext, EnhancedJSONEncoder
-
-
-@dataclass
-class WhmChunk:
-    sshr: List[SshrChunk]
-    msgr: MsgrChunk
-
-    @classmethod
-    def create(cls, chunky: RelicChunky) -> 'WhmChunk':
-        sshr = [SshrChunk.create(c) for c in chunky.get_chunks(id='SSHR')]
-        msgr = MsgrChunk.create(chunky.get_chunk(id="MSGR"))
-        return WhmChunk(sshr, msgr)
 
 
 def raw_dump():
@@ -33,7 +22,7 @@ def raw_dump():
 def print_meta(f: str):
     with open(f, "rb") as handle:
         chunky = RelicChunky.unpack(handle)
-        whm = WhmChunk.create(chunky)
+        whm = WhmChunky.create(chunky)
         meta = json.dumps(whm, indent=4, cls=EnhancedJSONEncoder)
         print(meta)
 
@@ -80,7 +69,7 @@ def dump_model(f: str, o: str, texture_root: str = None, texture_ext: str = None
     with open(f, "rb") as handle:
         chunky = RelicChunky.unpack(handle)
         try:
-            whm = WhmChunk.create(chunky)
+            whm = WhmChunky.create(chunky)
         except NotImplementedError as e:
             if e.args[0] == 55:
                 print("Skipping funky vertex buffer?")

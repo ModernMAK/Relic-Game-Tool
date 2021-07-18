@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Tuple, Union, Iterable
+from typing import List, Tuple, Union, Iterable, Optional
 
 from relic.chunky.abstract_chunk import AbstractChunk
 
@@ -96,14 +96,19 @@ class ChunkCollection:
         return walk_chunks(self.chunks, recursive=recursive)
 
     def get_chunk_list(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None,
-                       optional: bool = False) -> List[AbstractChunk]:
+                       optional: bool = False) -> Optional[List[AbstractChunk]]:
         chunks = [chunk for chunk in self.get_chunks(recursive, id=id, type=type, name=name)]
-        if len(chunks) == 0 and not optional:
-            raise Exception(f"No chunk found! ('{id}' '{type}' '{name}'). To allow missing chunks, set optional=True")
+        if len(chunks) == 0:
+            if not optional:
+                raise Exception(
+                    f"No chunk found! ('{id}' '{type}' '{name}'). To allow missing chunks, set optional=True")
+            else:
+                return None
         else:
             return chunks
 
-    def get_chunks(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None) -> Iterable[AbstractChunk]:
+    def get_chunks(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None) -> \
+    Iterable[AbstractChunk]:
         for _, _, folders, data in self.walk_chunks_filtered(recursive=recursive, ids=id, types=type, names=name):
             for folder in folders:
                 yield folder
@@ -112,6 +117,9 @@ class ChunkCollection:
 
     def get_chunk(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None,
                   optional: bool = False) -> AbstractChunk:
+        if recursive not in [True, False]:
+            raise ValueError("Recursive not boolean value, likely due to using old get_chunk syntax; to specify id, use id=")
+
         for chunk in self.get_chunks(recursive=recursive, id=id, type=type, name=name):
             return chunk
         if optional:

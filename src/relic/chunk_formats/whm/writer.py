@@ -29,7 +29,8 @@ def write_matlib_name(stream: TextIO, obj_path: str) -> str:
     return join(dirname, filename)
 
 
-def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0, validate:bool=True) -> int:
+def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0,
+                      validate: bool = True) -> int:
     writer = ObjWriter(stream)
     v_local_offset = 0
 

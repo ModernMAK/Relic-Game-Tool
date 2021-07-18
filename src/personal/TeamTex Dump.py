@@ -10,8 +10,8 @@ from typing import List, Dict, BinaryIO, Tuple, Union
 from PIL import Image
 from PIL.Image import Image as PilImage
 
-from relic.chunk_formats.rsh import create_image
-from relic.chunk_formats.wtp import get_wtp, create_mask_image, WtpFile
+from relic.chunk_formats.rsh.rsh import create_image
+from relic.chunk_formats.wtp.wtp import get_wtp, create_mask_image, WtpFile
 from relic.sga import FlatArchive, FullArchive
 from relic.shared import walk_ext
 
