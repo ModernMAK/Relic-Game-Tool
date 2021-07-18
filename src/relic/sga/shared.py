@@ -1,4 +1,3 @@
-import struct
 from os.path import join
 from typing import BinaryIO, List, Tuple, Iterable
 
@@ -7,18 +6,12 @@ from relic.shared import walk_ext
 ARCHIVE_HEADER_OFFSET = 180
 
 
-
-
 def read_name(stream: BinaryIO, offset: 'OffsetInfo', name_offset: int) -> str:
     temp = stream.tell()
     stream.seek(offset.offset_absolute + name_offset)
     s = read_until_terminal(stream)
     stream.seek(temp, 0)
     return s
-
-# DESCRIPTION CONSTS
-
-_FILEDATA_STRUCT = struct.Struct("< 235s Q")  # + X
 
 
 def read_until_terminal(stream: BinaryIO, chunk_size: int = 512, strip_terminal: bool = True) -> str:
@@ -40,20 +33,18 @@ def read_until_terminal(stream: BinaryIO, chunk_size: int = 512, strip_terminal:
         except ValueError:
             continue
 
-
-
-
-def walk_sga_paths(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, str]]:
-    blacklist = blacklist or []
-    for root, file in walk_ext(folder, ".sga"):
-        full = join(root, file)
-
-        skip = False
-        for word in blacklist:
-            if word in full:
-                skip = True
-                break
-
-        if skip:
-            continue
-        yield root, file
+#
+# def walk_sga_paths(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, str]]:
+#     blacklist = blacklist or []
+#     for root, file in walk_ext(folder, ".sga"):
+#         full = join(root, file)
+#
+#         skip = False
+#         for word in blacklist:
+#             if word in full:
+#                 skip = True
+#                 break
+#
+#         if skip:
+#             continue
+#         yield root, file

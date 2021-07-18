@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from io import BytesIO
-from typing import List, BinaryIO
+from typing import BinaryIO
 
 from relic.chunky.abstract_chunk import AbstractChunk
 from relic.chunky.chunk_collection import ChunkCollection
 from relic.chunky.chunk_header import ChunkHeader
-
 
 
 @dataclass

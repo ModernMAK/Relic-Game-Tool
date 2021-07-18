@@ -2,7 +2,7 @@ import struct
 from dataclasses import dataclass
 from typing import BinaryIO
 
-_relic_chunky_header_layout = struct.Struct("< 4s L L")
+RELIC_CHUNKY_HEADER_LAYOUT = struct.Struct("< 4s L L")
 
 
 @dataclass
@@ -13,8 +13,8 @@ class RelicChunkyHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO):
-        buffer = stream.read(_relic_chunky_header_layout.size)
-        type_br, v_major, v_minor = _relic_chunky_header_layout.unpack_from(buffer)
+        buffer = stream.read(RELIC_CHUNKY_HEADER_LAYOUT.size)
+        type_br, v_major, v_minor = RELIC_CHUNKY_HEADER_LAYOUT.unpack_from(buffer)
         type_br = type_br.decode("ascii")
         return RelicChunkyHeader(type_br, v_major, v_minor)
 

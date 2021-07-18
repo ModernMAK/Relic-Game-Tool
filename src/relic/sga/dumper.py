@@ -3,44 +3,42 @@ import os
 from os.path import join
 from typing import List, Iterable, Tuple
 
-from relic.sga.flat_archive import FlatArchive
-from relic.sga.full_archive import FullArchive
-from relic.sga.shared import walk_sga_paths
-from relic.shared import EnhancedJSONEncoder, walk_ext
+from relic.sga.archive import Archive
+from relic.shared import EnhancedJSONEncoder, walk_ext, fix_ext_list
 
 
-def walk_sga_archive(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, 'FlatArchive']]:
+def walk_sga_archive(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, 'Archive']]:
     for root, file in walk_sga_paths(folder, blacklist):
         full = join(root, file)
         with open(full, "rb") as handle:
-            archive = FullArchive.unpack(handle)
+            archive = Archive.unpack(handle)
             yield full, archive
+
 
 def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):
     blacklist = blacklist or []
-    for root, file in walk_ext(folder, ".sga"):
-        full = join(root, file)
+    exts = [".sga"]
+    for root, _, files in walk_ext(os.walk(folder), whitelist=fix_ext_list(exts)):
+        for file in files:
+            full = join(root, file)
 
-        skip = False
-        for word in blacklist:
-            if word in full:
-                skip = True
-                break
+            skip = False
+            for word in blacklist:
+                if word in full:
+                    skip = True
+                    break
 
-        if skip:
-            continue
-        if verbose:
-            print(full)
-        shared_dump(full, out_dir, verbose)
-
-
-
+            if skip:
+                continue
+            if verbose:
+                print(full)
+            shared_dump(full, out_dir, verbose)
 
 
 def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
     out_dir = out_dir or "gen/sga/shared_dump"
     with open(file, "rb") as handle:
-        archive = FlatArchive.unpack(handle)
+        archive = Archive.unpack(handle)
         for f in archive.files:
             shared_path = join(out_dir, f.name)
             dir_path = os.path.dirname(shared_path)
@@ -57,7 +55,7 @@ def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
 def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
     out_dir = out_dir or "gen/sga/shared_dump"
     with open(file, "rb") as handle:
-        archive = FlatArchive.unpack(handle)
+        archive = Archive.unpack(handle)
         for f in archive.files:
             shared_path = join(out_dir, f.name)
             dir_path = os.path.dirname(shared_path)
@@ -102,7 +100,7 @@ def run():
         print("\tUnpacking...")
         with open(full, "rb") as handle:
             # archive = SGArchive.unpack(handle)
-            archive = FlatArchive.unpack(handle)
+            archive = Archive.unpack(handle)
             # print("\t", archive)
             meta = json.dumps(archive, indent=4, cls=EnhancedJSONEncoder)
             print("\t\t", meta)
@@ -136,6 +134,8 @@ def run():
                 pass
             with open(meta_path, "w") as writer:
                 writer.write(meta)
+
+
 if __name__ == "__main__":
     # root = r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm"
     root = r"D:\Steam\steamapps\common\Dawn of War Soulstorm"

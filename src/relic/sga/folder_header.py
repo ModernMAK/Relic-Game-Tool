@@ -8,7 +8,7 @@ from relic.shared import unpack_from_stream
 
 
 @dataclass
-class SparseFolder:
+class FolderHeader:
     __FOLDER_HEADER_LAYOUT = Struct("< L H H H H")
 
     name_offset: int
@@ -18,8 +18,8 @@ class SparseFolder:
     last_filename: int
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> 'SparseFolder':
-        return SparseFolder(*unpack_from_stream(cls.__FOLDER_HEADER_LAYOUT,stream))
+    def unpack(cls, stream: BinaryIO) -> 'FolderHeader':
+        return FolderHeader(*unpack_from_stream(cls.__FOLDER_HEADER_LAYOUT, stream))
 
     def read_name(self, stream: BinaryIO, offset: OffsetInfo) -> str:
         return read_name(stream, offset, self.name_offset)
