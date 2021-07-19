@@ -1,8 +1,10 @@
 import json
+import struct
 from dataclasses import dataclass, is_dataclass, asdict
+from functools import partial
 from os.path import splitext, join
 from struct import Struct
-from typing import Tuple, List, BinaryIO, Iterable, Any, Optional, Union
+from typing import Tuple, List, BinaryIO, Iterable, Any, Optional, Union, Callable
 
 
 def unpack_from_stream(layout: Struct, stream: BinaryIO) -> Tuple[Any, ...]:
@@ -18,10 +20,14 @@ def pack_into_stream(layout: Struct, stream: BinaryIO, *args) -> int:
 class MagicUtil:
     @classmethod
     def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> str:
-        magic = unpack_from_stream(layout, stream)[0].decode("ascii")
-        if not advance:  # Useful for checking the header before reading it
-            stream.seek(-layout.size, 1)
-        return magic
+        origin = stream.tell()
+        try:
+            return unpack_from_stream(layout, stream)[0].decode("ascii")
+        except (struct.error, UnicodeDecodeError):
+            return None
+        finally:
+            if not advance:  # Useful for checking the header before reading it
+                stream.seek(origin)
 
     @classmethod
     def assert_magic_word(cls, stream: BinaryIO, layout: Struct, word: str, advance: bool = True):
@@ -77,7 +83,7 @@ class MagicWalker:
     # Files will be replaced with files starting with the proper magic word
     def walk(self, walk: Iterable[WALK_RESULT]) -> Iterable[WALK_RESULT]:
         for root, _, files in walk:
-            chunky_files = [file for file in files if self.check_file(join(root, file))]
+            chunky_files = (file for file in files if self.check_file(join(root, file)))
             yield root, _, chunky_files
 
 
@@ -131,22 +137,26 @@ def filter_path_by_keyword(file: str, whitelist: VALID_KW_LIST = None, blacklist
     return True
 
 
+def filter_walk_by_predicate(walk: Iterable[WALK_RESULT], predicate: Callable[[str], bool]) -> Iterable[WALK_RESULT]:
+    for root, _, files in walk:
+        valid_files = (f for f in files if predicate(f))
+        yield root, _, valid_files
+
+
 def filter_walk_by_extension(walk: Iterable[WALK_RESULT], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
         Iterable[WALK_RESULT]:
     whitelist = fix_extension_list(whitelist)
     blacklist = fix_extension_list(blacklist)
-    for root, _, files in walk:
-        valid_files = [f for f in files if filter_path_by_extension(f, whitelist, blacklist)]
-        yield root, _, valid_files
+    predicate = partial(filter_path_by_extension, whitelist=whitelist, blacklist=blacklist)
+    return filter_walk_by_predicate(walk, predicate)
 
 
 def filter_walk_by_keyword(walk: Iterable[WALK_RESULT], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
         Iterable[WALK_RESULT]:
     whitelist = fix_keyword_list(whitelist)
     blacklist = fix_keyword_list(blacklist)
-    for root, _, files in walk:
-        valid_files = [f for f in files if filter_path_by_keyword(f, whitelist, blacklist)]
-        yield root, _, valid_files
+    predicate = partial(filter_path_by_keyword, whitelist=whitelist, blacklist=blacklist)
+    return filter_walk_by_predicate(walk, predicate)
 
 
 def collapse_walk_on_files(walk: Iterable[WALK_RESULT]) -> Iterable[str]:

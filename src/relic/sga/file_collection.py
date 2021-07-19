@@ -10,6 +10,7 @@ TFolder = TypeVar('TFolder')
 class FileCollection(Generic[TFile]):
     files: List[TFile]
 
+    # pointless function is pointless; if I support nested file collections, then this would be meaningful
     def walk_files(self) -> Iterable[TFile]:
         for file in self.files:
             yield file
@@ -19,6 +20,7 @@ class FileCollection(Generic[TFile]):
 class FolderCollection(Generic[TFolder]):
     folders: List[TFolder]
 
+    # pointless function is pointless; if I support nested file collections, then this would be meaningful
     def walk_folders(self) -> Iterable[TFolder]:
         for folder in self.folders:
             yield folder
