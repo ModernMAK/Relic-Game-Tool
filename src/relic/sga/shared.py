@@ -1,5 +1,5 @@
 from os.path import join
-from typing import BinaryIO, List, Tuple, Iterable
+from typing import BinaryIO
 
 ARCHIVE_HEADER_OFFSET = 180
 

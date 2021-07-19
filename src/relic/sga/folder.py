@@ -3,23 +3,21 @@ from typing import List, BinaryIO
 
 from relic.sga.archive_info import ArchiveInfo
 from relic.sga.file import File
-from relic.sga.file_collection import FileCollection, FolderCollection
+from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult  # FileCollection, FolderCollection,
 from relic.sga.folder_header import FolderHeader
 
 
 @dataclass
-class Folder(FolderCollection['Folder'], FileCollection[File]):
+class Folder(AbstractDirectory):
     _info: FolderHeader
     name: str
-    folders: List['Folder']
-    files: List[File]
 
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FolderHeader) -> 'Folder':
         name = info.read_name(stream, archive_info.filenames_info)
         folders: List['Folder'] = [None] * (info.last_sub - info.first_sub)
         files: List[File] = [None] * (info.last_filename - info.first_filename)
-        return Folder(files, folders, info, name)
+        return Folder(folders, files, info, name)
 
     def load_folders(self, folders: List['Folder']):
         if self._info.first_sub < len(folders):
@@ -32,3 +30,6 @@ class Folder(FolderCollection['Folder'], FileCollection[File]):
             for i in range(self._info.first_filename, self._info.last_filename):
                 i_0 = i - self._info.first_filename
                 self.files[i_0] = files[i]
+
+    def walk(self) -> ArchiveWalkResult: # Specify name for
+        return self._walk(self.name)

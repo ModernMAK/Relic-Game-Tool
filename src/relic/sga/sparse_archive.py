@@ -9,9 +9,11 @@ from relic.sga.folder_header import FolderHeader
 
 
 @dataclass
-class SparseArchive(FolderCollection[FolderHeader], FileCollection[FileHeader]):
+class SparseArchive:
     info: ArchiveInfo
     descriptions: List[Description]
+    files:List[FileHeader]
+    folders:List[FolderHeader]
 
     @classmethod
     def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'SparseArchive':
@@ -29,4 +31,4 @@ class SparseArchive(FolderCollection[FolderHeader], FileCollection[FileHeader]):
         stream.seek(archive_info.files_info.offset_absolute, 0)
         files = [FileHeader.unpack(stream) for _ in range(archive_info.files_info.count)]
 
-        return SparseArchive(files, folders,  archive_info, descriptions)
+        return SparseArchive(archive_info, descriptions, files, folders)

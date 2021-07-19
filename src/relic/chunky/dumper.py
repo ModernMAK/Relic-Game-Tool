@@ -3,7 +3,7 @@ from os.path import join, dirname
 from typing import List
 
 from relic.chunky.relic_chunky import RelicChunky
-from relic.shared import walk_ext
+from relic.shared import filter_walk_by_extension, collapse_walk_on_files
 
 
 def dump_chunky(full_in: str, full_out: str, ignore_errors: bool = False):
@@ -47,17 +47,13 @@ def dump_chunky(full_in: str, full_out: str, ignore_errors: bool = False):
 
 
 def dump_all_chunky(full_in: str, full_out: str, exts: List[str] = None):
-    for root, file in walk_ext(full_in, exts):
-        i = join(root, file)
-        j = i.replace(full_in, "", 1)
-        j = j.lstrip("\\")
-        j = j.lstrip("/")
-        o = join(full_out, j)
-        dump_chunky(i, o)
+    for file in collapse_walk_on_files(filter_walk_by_extension(os.walk(full_in), exts)):
+        dump = file.replace(full_in, full_out, 1)
+        dump_chunky(file, dump)
 
 
 if __name__ == "__main__":
-    #dump all Warhammer Models as bin
-    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\chunky-bin","whm")
+    # dump all Warhammer Models as bin
+    dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\chunky-bin", "whm")
     # import cProfile
     # cProfile.run('dump_all_chunky(r"D:\Dumps\DOW I\sga", r"D:\Dumps\DOW I\whm-chunky", [".whm"])')

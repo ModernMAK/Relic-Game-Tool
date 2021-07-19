@@ -4,24 +4,25 @@
 import os
 from contextlib import contextmanager
 from io import BytesIO
-from os.path import join, split
+from os.path import join, split, splitext
 from typing import List, Dict, BinaryIO, Tuple, Union
 
 from PIL import Image
 from PIL.Image import Image as PilImage
 
-from relic.chunk_formats.rsh.rsh import create_image
-from relic.chunk_formats.wtp.wtp import get_wtp, create_mask_image, WtpFile
-from relic.sga import FlatArchive, FullArchive
+from relic.chunk_formats.shared.imag.writer import create_image
+from relic.chunk_formats.wtp.writer import create_mask_image
+from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
+from relic.sga.archive import Archive
+from relic.sga.file import File
 from relic.shared import walk_ext
-
 
 def dump_file_as_compact(f: str, o: str):
     wtp = get_wtp(f)
     dump_wtp_as_compact(wtp, o)
 
 
-def dump_wtp_as_compact(wtp: WtpFile, o: str):
+def dump_wtp_as_compact(wtp: WtpChunky, o: str):
     compacts = open_streams(o)
     write_compact(wtp, compacts)
 
@@ -43,7 +44,7 @@ def open_streams(o: str) -> Tuple[BinaryIO, BinaryIO, BinaryIO]:
                 yield albedo, splat1, splat2
 
 
-def write_compact(wtp: WtpFile, compacts: Tuple[BinaryIO, BinaryIO, BinaryIO]):
+def write_compact(wtp: WtpChunky, compacts: Tuple[BinaryIO, BinaryIO, BinaryIO]):
     albedo, splat_major, splat_minor = compacts
     with BytesIO() as main_buffer:
         # Start by dumping main
@@ -92,10 +93,11 @@ def write_compact(wtp: WtpFile, compacts: Tuple[BinaryIO, BinaryIO, BinaryIO]):
             buffer.close()
 
 
-def dump_all_wtp_in_archive(sga: Union[FlatArchive, FullArchive], o: str):
-    for path, file in sga.walk_files(exts="wtp"):
-        wtp = WtpFile.create(file)
-        dump_wtp_as_compact(wtp, join(o, path))
+def dump_all_wtp_in_archive(sga: Archive, o: str):
+    for file in File.filter_by_extension(sga.walk_files(), whitelist=".sga"):
+        with file.open_readonly_stream() as handle:
+            wtp = WtpChunky.unpack(handle)
+            dump_wtp_as_compact(wtp, join(o, file.name))
 
 
 def dump_all_wtp_in_folder(f: str, o: str):

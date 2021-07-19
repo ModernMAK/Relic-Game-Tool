@@ -26,7 +26,7 @@ def scan_for_unsupported(search_dir: str, supported_exts: KW_LIST = None, kw_bla
     for archive_path in collapse_walk_on_files(
             ARCHIVE_MAGIC_WALKER.walk(
                 filter_walk_by_keyword(
-                    filter_walk_by_extension(os.walk(search_dir), whitelist="sga"),blacklist=kw_blacklist))):
+                    filter_walk_by_extension(os.walk(search_dir), whitelist="sga"), blacklist=kw_blacklist))):
 
         with open(archive_path, "rb") as handle:
             archive = Archive.unpack(handle)
