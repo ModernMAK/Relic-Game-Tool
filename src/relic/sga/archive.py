@@ -4,13 +4,13 @@ from typing import List, BinaryIO
 from relic.sga.archive_info import ArchiveInfo
 from relic.sga.description import Description
 from relic.sga.file import File
-from relic.sga.file_collection import FolderCollection, FileCollection
+from relic.sga.file_collection import AbstractDirectory
 from relic.sga.folder import Folder
 from relic.sga.sparse_archive import SparseArchive
 
 
 @dataclass
-class Archive(FolderCollection[Folder], FileCollection[File]):
+class Archive(AbstractDirectory):
     info: ArchiveInfo
     descriptions: List[Description]
 
@@ -29,7 +29,7 @@ class Archive(FolderCollection[Folder], FileCollection[File]):
             f.load_folders(folders)
             f.load_files(files)
 
-        return Archive(files, folders, info, desc)
+        return Archive(folders, files, info, desc)
 
     @classmethod
     def repack(cls, stream: BinaryIO, write_magic:bool=True):
