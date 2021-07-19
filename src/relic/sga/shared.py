@@ -1,8 +1,6 @@
 from os.path import join
 from typing import BinaryIO, List, Tuple, Iterable
 
-from relic.shared import walk_ext
-
 ARCHIVE_HEADER_OFFSET = 180
 
 
@@ -32,19 +30,3 @@ def read_until_terminal(stream: BinaryIO, chunk_size: int = 512, strip_terminal:
             return s
         except ValueError:
             continue
-
-#
-# def walk_sga_paths(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, str]]:
-#     blacklist = blacklist or []
-#     for root, file in walk_ext(folder, ".sga"):
-#         full = join(root, file)
-#
-#         skip = False
-#         for word in blacklist:
-#             if word in full:
-#                 skip = True
-#                 break
-#
-#         if skip:
-#             continue
-#         yield root, file

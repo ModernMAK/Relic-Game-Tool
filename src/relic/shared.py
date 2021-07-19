@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass, is_dataclass, asdict
 from os.path import splitext, join
 from struct import Struct
-from typing import Tuple, List, BinaryIO, Iterable, Any
+from typing import Tuple, List, BinaryIO, Iterable, Any, Optional, Union
 
 
 def unpack_from_stream(layout: Struct, stream: BinaryIO) -> Tuple[Any, ...]:
@@ -35,7 +35,8 @@ class MagicUtil:
 
     @classmethod
     def write_magic_word(cls, stream: BinaryIO, layout: Struct, word: str) -> int:
-        return pack_into_stream(layout, stream, word.encode("ascii")) # We could just as easily write the word directly, but we don't
+        return pack_into_stream(layout, stream,
+                                word.encode("ascii"))  # We could just as easily write the word directly, but we don't
 
 
 @dataclass
@@ -85,26 +86,74 @@ def fix_ext_list(exts: List[str]) -> List[str]:
     return [(f".{x.lower()}" if x[0] != "." else x.lower()) for x in exts]
 
 
-def has_ext(path: str, exts: List[str]) -> bool:
-    _, ext = splitext(path)
-    return ext.lower() in exts
+# Appends '.' if necessary and lowers the extension case
+
+KW_LIST = Union[None, str, List[str]]
+VALID_KW_LIST = Optional[List[str]]
 
 
-# Pass in the os.walk() generator
-# Root and Folders will remain unchanged
-# Files will be filtered to match the given extensions
-def walk_ext(walk: Iterable[WALK_RESULT], whitelist: List[str] = None, blacklist: List[str] = None) -> Iterable[
-    WALK_RESULT]:
-    def validate_path(p: str) -> bool:
-        if blacklist and has_ext(p, blacklist):
+def fix_extension_list(exts: KW_LIST) -> VALID_KW_LIST:
+    if exts is None:
+        return None
+    if isinstance(exts, str):
+        exts = [exts]
+    return [(f".{x.lower()}" if x[0] != "." else x.lower()) for x in exts]
+
+
+def fix_keyword_list(kws: KW_LIST) -> VALID_KW_LIST:
+    if kws is None:
+        return None
+    if isinstance(kws, str):
+        kws = [kws]
+    return kws
+
+
+def filter_path_by_extension(file: str, whitelist: VALID_KW_LIST = None, blacklist: VALID_KW_LIST = None) -> bool:
+    """This function does not validate whitelist and blacklist; whitelist and blacklist must be a valid List[str] of '.extension_name'"""
+    _, x = splitext(file)
+    x = x.lower()
+    if blacklist and x in blacklist:
+        return False
+    if whitelist:
+        return x in whitelist
+    return True
+
+
+def filter_path_by_keyword(file: str, whitelist: VALID_KW_LIST = None, blacklist: VALID_KW_LIST = None) -> bool:
+    """This function does not validate whitelist and blacklist; whitelist and blacklist must be a valid List[str] or None"""
+    if blacklist:
+        for word in blacklist:
+            if word in file:
+                return False
+    if whitelist:
+        if not any(word in file for word in whitelist):
             return False
-        if whitelist and not has_ext(p, whitelist):
-            return False
-        return True
+    return True
 
+
+def filter_walk_by_extension(walk: Iterable[WALK_RESULT], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[WALK_RESULT]:
+    whitelist = fix_extension_list(whitelist)
+    blacklist = fix_extension_list(blacklist)
     for root, _, files in walk:
-        valid_files = [f for f in files if validate_path(f)]
+        valid_files = [f for f in files if filter_path_by_extension(f, whitelist, blacklist)]
         yield root, _, valid_files
+
+
+def filter_walk_by_keyword(walk: Iterable[WALK_RESULT], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[WALK_RESULT]:
+    whitelist = fix_keyword_list(whitelist)
+    blacklist = fix_keyword_list(blacklist)
+    for root, _, files in walk:
+        valid_files = [f for f in files if filter_path_by_keyword(f, whitelist, blacklist)]
+        yield root, _, valid_files
+
+
+def collapse_walk_on_files(walk: Iterable[WALK_RESULT]) -> Iterable[str]:
+    """Makes a walk only return an iterator for the full file path."""
+    for root, _, files in walk:
+        for file in files:
+            yield join(root, file)
 
 
 def get_stream_size(stream: BinaryIO) -> int:
@@ -113,33 +162,6 @@ def get_stream_size(stream: BinaryIO) -> int:
     terminal = stream.tell()
     stream.seek(origin, 0)
     return terminal
-
-
-#
-# def fix_exts(ext: Union[str, List[str]]) -> List[str]:
-#     if isinstance(ext, str):
-#         ext = [ext]
-#
-#     ext = [x.lower() for x in ext]
-#     ext = [f".{x}" if x[0] != '.' else x for x in ext]
-#     return ext
-
-
-# def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
-#     ext = fix_exts(ext)
-#     if os.path.isfile(folder):
-#         root, file = dirname(folder), basename(folder)
-#         _, x = splitext(file)
-#         if x.lower() not in ext:
-#             return
-#         yield root, file
-#
-#     for root, _, files in os.walk(folder):
-#         for file in files:
-#             _, x = splitext(file)
-#             if x.lower() not in ext:
-#                 continue
-#             yield root, file
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):

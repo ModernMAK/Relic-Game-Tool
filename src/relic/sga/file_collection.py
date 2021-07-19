@@ -5,6 +5,7 @@ TFile = TypeVar('TFile')
 TFolder = TypeVar('TFolder')
 
 
+
 @dataclass
 class FileCollection(Generic[TFile]):
     files: List[TFile]
@@ -21,3 +22,4 @@ class FolderCollection(Generic[TFolder]):
     def walk_folders(self) -> Iterable[TFolder]:
         for folder in self.folders:
             yield folder
+
