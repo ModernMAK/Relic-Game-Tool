@@ -49,7 +49,7 @@ def write_binary(walk: Iterable[Tuple[str, File]], out_directory: str, decompres
         with file.open_readonly_stream(decompress) as read_handle:
             with open(full_directory, "wb") as write_handle:
                 write_handle.write(read_handle.read())
-                print(f"\rWriting Binary Chunks ({next(spinner)})\tPlease Wait.", end="")
+                print(f"\r\t({next(spinner)}) Writing Binary Chunks, please wait.", end="")
 
 
 def collapse_walk_in_files(walk: Iterable[ArchiveWalkResult]) -> Iterable[Tuple[str, File]]:
@@ -63,8 +63,8 @@ def filter_archive_files_by_extension(walk: Iterable[ArchiveWalkResult], whiteli
     whitelist = fix_extension_list(whitelist)
     blacklist = fix_extension_list(blacklist)
     for root, folders, files in walk:
-        filtered_files: Iterable[File] = (file for file in files if
-                                          filter_path_by_extension(file.name, whitelist, blacklist))
+        filtered_files: Iterable[File] = \
+            (file for file in files if filter_path_by_extension(file.name, whitelist, blacklist))
         yield root, folders, filtered_files
 
 
@@ -77,6 +77,7 @@ def walk_archive_files(walk: Iterable[Archive]) -> Iterable[ArchiveWalkResult]:
 def walk_archives(walk: Iterable[str]) -> Iterable[Archive]:
     for file_path in walk:
         with open(file_path, "rb") as handle:
+            print(f"\nUnpacking Archive =>\t{file_path}")
             yield Archive.unpack(handle)
 
 

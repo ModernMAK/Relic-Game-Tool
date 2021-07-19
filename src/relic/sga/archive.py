@@ -9,6 +9,7 @@ from relic.sga.folder import Folder
 from relic.sga.sparse_archive import SparseArchive
 
 
+
 @dataclass
 class Archive(AbstractDirectory):
     info: ArchiveInfo
@@ -36,9 +37,8 @@ class Archive(AbstractDirectory):
         folders = [f for f in folders if f not in parented_folders]
         files = [f for f in files if f not in parented_files]
 
-
         return Archive(folders, files, info, desc)
 
     @classmethod
-    def repack(cls, stream: BinaryIO, write_magic:bool=True):
+    def repack(cls, stream: BinaryIO, write_magic: bool = True):
         raise NotImplementedError
