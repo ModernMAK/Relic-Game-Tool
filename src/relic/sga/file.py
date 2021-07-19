@@ -6,7 +6,6 @@ from os.path import splitext
 from typing import BinaryIO, List, Iterable, Union
 
 from relic.sga.archive_info import ArchiveInfo
-from relic.sga.file_collection import FileCollection
 from relic.sga.file_header import FileHeader
 from relic.shared import fix_extension_list, filter_path_by_extension, KW_LIST
 
@@ -17,14 +16,13 @@ class File:
     name: str
     data: bytes
     _decompressed: bool = False
-    _parent: FileCollection = None
 
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader) -> 'File':
         name = info.read_name(stream, archive_info.filenames_info)
         data = info.read_data(stream, archive_info.data_info)
         _decompressed = not info.compressed
-        return File(info, name, data, _decompressed, None)
+        return File(info, name, data, _decompressed)
 
     def get_decompressed(self) -> bytes:
         if self._decompressed or not self.header.compressed:

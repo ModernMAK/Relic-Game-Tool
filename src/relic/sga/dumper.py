@@ -1,7 +1,6 @@
 import os
-from collections import Iterable
-from os.path import join, splitext
-from typing import Tuple, Optional
+from os.path import join, splitext, dirname
+from typing import Tuple, Optional, Iterable
 
 from relic.sga.archive import Archive
 from relic.sga.file import File
@@ -11,15 +10,46 @@ from relic.shared import filter_walk_by_extension, KW_LIST, fix_extension_list, 
     filter_walk_by_keyword, collapse_walk_on_files
 
 
+def __safe_join(*args: Optional[str]):
+    args = [a for a in args if a is not None]
+    return join(*args)
+
+
+def __safe_makedirs(path: str, use_dirname: bool = True):
+    if use_dirname:
+        path = dirname(path)
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        pass
+
+
+def __spinner_generator(symbols: Iterable[str]) -> Iterable[str]:
+    while True:
+        for symbol in symbols:
+            yield symbol
+
+
+def __get_bar_spinner() -> Iterable[str]:
+    return __spinner_generator("|\\-/")
+
+
+def __get_ellipsis_spinner() -> Iterable[str]:
+    return __spinner_generator([".", "..", "...", "....", "....."])
+
+
 def write_binary(walk: Iterable[Tuple[str, File]], out_directory: str, decompress: bool = True,
                  forced_ext: Optional[str] = None):
+    spinner = __get_bar_spinner()
     for directory, file in walk:
-        full_directory = join(out_directory, directory, file.name)
+        full_directory = __safe_join(out_directory, directory, file.name)
+        __safe_makedirs(full_directory)
         if forced_ext:
             full_directory = splitext(full_directory)[0] + forced_ext
         with file.open_readonly_stream(decompress) as read_handle:
             with open(full_directory, "wb") as write_handle:
                 write_handle.write(read_handle.read())
+                print(f"\rWriting Binary Chunks ({next(spinner)})\tPlease Wait.", end="")
 
 
 def collapse_walk_in_files(walk: Iterable[ArchiveWalkResult]) -> Iterable[Tuple[str, File]]:
@@ -28,11 +58,13 @@ def collapse_walk_in_files(walk: Iterable[ArchiveWalkResult]) -> Iterable[Tuple[
             yield root, file
 
 
-def filter_archive_files_by_extension(walk: Iterable[ArchiveWalkResult], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> Iterable[ArchiveWalkResult]:
+def filter_archive_files_by_extension(walk: Iterable[ArchiveWalkResult], whitelist: KW_LIST = None,
+                                      blacklist: KW_LIST = None) -> Iterable[ArchiveWalkResult]:
     whitelist = fix_extension_list(whitelist)
     blacklist = fix_extension_list(blacklist)
     for root, folders, files in walk:
-        filtered_files = (filter_path_by_extension(file.name, whitelist, blacklist) for file in files)
+        filtered_files: Iterable[File] = (file for file in files if
+                                          filter_path_by_extension(file.name, whitelist, blacklist))
         yield root, folders, filtered_files
 
 
@@ -63,7 +95,8 @@ def walk_archive_paths(folder: str, exts: KW_LIST = None, whitelist: KW_LIST = N
     return collapse_walk_on_files(walk)
 
 
-def dump_archive(input_folder: str, output_folder: str, decompress: bool = True, ext_whitelist: KW_LIST = None, ext_blacklist: KW_LIST = None,        write_ext: Optional[str] = None):
+def dump_archive(input_folder: str, output_folder: str, decompress: bool = True, ext_whitelist: KW_LIST = None,
+                 ext_blacklist: KW_LIST = None, write_ext: Optional[str] = None):
     walk = walk_archive_paths(input_folder)
     walk = walk_archives(walk)
     walk = walk_archive_files(walk)
@@ -73,8 +106,8 @@ def dump_archive(input_folder: str, output_folder: str, decompress: bool = True,
 
 
 if __name__ == "__main__":
-    in_folder = r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm"
-    # in_folder = r"D:\Steam\steamapps\common\Dawn of War Soulstorm"
+    # in_folder = r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm"
+    in_folder = r"D:\Steam\steamapps\common\Dawn of War Soulstorm"
     out_folder = r"D:/Dumps/DOW I/sga"
 
     dump_archive(in_folder, out_folder)

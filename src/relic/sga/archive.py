@@ -25,9 +25,17 @@ class Archive(AbstractDirectory):
         desc = archive.descriptions
         folders = [Folder.create(stream, info, f) for f in archive.folders]
         files = [File.create(stream, info, f) for f in archive.files]
+        parented_folders = []
+        parented_files = []
         for f in folders:
             f.load_folders(folders)
+            parented_folders.extend(f.folders)
             f.load_files(files)
+            parented_files.extend(f.files)
+
+        folders = [f for f in folders if f not in parented_folders]
+        files = [f for f in files if f not in parented_files]
+
 
         return Archive(folders, files, info, desc)
 

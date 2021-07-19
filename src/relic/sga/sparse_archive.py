@@ -3,7 +3,6 @@ from typing import List, BinaryIO
 
 from relic.sga.archive_info import ArchiveInfo
 from relic.sga.description import Description
-from relic.sga.file_collection import FileCollection, FolderCollection
 from relic.sga.file_header import FileHeader
 from relic.sga.folder_header import FolderHeader
 
@@ -12,8 +11,8 @@ from relic.sga.folder_header import FolderHeader
 class SparseArchive:
     info: ArchiveInfo
     descriptions: List[Description]
-    files:List[FileHeader]
-    folders:List[FolderHeader]
+    files: List[FileHeader]
+    folders: List[FolderHeader]
 
     @classmethod
     def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'SparseArchive':
