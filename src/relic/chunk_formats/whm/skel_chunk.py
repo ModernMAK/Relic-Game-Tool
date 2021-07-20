@@ -18,7 +18,7 @@ class SkelBone:
     def unpack(cls, stream: BinaryIO) -> 'SkelBone':
         buffer = stream.read(num_layout.size)
         name_size = num_layout.unpack(buffer)[0]
-        name = stream.read(name_size)
+        name = stream.read(name_size).decode("ascii")
         data = stream.read(32)
         args = struct.unpack("< l 7f", data)
 

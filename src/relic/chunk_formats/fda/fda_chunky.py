@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from relic.chunk_formats.fda.fda import FdaDataChunk
+from relic.chunk_formats.fda.data_chunk import FdaDataChunk
 from relic.chunk_formats.fda.info_chunk import FdaInfoChunk
 from relic.chunky import RelicChunky, FolderChunk
 from relic.chunky.abstract_relic_chunky import AbstractRelicChunky

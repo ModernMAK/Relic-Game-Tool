@@ -5,6 +5,7 @@ from enum import Enum
 from io import BytesIO
 from typing import Tuple, List, BinaryIO, Union
 
+from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
 from relic.chunk_formats.whm.shared import num_layout
 from relic.chunky import FolderChunk, DataChunk
 
@@ -62,7 +63,7 @@ class MslcBlockFormat(Enum):
         value = lookup.get(code)
         if value:
             return value
-        raise NotImplementedError(code)
+        raise UnimplementedMslcBlockFormat(code)
 
     def vertex_buffer_size(self) -> int:
         size = {
@@ -117,11 +118,8 @@ class MslcBlockUtil:
 
         block_header = stream.read(8)
         count, code = struct.unpack("< L L", block_header)
-        try:
-            f = MslcBlockFormat.from_code(code)
-        except ValueError:
-            raise NotImplementedError(code)
 
+        f = MslcBlockFormat.from_code(code)
         if f == MslcBlockFormat.Texture:
             texture_count = code
             subs = []

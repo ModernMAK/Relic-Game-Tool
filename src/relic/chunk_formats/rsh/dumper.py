@@ -4,7 +4,7 @@ import subprocess
 from os.path import join, dirname, splitext
 
 from relic.chunk_formats.rsh.rsh_chunky import RshChunky
-from relic.chunk_formats.shared.imag.writer import create_image, get_ext
+from relic.chunk_formats.shared.imag.writer import create_image, get_imag_chunk_extension
 from relic.chunky import RelicChunky
 from relic.shared import EnhancedJSONEncoder, walk_ext
 
@@ -27,7 +27,7 @@ def print_meta(f: str):
 def dump_rsh_as_image(f: str, o: str):
     rsh = get_rsh(f)
 
-    ext = get_ext(rsh.shrf.texture.imag.attr.img)
+    ext = get_imag_chunk_extension(rsh.shrf.texture.imag.attr.img)
     o, _ = splitext(o)
     o += ext
 
@@ -58,7 +58,7 @@ def dump_all_rsh_as_image(f: str, o: str):
             print("\t\t", e)
 
 
-def directex_fix_texture(f: str, path: str = r"..\..\dll\texconv.exe"):
+def directex_fix_texture(f: str, path: str = r"dll\texconv.exe"):
     path = os.path.abspath(path)
     outdir = dirname(f)
     subprocess.run([path, "-vflip", f, "-y", "-o", outdir])
@@ -70,7 +70,7 @@ def fix_texture_inversion(folder: str):
         directex_fix_texture(f)
 
 
-def convert_all(f: str, o: str, fmt: str = "png", path: str = r"..\..\dll\texconv.exe"):
+def convert_all(f: str, o: str, fmt: str = "png", path: str = r"dll\texconv.exe"):
     path = os.path.abspath(path)
     for root, _, files in os.walk(f):
         for file in files:

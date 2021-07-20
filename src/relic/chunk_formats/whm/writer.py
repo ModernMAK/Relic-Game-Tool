@@ -77,15 +77,18 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
     return v_local_offset
 
 
-def write_msgr_to_obj(stream: TextIO, chunk: MsgrChunk, obj_path: str = None) -> Tuple[int, Optional[str]]:
-    matlib_path = write_matlib_name(stream, obj_path) if obj_path else None
+def write_mtllib_to_obj(stream: TextIO, mtl_path: str):
+    matlib_writer = ObjWriter(stream)
+    matlib_writer.write_material_library(mtl_path)
 
+
+def write_msgr_to_obj(stream: TextIO, chunk: MsgrChunk) -> Tuple[int, Optional[str]]:
     v_offset = 0
     for i, mesh in enumerate(chunk.sub_meshes):
         name = chunk.parts[i].name
         v_offset += write_mslc_to_obj(stream, mesh, name, v_offset=v_offset)
 
-    return v_offset, matlib_path
+    return v_offset
 
 
 def fetch_textures_from_mslc(chunk: MslcChunk) -> Iterable[str]:
@@ -115,9 +118,8 @@ def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None
         mtl_writer.write_texture_diffuse(full_texture)
         mtl_writer.write_texture_alpha(full_texture)
 
-
-def write_obj_mtl(dest: str, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None):
-    with open(dest, "w") as obj_handle:
-        _, mtl = write_msgr_to_obj(obj_handle, chunk, dest)
-    with open(mtl, "w") as mtl_handle:
-        write_msgr_to_mtl(mtl_handle, chunk, texture_root, texture_ext)
+# def write_obj_mtl(dest: str, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None):
+#     with open(dest, "w") as obj_handle:
+#         _, mtl = write_msgr_to_obj(obj_handle, chunk, dest)
+#     with open(mtl, "w") as mtl_handle:
+#         write_msgr_to_mtl(mtl_handle, chunk, texture_root, texture_ext)

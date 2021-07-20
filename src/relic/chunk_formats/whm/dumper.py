@@ -7,6 +7,7 @@ from os.path import join, splitext, basename, dirname
 from typing import List
 
 from relic.chunk_formats.whm.msgr_chunk import MsgrChunk
+from relic.chunk_formats.whm.mslc_chunk import UnimplementedMslcBlockFormat
 from relic.chunk_formats.whm.sshr_chunk import SshrChunk
 from relic.chunk_formats.whm.whm_file import WhmChunky
 from relic.chunk_formats.whm.writer import write_obj_mtl
@@ -70,11 +71,11 @@ def dump_model(f: str, o: str, texture_root: str = None, texture_ext: str = None
         chunky = RelicChunky.unpack(handle)
         try:
             whm = WhmChunky.create(chunky)
-        except NotImplementedError as e:
-            if e.args[0] == 55:
+        except UnimplementedMslcBlockFormat as e:
+            if e.format == 55:
                 print("Skipping funky vertex buffer?")
                 raise
-            elif e.args[0] == 48:
+            elif e.format == 48:
                 print("Found an invalid index buffer?")
                 raise
             else:
