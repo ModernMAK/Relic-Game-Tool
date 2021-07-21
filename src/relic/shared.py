@@ -63,7 +63,7 @@ class Magic:
         return MagicUtil.check_magic_word(stream, self.layout, self.word, advance)
 
 
-WALK_RESULT = Tuple[str, List[str], List[str]]
+WalkResult = Tuple[str, List[str], List[str]]
 
 
 @dataclass
@@ -81,7 +81,7 @@ class MagicWalker:
     # Pass in the os.walk() generator
     # Root and Folders will remain unchanged
     # Files will be replaced with files starting with the proper magic word
-    def walk(self, walk: Iterable[WALK_RESULT]) -> Iterable[WALK_RESULT]:
+    def walk(self, walk: Iterable[WalkResult]) -> Iterable[WalkResult]:
         for root, _, files in walk:
             chunky_files = (file for file in files if self.check_file(join(root, file)))
             yield root, _, chunky_files
@@ -137,29 +137,29 @@ def filter_path_by_keyword(file: str, whitelist: VALID_KW_LIST = None, blacklist
     return True
 
 
-def filter_walk_by_predicate(walk: Iterable[WALK_RESULT], predicate: Callable[[str], bool]) -> Iterable[WALK_RESULT]:
+def filter_walk_by_predicate(walk: Iterable[WalkResult], predicate: Callable[[str], bool]) -> Iterable[WalkResult]:
     for root, _, files in walk:
         valid_files = (f for f in files if predicate(f))
         yield root, _, valid_files
 
 
-def filter_walk_by_extension(walk: Iterable[WALK_RESULT], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
-        Iterable[WALK_RESULT]:
+def filter_walk_by_extension(walk: Iterable[WalkResult], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[WalkResult]:
     whitelist = fix_extension_list(whitelist)
     blacklist = fix_extension_list(blacklist)
     predicate = partial(filter_path_by_extension, whitelist=whitelist, blacklist=blacklist)
     return filter_walk_by_predicate(walk, predicate)
 
 
-def filter_walk_by_keyword(walk: Iterable[WALK_RESULT], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
-        Iterable[WALK_RESULT]:
+def filter_walk_by_keyword(walk: Iterable[WalkResult], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[WalkResult]:
     whitelist = fix_keyword_list(whitelist)
     blacklist = fix_keyword_list(blacklist)
     predicate = partial(filter_path_by_keyword, whitelist=whitelist, blacklist=blacklist)
     return filter_walk_by_predicate(walk, predicate)
 
 
-def collapse_walk_on_files(walk: Iterable[WALK_RESULT]) -> Iterable[str]:
+def collapse_walk_on_files(walk: Iterable[WalkResult]) -> Iterable[str]:
     """Makes a walk only return an iterator for the full file path."""
     for root, _, files in walk:
         for file in files:

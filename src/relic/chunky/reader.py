@@ -12,8 +12,7 @@ def read_all_chunks(stream: BinaryIO) -> List[AbstractChunk]:
     terminal = get_stream_size(stream)
 
     while stream.tell() < terminal:
-        header = ChunkHeader.unpack(stream, True)
-
+        header = ChunkHeader.unpack(stream)
         if header.type == ChunkType.Folder:
             c = FolderChunk.unpack(stream, header)
         elif header.type == ChunkType.Data:

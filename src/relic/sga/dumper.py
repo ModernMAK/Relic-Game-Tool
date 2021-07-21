@@ -42,14 +42,20 @@ def write_binary(walk: Iterable[Tuple[str, File]], out_directory: str, decompres
                  forced_ext: Optional[str] = None):
     spinner = __get_bar_spinner()
     for directory, file in walk:
-        full_directory = __safe_join(out_directory, directory, file.name)
-        __safe_makedirs(full_directory)
-        if forced_ext:
-            full_directory = splitext(full_directory)[0] + forced_ext
-        with file.open_readonly_stream(decompress) as read_handle:
-            with open(full_directory, "wb") as write_handle:
-                write_handle.write(read_handle.read())
-                print(f"\r\t({next(spinner)}) Writing Binary Chunks, please wait.", end="")
+        write_file_as_binary(directory, file, out_directory, decompress, forced_ext)
+        print(f"\r\t({next(spinner)}) Writing Binary Chunks, please wait.", end="")
+
+
+def write_file_as_binary(directory: str, file: File, out_directory: str, decompress: bool = True,
+                         forced_ext: Optional[str] = None):
+    full_directory = __safe_join(out_directory, directory, file.name)
+    __safe_makedirs(full_directory)
+    if forced_ext:
+        full_directory = splitext(full_directory)[0] + forced_ext
+    with file.open_readonly_stream(decompress) as read_handle:
+        with open(full_directory, "wb") as write_handle:
+            write_handle.write(read_handle.read())
+            # print(f"\r\t({next(spinner)}) Writing Binary Chunks, please wait.", end="")
 
 
 def collapse_walk_in_files(walk: Iterable[ArchiveWalkResult]) -> Iterable[Tuple[str, File]]:
@@ -77,7 +83,7 @@ def walk_archive_files(walk: Iterable[Archive]) -> Iterable[ArchiveWalkResult]:
 def walk_archives(walk: Iterable[str]) -> Iterable[Archive]:
     for file_path in walk:
         with open(file_path, "rb") as handle:
-            print(f"\nUnpacking Archive =>\t{file_path}")
+            # print(f"\nUnpacking Archive =>\t{file_path}")
             yield Archive.unpack(handle)
 
 

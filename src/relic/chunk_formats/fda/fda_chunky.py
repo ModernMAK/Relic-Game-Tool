@@ -18,8 +18,8 @@ class FdaChunky(AbstractRelicChunky):
         fda: FolderChunk = chunky.get_chunk(id="FDA ")
 
         # We fetch 'FDA ' and get the Info/Data block from FDA
-        info = fda.get_chunk(id="INFO")
-        data = fda.get_chunk(id="DATA")
+        info = fda.get_chunk(id="INFO",recursive=False)
+        data = fda.get_chunk(id="DATA",recursive=False)
 
         # parse the blocks
         fda_info = FdaInfoChunk.create(info)

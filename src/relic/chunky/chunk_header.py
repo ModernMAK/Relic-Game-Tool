@@ -13,6 +13,7 @@ _chunk_header_layout = struct.Struct("< 4s 4s L L L")
 class ChunkType(Enum):
     Folder = "FOLD"
     Data = "DATA"
+    # BLANK = "\x00\x00\x00\x00"
 
 
 
@@ -26,15 +27,22 @@ class ChunkHeader:
     name: str
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, validate: bool = True) -> 'ChunkHeader':
+    def unpack(cls, stream: BinaryIO) -> 'ChunkHeader':
         args = unpack_from_stream(_chunk_header_layout, stream)
-        type = ChunkType(args[0].decode("ascii"))
-        id = args[1].decode("ascii")
-        version, size = args[2:3]
-        name = stream.read(args[4]).decode("ascii").rstrip("\x00")
+        try:
+            type = ChunkType(args[0].decode("ascii"))
+        except ValueError:
+            err_pos = stream.tell() - _chunk_header_layout.size
+            raise TypeError(f"Type not valid! '{args[0]}' @{err_pos} ~ 0x {hex(err_pos)[2:]}")
+
+        id = args[1].decode("ascii").strip("\x00")#.lstrip("\x00")
+        version, size = args[2:4]
+        raw_name = stream.read(args[4])
+        try:
+            name = raw_name.decode("ascii").rstrip("\x00")
+        except UnicodeError:
+            err_pos = stream.tell() - _chunk_header_layout.size
+            raise TypeError(f"Name not valid! '{raw_name}' @{err_pos} ~ 0x {hex(err_pos)[2:]}")
 
         header = ChunkHeader(type, id, version, size, name)
-        if validate and type not in [ChunkType.Folder, ChunkType.Data]:
-            err_pos = stream.tell() - _chunk_header_layout.size
-            raise TypeError(f"Type not valid! '{header.type}' @{err_pos} ~ 0x {hex(err_pos)[2:]} ~ [{buffer}]")
         return header

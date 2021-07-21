@@ -7,7 +7,7 @@ from typing import BinaryIO, Dict
 
 from relic.chunk_formats.shared.imag.imag_chunk import ImagChunk
 from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
-
+from relic.config import texconv_path
 _DDS_FORMAT_LOOKUP: Dict[int, str] = {
     8: "DXT1",
     10: "DXT3",
@@ -52,14 +52,11 @@ def create_image(stream: BinaryIO, chunk: ImagChunk):
 class ImagConverter:
     @classmethod
     def __fix_dds(cls, input_stream: BinaryIO, output_stream: BinaryIO):
-        # HARDCODED, assumes src is working directory
-        # TODO use paths
-        DIREXTEXCONV_PATH = "dll/texconv.exe"
         try:
             with NamedTemporaryFile("wb", delete=False) as in_file:
                 in_file.write(input_stream.read())
                 in_file.close()
-            subprocess.run([DIREXTEXCONV_PATH, "-vflip", "-y", "-o", dirname(in_file.name), in_file.name])
+            subprocess.run([texconv_path, "-vflip", "-y", "-o", dirname(in_file.name), in_file.name], stdout=subprocess.DEVNULL)
             # subprocess.call([, in_file.name, out_file_name])
 
             with open(in_file.name, "rb") as out_file:
@@ -67,7 +64,7 @@ class ImagConverter:
         finally:
             try:
                 os.remove(in_file.name)
-            except:
+            except FileNotFoundError:
                 pass
 
     @classmethod
@@ -77,25 +74,22 @@ class ImagConverter:
     @classmethod
     def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str,
                   perform_dds_fix: bool = False):  # An option to fix the dds inversion to avoid redoing a temp file
-        # HARDCODED, assumes src is working directory
-        # TODO use paths
-        DIREXTEXCONV_PATH = "dll/texconv.exe"
         try:
             with NamedTemporaryFile("wb", delete=False) as in_file:
                 in_file.write(input_stream.read())
                 in_file.close()
 
-            args = [DIREXTEXCONV_PATH, "-vflip" if perform_dds_fix else None, in_file.name, "-ft", fmt, "-y", "-o",
+            args = [texconv_path, "-vflip" if perform_dds_fix else None, in_file.name, "-ft", fmt, "-y", "-o",
                     dirname(in_file.name), in_file.name]
             # filter out vflip
             args = [arg for arg in args if arg is not None]
-            subprocess.run(args)
+            subprocess.run(args, stdout=subprocess.DEVNULL)
             with open(in_file.name, "rb") as out_file:
                 output_stream.write(out_file.read())
         finally:
             try:
                 os.remove(in_file.name)
-            except:
+            except FileNotFoundError:
                 pass
 
     # Less of a conversion

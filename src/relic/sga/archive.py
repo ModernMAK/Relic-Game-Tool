@@ -9,11 +9,13 @@ from relic.sga.folder import Folder
 from relic.sga.sparse_archive import SparseArchive
 
 
-
 @dataclass
 class Archive(AbstractDirectory):
     info: ArchiveInfo
     descriptions: List[Description]
+
+    # A helper to know the total # of files without performing a full walk
+    total_files: int = 0
 
     @classmethod
     def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'Archive':
@@ -34,10 +36,11 @@ class Archive(AbstractDirectory):
             f.load_files(files)
             parented_files.extend(f.files)
 
+        total_files = len(files)
         folders = [f for f in folders if f not in parented_folders]
         files = [f for f in files if f not in parented_files]
 
-        return Archive(folders, files, info, desc)
+        return Archive(folders, files, info, desc, total_files)
 
     @classmethod
     def repack(cls, stream: BinaryIO, write_magic: bool = True):

@@ -97,7 +97,7 @@ def get_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> 
             continue
         latest = game
         latest_path = path
-    return latest_path
+    return latest, latest_path
 
 
 if __name__ == "__main__":

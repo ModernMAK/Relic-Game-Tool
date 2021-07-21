@@ -69,7 +69,7 @@ def walk_chunks_filtered(chunks: List[AbstractChunk], parent: AbstractChunk = No
                 continue
             filtered_data.append(chunk)
 
-        yield parent_path, parent, filtered_folders, filtered_data
+        yield parent_path, filtered_folders, filtered_data
 
         if recursive:
             for i, subfolder in enumerate(folders):

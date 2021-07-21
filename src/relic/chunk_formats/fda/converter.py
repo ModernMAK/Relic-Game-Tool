@@ -10,6 +10,7 @@ from relic.chunk_formats.fda.fda_chunky import FdaChunky
 from relic.chunk_formats.fda.info_chunk import FdaInfoChunk
 from relic.chunky import RelicChunkyHeader
 from relic.file_formats import aiff
+from relic.config import aifc_decoder_path, aifc_encoder_path
 
 
 class FdaConverter:
@@ -58,22 +59,18 @@ class FdaConverter:
 
         return FdaChunky(RelicChunkyHeader.default(), info, FdaDataChunk(len(data), data))
 
-
     # WAV <---> AIFF-C (Relic)
     # Assuming I do figure out the Relic Compression Algorithm from the .EXE, I wont need the binaries anymore
     @classmethod
-    def Aiffr2Wav(cls, aiffr:BinaryIO, wav:BinaryIO) -> int:
-        # HARDCODED, assumes src is working directory
-        # TODO use paths
-        DECODER_PATH = "dll/dec.exe"
+    def Aiffr2Wav(cls, aiffr: BinaryIO, wav: BinaryIO) -> int:
         try:
             with NamedTemporaryFile("wb", delete=False) as aiffr_file:
                 aiffr_file.write(aiffr.read())
                 aiffr_file.close()
-                wav_file_name = aiffr_file.name +".wav"
-            subprocess.call([DECODER_PATH, aiffr_file.name, wav_file_name])
+                wav_file_name = aiffr_file.name + ".wav"
+            subprocess.call([aifc_decoder_path, aiffr_file.name, wav_file_name], stdout=subprocess.DEVNULL)
 
-            with open(wav_file_name,"rb") as wav_file:
+            with open(wav_file_name, "rb") as wav_file:
                 return wav.write(wav_file.read())
         finally:
             try:
@@ -86,16 +83,13 @@ class FdaConverter:
                 pass
 
     @classmethod
-    def Wav2Aiffr(cls, wav:BinaryIO, aiffr:BinaryIO) -> int:
-        # HARDCODED, assumes src is working directory
-        # TODO use paths
-        ENCODER_PATH = "dll/enc.exe"
+    def Wav2Aiffr(cls, wav: BinaryIO, aiffr: BinaryIO) -> int:
         try:
             with NamedTemporaryFile("wb", delete=False) as wav_file:
                 wav_file.write(wav.read())
                 wav_file.close()
                 aiffr_file_name = wav_file.name + ".aiffr"
-            subprocess.call([ENCODER_PATH, wav_file.name, aiffr_file_name])
+            subprocess.call([aifc_encoder_path, wav_file.name, aiffr_file_name])
 
             with open(aiffr_file_name, "rb") as aiffr_file:
                 return aiffr.write(aiffr_file.read())
@@ -111,14 +105,14 @@ class FdaConverter:
 
     # FDA <---> WAV
     @classmethod
-    def Fda2Wav(cls, chunky:FdaChunky, stream:BinaryIO) -> int:
+    def Fda2Wav(cls, chunky: FdaChunky, stream: BinaryIO) -> int:
         with BytesIO() as aiffr:
-            cls.Fda2Aiffr(chunky,aiffr)
+            cls.Fda2Aiffr(chunky, aiffr)
             aiffr.seek(0)
             return cls.Aiffr2Wav(aiffr, stream)
 
     @classmethod
-    def Wav2Fda(cls, stream:BinaryIO) -> FdaChunky:
+    def Wav2Fda(cls, stream: BinaryIO) -> FdaChunky:
         with BytesIO() as aiffr:
             cls.Wav2Aiffr(stream, aiffr)
             aiffr.seek(0)

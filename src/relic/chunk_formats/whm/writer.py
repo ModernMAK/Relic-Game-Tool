@@ -29,6 +29,11 @@ def write_matlib_name(stream: TextIO, obj_path: str) -> str:
     return join(dirname, filename)
 
 
+class InvalidMeshBufferError(Exception):
+    def __init__(self, parent, *args):
+        super().__init__(parent, *args)
+
+
 def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0,
                       validate: bool = True) -> int:
     writer = ObjWriter(stream)
@@ -47,18 +52,20 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
         with BytesIO(block.vertex_buffer) as vertex:
             reader = MeshReader(vertex)
             v_count = block.count
+            try:
+                for pos in reader.read_float3(v_count, validate=validate):
+                    writer.write_vertex_position(*pos)
 
-            for pos in reader.read_float3(v_count, validate=validate):
-                writer.write_vertex_position(*pos)
+                if block.format in [MslcBlockFormat.Vertex48]:
+                    reader.seek_float4(v_count)
 
-            if block.format in [MslcBlockFormat.Vertex48]:
-                reader.seek_float4(v_count)
+                for normal in reader.read_float3(v_count, validate=validate):
+                    writer.write_vertex_normal(*normal)
 
-            for normal in reader.read_float3(v_count, validate=validate):
-                writer.write_vertex_normal(*normal)
-
-            for uv in reader.read_float2(v_count, validate=validate):
-                writer.write_vertex_uv(*uv)
+                for uv in reader.read_float2(v_count, validate=validate):
+                    writer.write_vertex_uv(*uv)
+            except AssertionError as e:
+                raise InvalidMeshBufferError(e)
 
         v_local_offset += v_count
 

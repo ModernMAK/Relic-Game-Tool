@@ -15,6 +15,6 @@ class FdaDataChunk:
 
     @classmethod
     def create(cls, chunk: DataChunk) -> 'FdaDataChunk':
-        args = _DATA_STRUCT.unpack(chunk.data)[0]
+        args = _DATA_STRUCT.unpack(chunk.data[:4])[0]
         data = chunk.data[4:]
         return FdaDataChunk(args, data)
