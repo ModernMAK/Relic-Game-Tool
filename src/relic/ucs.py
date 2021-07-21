@@ -84,6 +84,11 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
     dir_path, f_path = split(file_path)
     file_name, ext = splitext(f_path)
     try:
+        # Really arbitrary 'gotcha', some speech files have a random 'b' after the VO Code
+        #   This is probably due to a bug in my code, but this will fix the issue
+        # TODO find out if this bug is my fault
+        if file_name[-1] == "b":
+            file_name = file_name[:-1]
         num = int(file_name)
     except ValueError:
         return file_path

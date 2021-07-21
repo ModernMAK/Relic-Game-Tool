@@ -293,4 +293,4 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW I\full_dump", ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
+    quick_dump(r"D:\Dumps\DOW I\full_dump")  #, ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
