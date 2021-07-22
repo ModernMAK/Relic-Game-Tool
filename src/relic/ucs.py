@@ -90,7 +90,7 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
         if file_name[-1] == "b":
             file_name = file_name[:-1]
         num = int(file_name)
-    except ValueError:
+    except (ValueError, IndexError):
         return file_path
 
     replacement = environment.get(num)

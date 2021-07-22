@@ -9,7 +9,7 @@ from typing import BinaryIO, Optional, Iterable, Tuple, Dict
 from relic.chunk_formats.fda.converter import FdaConverter
 from relic.chunk_formats.fda.fda_chunky import FdaChunky
 from relic.chunk_formats.rsh.rsh_chunky import RshChunky
-from relic.chunk_formats.shared.imag.writer import ImagConverter, get_imag_chunk_extension, create_image
+from relic.chunk_formats.shared.imag.writer import ImagConverter, get_imag_chunk_extension
 from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
 from relic.chunk_formats.whm.whm_chunky import WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
@@ -20,12 +20,12 @@ from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
 from relic.chunky import RelicChunky, DataChunk
 from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
 from relic.chunky.magic import RELIC_CHUNKY_MAGIC
+from relic.config import get_latest_dow_game, get_dow_root_directories
 from relic.sga.archive import Archive
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
 from relic.sga.file import File
-from relic.shared import KW_LIST, filter_path_by_keyword
-from relic.config import get_latest_dow_game, get_dow_root_directories
+from relic.shared import KW_LIST
 from relic.ucs import build_locale_environment, get_lang_string_for_file
 
 
@@ -123,13 +123,12 @@ def __dir_replace_name(output_path: str, replace_ext: bool = False) -> str:
 
 
 def dump_fda(fda: FdaChunky, output_path: str, replace_ext: bool = True, use_wave: bool = True,
-             file_path: str = None, locale_environment: Dict[int, str] = None, **kwargs):
+             locale_environment: Dict[int, str] = None, **kwargs):
     # KWARGS is neccessary to catch unexpected keyword args
-    file_path = file_path or ""
     if locale_environment:
-        new_path = get_lang_string_for_file(locale_environment, file_path)
-        file_path = new_path
-    output_path = join(output_path, file_path)
+        output_path = get_lang_string_for_file(locale_environment, output_path)
+        # file_path = new_path
+    # output_path = join(output_path, file_path)
     output_path = __file_replace_name(output_path, ".wav" if use_wave else ".aiffc", replace_ext)
     __create_dirs(output_path)
     with open(output_path, "wb") as handle:
@@ -168,7 +167,10 @@ def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True,
 
         for i, file in enumerate(files):
             file: DataChunk
-            full_path = join(full_root, f"Chunk-{i}")
+            file_name_parts = [file.header.id.strip(), file.header.name.strip(), "Chunk", str(i)]
+            file_name_parts = (p for p in file_name_parts if p and len(p) > 0)
+            file_name = "-".join(file_name_parts)
+            full_path = join(full_root, file_name)
             __create_dirs(full_path)
 
             with open(full_path + ".bin", "wb") as handle:
@@ -188,7 +190,7 @@ def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, file
     output_path = __dir_replace_name(output_path, replace_ext)
     __create_dirs(output_path, use_dirname=False)
     with open(join(output_path, "Diffuse" + ext), "wb") as writer:
-        create_image(writer, imag)
+        ImagConverter.Imag2Stream(imag,writer)
     for p in chunky.tpat.ptld:
         with open(join(output_path, f"Layer-{WTP_LAYER_NAMES.get(p.layer)}.tga"), "wb") as writer:
             create_mask_image(writer, p, chunky.tpat.info)
@@ -218,14 +220,15 @@ def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True
 
 #
 def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, **kwargs):
-    __safe_makedirs(out_directory)
     for directory, file in walk:
         file.decompress()  # May be a bug; files aren't being decompressed somewhere? This has led to fewer errors
         try:
             chunky = unpack_archive_file(file)
+            out_path = join(out_directory, directory, file.name)
+            __safe_makedirs(out_path)
             if chunky:
                 # WTP cant use name
-                dump(chunky, out_directory, file_path=join(directory, file.name), **kwargs)
+                dump(chunky, out_path, **kwargs)  # file_path=, **kwargs)
             else:
                 write_file_as_binary(directory, file, out_directory)
         except (TypeError,
@@ -272,7 +275,7 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
             print(f"\t({next(spinner)}) Dumping File [ {current_file} / {file_count} (MAX) ] '{fp}'", end="")
             current_file += 1
             yield p, f
-            print("\r",end="")
+            print("\r", end="")
         print("\r", end="\n")  # Erase 'Dumping'
 
     walk = walk_archive_paths(input_folder)  # , whitelist="Speech")
@@ -293,4 +296,4 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW I\full_dump")  #, ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
+    quick_dump(r"D:\Dumps\DOW I\full_dump")  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
