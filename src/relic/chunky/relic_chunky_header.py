@@ -20,4 +20,4 @@ class RelicChunkyHeader:
 
     @classmethod
     def default(cls) -> 'RelicChunkyHeader':
-        return RelicChunkyHeader("\r\n\0\0", 1, 1)
+        return RelicChunkyHeader("\r\n\x1a\0", 1, 1)
