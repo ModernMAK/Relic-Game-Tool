@@ -25,7 +25,7 @@ from relic.sga.archive import Archive
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
 from relic.sga.file import File
-from relic.shared import KW_LIST
+from relic.shared import KW_LIST, EnhancedJSONEncoder
 from relic.ucs import build_locale_environment, get_lang_string_for_file
 
 
@@ -127,8 +127,7 @@ def dump_fda(fda: FdaChunky, output_path: str, replace_ext: bool = True, use_wav
     # KWARGS is neccessary to catch unexpected keyword args
     if locale_environment:
         output_path = get_lang_string_for_file(locale_environment, output_path)
-        # file_path = new_path
-    # output_path = join(output_path, file_path)
+
     output_path = __file_replace_name(output_path, ".wav" if use_wave else ".aiffc", replace_ext)
     __create_dirs(output_path)
     with open(output_path, "wb") as handle:
@@ -157,40 +156,38 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
         write_msgr_to_mtl(mtl_handle, whm.msgr, texture_root, texture_ext)
 
 
-def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True, include_meta: bool = False,
-                file_path: str = None, **kwargs):
+def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True, include_meta: bool = False, **kwargs):
+
     output_path = __file_replace_name(output_path, "", replace_ext)
 
-    file_path = file_path or ""
-    for sub_root, _, files in chunky.walk_chunks():
-        full_root = join(output_path, file_path, sub_root)
+    for sub_root, _, chunks in chunky.walk_chunks():
+        full_root = join(output_path, sub_root)
 
-        for i, file in enumerate(files):
-            file: DataChunk
-            file_name_parts = [file.header.id.strip(), file.header.name.strip(), "Chunk", str(i)]
+        for i, chunk in enumerate(chunks):
+            chunk: DataChunk
+            file_name_parts = [chunk.header.id.strip(), chunk.header.name.strip(), "Chunk", str(i)]
             file_name_parts = (p for p in file_name_parts if p and len(p) > 0)
             file_name = "-".join(file_name_parts)
             full_path = join(full_root, file_name)
             __create_dirs(full_path)
 
             with open(full_path + ".bin", "wb") as handle:
-                handle.write(file.data)
+                handle.write(chunk.data)
+
             if include_meta:
                 with open(full_path + f".meta", "w") as handle:
-                    d = asdict(file.header)
-                    json_text = json.dumps(d, indent=4)
+                    # d = asdict(chunk.header)
+                    json_text = json.dumps(chunk.header, indent=4, cls=EnhancedJSONEncoder)
                     handle.write(json_text)
 
 
-def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, file_path: str = None, **kwargs):
+def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, **kwargs):
     imag = chunky.tpat.imag
     ext = get_imag_chunk_extension(imag.attr.img)
-    file_path = file_path or ""
-    output_path = join(output_path, file_path)
     output_path = __dir_replace_name(output_path, replace_ext)
     __create_dirs(output_path, use_dirname=False)
     with open(join(output_path, "Diffuse" + ext), "wb") as writer:
-        ImagConverter.Imag2Stream(imag,writer)
+        ImagConverter.Imag2Stream(imag, writer)
     for p in chunky.tpat.ptld:
         with open(join(output_path, f"Layer-{WTP_LAYER_NAMES.get(p.layer)}.tga"), "wb") as writer:
             create_mask_image(writer, p, chunky.tpat.info)
@@ -213,27 +210,33 @@ def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True
     elif isinstance(chunky, WtpChunky):
         dump_wtp(chunky, output_path, replace_ext, **kwargs)
     elif isinstance(chunky, RelicChunky):
-        dump_chunky(chunky, output_path, replace_ext, **kwargs)
+        # Special case; ignore replace_ext
+        dump_chunky(chunky, output_path, replace_ext=False, **kwargs)
     else:
         raise NotImplementedError(chunky)
 
 
 #
-def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, **kwargs):
+def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dump_non_chunkies: bool = True,
+                       dump_unsupported_chunkies: bool = True, **kwargs):
     for directory, file in walk:
+        out_path = join(out_directory, directory, file.name)
         file.decompress()  # May be a bug; files aren't being decompressed somewhere? This has led to fewer errors
         try:
             chunky = unpack_archive_file(file)
-            out_path = join(out_directory, directory, file.name)
-            __safe_makedirs(out_path)
             if chunky:
-                # WTP cant use name
-                dump(chunky, out_path, **kwargs)  # file_path=, **kwargs)
-            else:
+                if not dump_unsupported_chunkies and isinstance(chunky, RelicChunky):  # Default means unsupported
+                    continue
+                __safe_makedirs(out_path)
+                dump(chunky, out_path, **kwargs)
+            elif dump_non_chunkies:
+                __safe_makedirs(out_path)
                 write_file_as_binary(directory, file, out_directory)
         except (TypeError,
                 InvalidMeshBufferError):  # Covers the two most basic cases: TypeError in Headers & WHM's still mysterious mesh buffer format
-            write_file_as_binary(directory, file, out_directory)
+            if dump_unsupported_chunkies:
+                __safe_makedirs(out_path)
+                write_file_as_binary(directory, file, out_directory)
 
 
 def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = None,
@@ -260,7 +263,7 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
         nonlocal file_count
         for archive in w:
             current_file = 1
-            file_count = archive.total_files
+            file_count = archive._total_files
             # print("\t", "Files:\t", archive.total_files)
             yield archive
             # print("\r", end="")  # Erase Archive count
@@ -279,6 +282,8 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
         print("\r", end="\n")  # Erase 'Dumping'
 
     walk = walk_archive_paths(input_folder)  # , whitelist="Speech")
+    # I was trying to speed things up on my speech debugging, I will add whitelist/blacklist for keywords, the current funciton seems to be bugged
+    # TODO support whitelist/blacklsit on Archives & Files
     # walk = (f for f in walk if filter_path_by_keyword(f, whitelist=["Speech"]))
     walk = print_walk_archive_path(walk)  # PRETTY
 
@@ -293,7 +298,8 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
     walk = print_walk_archive_files(walk)  # PRETTY
 
     dump_archive_files(walk, out_dir, **kwargs)
+    dump_archive_files(walk, out_dir, **kwargs)
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW I\full_dump")  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
+    quick_dump(r"D:\Dumps\DOW I\full_dump",include_meta=True)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])

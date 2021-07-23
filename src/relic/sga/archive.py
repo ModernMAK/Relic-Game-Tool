@@ -15,7 +15,7 @@ class Archive(AbstractDirectory):
     descriptions: List[Description]
 
     # A helper to know the total # of files without performing a full walk
-    total_files: int = 0
+    _total_files: int = 0
 
     @classmethod
     def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'Archive':

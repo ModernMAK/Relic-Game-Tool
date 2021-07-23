@@ -1,6 +1,7 @@
 import json
 import struct
 from dataclasses import dataclass, is_dataclass, asdict
+from enum import Enum
 from functools import partial
 from os.path import splitext, join
 from struct import Struct
@@ -178,11 +179,14 @@ class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if is_dataclass(o):
             return asdict(o)
-        if isinstance(o, bytes):
+        elif isinstance(o, Enum):
+            return {'name': o.name, 'value': o.value}
+        elif isinstance(o, bytes):
             # return "... Bytes Not Dumped To Avoid Flooding Console ..."
             l = len(o)
             if len(o) > 16:
                 o = o[0:16]
                 return o.hex(sep=" ") + f" ... [+{l - 16} Bytes]"
             return o.hex(sep=" ")
-        return super().default(o)
+        else:
+            return super().default(o)
