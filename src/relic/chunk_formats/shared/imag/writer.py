@@ -1,13 +1,14 @@
 import os
 import subprocess
 from io import BytesIO
-from os.path import dirname
+from os.path import dirname, basename, splitext
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO, Dict
 
 from relic.chunk_formats.shared.imag.imag_chunk import ImagChunk
 from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
 from relic.config import texconv_path
+
 _DDS_FORMAT_LOOKUP: Dict[int, str] = {
     8: "DXT1",
     10: "DXT3",
@@ -56,7 +57,9 @@ class ImagConverter:
             with NamedTemporaryFile("wb", delete=False) as in_file:
                 in_file.write(input_stream.read())
                 in_file.close()
-            subprocess.run([texconv_path, "-vflip", "-y", "-o", dirname(in_file.name), in_file.name], stdout=subprocess.DEVNULL)
+
+            subprocess.run([texconv_path, "-vflip", "-y", "-o", dirname(in_file.name), in_file.name],
+                           stdout=subprocess.DEVNULL)
             # subprocess.call([, in_file.name, out_file_name])
 
             with open(in_file.name, "rb") as out_file:
@@ -74,21 +77,34 @@ class ImagConverter:
     @classmethod
     def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str,
                   perform_dds_fix: bool = False):  # An option to fix the dds inversion to avoid redoing a temp file
+        def get_texconv_fmt_ext() -> str:
+            lookup = {
+                'png': ".PNG",
+            }
+            return lookup[fmt.lower()]
+
         try:
             with NamedTemporaryFile("wb", delete=False) as in_file:
                 in_file.write(input_stream.read())
                 in_file.close()
 
-            args = [texconv_path, "-vflip" if perform_dds_fix else None, in_file.name, "-ft", fmt, "-y", "-o",
+            # perform_dds_fix = False #TODO temp
+            args = [texconv_path, "-vflip" if perform_dds_fix else None, "-ft", fmt, "-y", "-o",
                     dirname(in_file.name), in_file.name]
             # filter out vflip
             args = [arg for arg in args if arg is not None]
             subprocess.run(args, stdout=subprocess.DEVNULL)
-            with open(in_file.name, "rb") as out_file:
+            b, _ = splitext(in_file.name)
+            out_name = b + get_texconv_fmt_ext()
+            with open(out_name, "rb") as out_file:
                 output_stream.write(out_file.read())
         finally:
             try:
                 os.remove(in_file.name)
+            except FileNotFoundError:
+                pass
+            try:
+                os.remove(out_name)
             except FileNotFoundError:
                 pass
 
@@ -103,7 +119,7 @@ class ImagConverter:
                 create_image(temp, imag)
                 # We have to check needs fixing otherwise non-dds images will be dds_fixed
                 perform_dds_fix = not raw and cls.__needs_fix(imag)
-                temp.seek(0,0)
+                temp.seek(0, 0)
                 cls.__convert(temp, stream, format, perform_dds_fix)
         else:
             if cls.__needs_fix(imag):

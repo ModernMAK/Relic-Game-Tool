@@ -78,6 +78,9 @@ class MtlWriter:
         return self._stream.write(line)
 
     def __write_texture(self, code: str, path: str, prefix: str = "map_") -> int:
+
+        if " " in path:
+            raise ValueError(f'path cannot contain any spaces! (Limitation of OBJ standard) \'{path}\'')
         line = f"\t{prefix}{code} {path}\n"
         return self._stream.write(line)
 

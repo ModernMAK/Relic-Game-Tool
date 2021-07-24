@@ -3,7 +3,7 @@ import struct
 from dataclasses import asdict
 from enum import Enum, auto
 from os import makedirs
-from os.path import splitext, dirname, join
+from os.path import splitext, dirname, join, split
 from typing import BinaryIO, Optional, Iterable, Tuple, Dict
 
 from relic.chunk_formats.fda.converter import FdaConverter
@@ -146,15 +146,18 @@ def dump_fda(fda: FdaChunky, output_path: str, replace_ext: bool = True, use_wav
             FdaConverter.Fda2Aiffr(fda, handle)
 
 
-def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format: str = "png", **kwargs):
+def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format: str = "png", force_valid:bool=False, **kwargs):
     output_path = __file_replace_name(output_path, f".{format}", replace_ext)
+    if force_valid:
+        d, b = split(output_path)
+        output_path = join(d, b.replace(" ", "_"))
     # Theres more to dump here, but for now, we only dump the Image
     with open(output_path, "wb") as handle:
         ImagConverter.Imag2Stream(rsh.shrf.texture.imag, handle, format)
 
 
 def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture_root: str = None,
-             texture_ext: str = None, include_meta: bool = False, **kwargs):
+             texture_ext: str = None, include_meta: bool = False, force_valid:bool=False, **kwargs):
     output_path = __dir_replace_name(output_path, replace_ext)
     obj_path = output_path + f".obj"
     mtl_path = output_path + f".mtl"
@@ -162,10 +165,10 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
         write_mtllib_to_obj(obj_handle, mtl_path)
         write_msgr_to_obj(obj_handle, whm.msgr)
     with open(mtl_path, "w") as mtl_handle:
-        write_msgr_to_mtl(mtl_handle, whm.msgr, texture_root, texture_ext)
+        write_msgr_to_mtl(mtl_handle, whm.msgr, texture_root, texture_ext, force_valid)
 
     if include_meta:
-        dump_chunky(whm,output_path,replace_ext=False,include_meta=True)
+        dump_chunky(whm, output_path, replace_ext=False, include_meta=True)
         # dump_chunky_meta(whm, output_path, replace_ext=False)
     #     with open(output_path + ".meta", "w") as meta:
     #         json_text = json.dumps(whm.header, indent=4, cls=EnhancedJSONEncoder)
@@ -236,8 +239,12 @@ def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, **kw
             create_mask_image(writer, p, chunky.tpat.info)
 
 
-def dump_rtx(chunky: RtxChunky, output_path: str, replace_ext: bool = True, format: str = "png", **kwargs):
+def dump_rtx(chunky: RtxChunky, output_path: str, replace_ext: bool = True, format: str = "png",
+             force_valid: bool = True, **kwargs):
     output_path = __file_replace_name(output_path, f".{format}", replace_ext)
+    if force_valid:
+        d, b = split(output_path)
+        output_path = join(d, b.replace(" ", "_"))
     # Theres more to dump here, but for now, we only dump the Image
     with open(output_path, "wb") as handle:
         ImagConverter.Imag2Stream(chunky.txtr.imag, handle, format)
@@ -355,8 +362,9 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW I\full_dump",
-               ext_whitelist=[".rtx",".whm"],
+    quick_dump(r"D:\Dumps\DOW_I\full_dump", texture_root=r"D:\Dumps\DOW_I\full_dump", texture_ext=".png",
+               ext_whitelist=[".rsh"],
+               force_valid=True,
                include_meta=False)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
 
     print("---")

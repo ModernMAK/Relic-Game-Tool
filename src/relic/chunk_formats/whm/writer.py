@@ -112,16 +112,20 @@ def fetch_textures_from_msgr(chunk: MsgrChunk) -> Iterable[str]:
             yield texture
 
 
-def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None):
+def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None, force_valid:bool=True):
     texture_ext = texture_ext or ""
     textures = [t for t in fetch_textures_from_msgr(chunk)]
     textures = set(textures)
+
     mtl_writer = MtlWriter(stream)
     for texture in textures:
         tex_name = get_name_from_texture_path(texture)
         mtl_writer.write_default_texture(tex_name)
         full_texture = join(texture_root, texture) if texture_root else texture
         full_texture += texture_ext
+        if force_valid:
+            d, b = split(full_texture)
+            full_texture = join(d, b.replace(" ", "_"))
         mtl_writer.write_texture_diffuse(full_texture)
         mtl_writer.write_texture_alpha(full_texture)
 
