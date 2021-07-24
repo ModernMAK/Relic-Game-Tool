@@ -14,7 +14,7 @@ class WtpChunky(AbstractRelicChunky):
     def create(cls, chunky: RelicChunky) -> 'WtpChunky':
         tpat_folder: FolderChunk = chunky.get_chunk(id="TPAT")
         tpat = TpatChunk.create(tpat_folder)
-        return WtpChunky(chunky.header, tpat)
+        return WtpChunky(chunky.chunks, chunky.header, tpat)
 
     @classmethod
     def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'WtpChunky':

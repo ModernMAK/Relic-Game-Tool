@@ -9,8 +9,10 @@ from typing import BinaryIO, Optional, Iterable, Tuple, Dict
 from relic.chunk_formats.fda.converter import FdaConverter
 from relic.chunk_formats.fda.fda_chunky import FdaChunky
 from relic.chunk_formats.rsh.rsh_chunky import RshChunky
+from relic.chunk_formats.rtx.rtx_chunky import RtxChunky
 from relic.chunk_formats.shared.imag.writer import ImagConverter, get_imag_chunk_extension
 from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
+from relic.chunk_formats.whm.mslc_chunk import DB_UniqueCodes
 from relic.chunk_formats.whm.whm_chunky import WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
@@ -25,7 +27,7 @@ from relic.sga.archive import Archive
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
 from relic.sga.file import File
-from relic.shared import KW_LIST, EnhancedJSONEncoder
+from relic.shared import KW_LIST, EnhancedJSONEncoder, filter_path_by_keyword
 from relic.ucs import build_locale_environment, get_lang_string_for_file
 
 
@@ -35,6 +37,7 @@ class ChunkyFormat(Enum):
     RSH = auto()
     WHM = auto()
     WTP = auto()
+    RTX = auto()
 
     # Audio = FDA
 
@@ -42,13 +45,16 @@ class ChunkyFormat(Enum):
     def from_class(cls, instance: AbstractRelicChunky) -> 'ChunkyFormat':
         if isinstance(instance, FdaChunky):
             return ChunkyFormat.FDA
-        if isinstance(instance, WtpChunky):
+        elif isinstance(instance, WtpChunky):
             return ChunkyFormat.WTP
-        if isinstance(instance, RshChunky):
+        elif isinstance(instance, RshChunky):
             return ChunkyFormat.RSH
-        if isinstance(instance, WhmChunky):
+        elif isinstance(instance, RtxChunky):
+            return ChunkyFormat.RTX
+        elif isinstance(instance, WhmChunky):
             return ChunkyFormat.WHM
-        return ChunkyFormat.Unsupported
+        else:
+            return ChunkyFormat.Unsupported
 
     @classmethod
     def from_extension(cls, extension: str) -> 'ChunkyFormat':
@@ -59,6 +65,7 @@ class ChunkyFormat(Enum):
             'rsh': ChunkyFormat.RSH,
             'whm': ChunkyFormat.WHM,
             'wtp': ChunkyFormat.WTP,
+            'rtx': ChunkyFormat.RTX,
         }
         return lookup.get(extension, ChunkyFormat.Unsupported)
 
@@ -89,7 +96,9 @@ def unpack_stream(stream: BinaryIO, chunk_format: ChunkyFormat) -> AbstractRelic
 
 
 def create(chunky: RelicChunky, chunk_format: ChunkyFormat) -> AbstractRelicChunky:
-    if chunk_format == ChunkyFormat.FDA:
+    if chunk_format == ChunkyFormat.RTX:
+        return RtxChunky.create(chunky)
+    elif chunk_format == ChunkyFormat.FDA:
         return FdaChunky.create(chunky)
     elif chunk_format == ChunkyFormat.RSH:
         return RshChunky.create(chunky)
@@ -145,7 +154,7 @@ def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format:
 
 
 def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture_root: str = None,
-             texture_ext: str = None, **kwargs):
+             texture_ext: str = None, include_meta: bool = False, **kwargs):
     output_path = __dir_replace_name(output_path, replace_ext)
     obj_path = output_path + f".obj"
     mtl_path = output_path + f".mtl"
@@ -155,17 +164,51 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
     with open(mtl_path, "w") as mtl_handle:
         write_msgr_to_mtl(mtl_handle, whm.msgr, texture_root, texture_ext)
 
+    if include_meta:
+        dump_chunky(whm,output_path,replace_ext=False,include_meta=True)
+        # dump_chunky_meta(whm, output_path, replace_ext=False)
+    #     with open(output_path + ".meta", "w") as meta:
+    #         json_text = json.dumps(whm.header, indent=4, cls=EnhancedJSONEncoder)
+    #         meta.write(json_text)
+
+
+def dump_chunky_meta(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True, **kwargs):
+    with open(output_path + ".meta", "w") as meta:
+        json_text = json.dumps(chunky.header, indent=4, cls=EnhancedJSONEncoder)
+        meta.write(json_text)
+    for sub_root, _, chunks in chunky.walk_chunks():
+        full_root = join(output_path, sub_root)
+
+        for i, chunk in enumerate(chunks):
+            chunk: DataChunk
+            file_name_parts = [chunk.header.id.strip(), chunk.header.name.strip().replace("\\", "_").replace("/", "_"),
+                               "Chunk", str(i)]
+            file_name_parts = (p for p in file_name_parts if p and len(p) > 0)
+            file_name = "-".join(file_name_parts)
+            full_path = join(full_root, file_name)
+            __create_dirs(full_path)
+
+            with open(full_path + f".meta", "w") as handle:
+                # d = asdict(chunk.header)
+                json_text = json.dumps(chunk.header, indent=4, cls=EnhancedJSONEncoder)
+                handle.write(json_text)
+
 
 def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True, include_meta: bool = False, **kwargs):
-
     output_path = __file_replace_name(output_path, "", replace_ext)
+
+    if include_meta:
+        with open(output_path + ".meta", "w") as meta:
+            json_text = json.dumps(chunky.header, indent=4, cls=EnhancedJSONEncoder)
+            meta.write(json_text)
 
     for sub_root, _, chunks in chunky.walk_chunks():
         full_root = join(output_path, sub_root)
 
         for i, chunk in enumerate(chunks):
             chunk: DataChunk
-            file_name_parts = [chunk.header.id.strip(), chunk.header.name.strip(), "Chunk", str(i)]
+            file_name_parts = [chunk.header.id.strip(), chunk.header.name.strip().replace("\\", "_").replace("/", "_"),
+                               "Chunk", str(i)]
             file_name_parts = (p for p in file_name_parts if p and len(p) > 0)
             file_name = "-".join(file_name_parts)
             full_path = join(full_root, file_name)
@@ -193,6 +236,13 @@ def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, **kw
             create_mask_image(writer, p, chunky.tpat.info)
 
 
+def dump_rtx(chunky: RtxChunky, output_path: str, replace_ext: bool = True, format: str = "png", **kwargs):
+    output_path = __file_replace_name(output_path, f".{format}", replace_ext)
+    # Theres more to dump here, but for now, we only dump the Image
+    with open(output_path, "wb") as handle:
+        ImagConverter.Imag2Stream(chunky.txtr.imag, handle, format)
+
+
 def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True, **kwargs):
     """Output path may be used as a directory if multiple files are dumped from a single Chunky.
     If a single file is dumped, replace_ext will set the ext to the expected dump extension.
@@ -209,6 +259,8 @@ def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True
         dump_whm(chunky, output_path, replace_ext, **kwargs)
     elif isinstance(chunky, WtpChunky):
         dump_wtp(chunky, output_path, replace_ext, **kwargs)
+    elif isinstance(chunky, RtxChunky):
+        dump_rtx(chunky, output_path, replace_ext, **kwargs)
     elif isinstance(chunky, RelicChunky):
         # Special case; ignore replace_ext
         dump_chunky(chunky, output_path, replace_ext=False, **kwargs)
@@ -284,7 +336,7 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
     walk = walk_archive_paths(input_folder)  # , whitelist="Speech")
     # I was trying to speed things up on my speech debugging, I will add whitelist/blacklist for keywords, the current funciton seems to be bugged
     # TODO support whitelist/blacklsit on Archives & Files
-    # walk = (f for f in walk if filter_path_by_keyword(f, whitelist=["Speech"]))
+    # walk = (f for f in walk if filter_path_by_keyword(f, blacklist=["Speech", "Sound", "Texture"]))
     walk = print_walk_archive_path(walk)  # PRETTY
 
     walk = walk_archives(walk)
@@ -298,8 +350,21 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
     walk = print_walk_archive_files(walk)  # PRETTY
 
     dump_archive_files(walk, out_dir, **kwargs)
-    dump_archive_files(walk, out_dir, **kwargs)
+    # How long has this been duplicated?
+    # dump_archive_files(walk, out_dir, **kwargs)
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW I\full_dump",include_meta=True)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
+    quick_dump(r"D:\Dumps\DOW I\full_dump",
+               ext_whitelist=[".rtx",".whm"],
+               include_meta=False)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
+
+    print("---")
+    for u, v in DB_UniqueCodes:
+        # v_l = [i for i in v]
+        # v_l.sort()
+        # 0, 1, ???, 0,
+        assert u.reserved_zero_a == 0
+        # assert u.flag_b == 1
+        assert u.reserved_zero_b == 0
+        print(", ".join((str(b) for b in u.unk_b)), "\t~\t", ", ".join((str(w) for w in v)))

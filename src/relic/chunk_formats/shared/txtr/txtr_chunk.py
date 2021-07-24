@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from relic.chunk_formats.rsh.head_chunk import HeadChunk
+from relic.chunk_formats.shared.txtr.head_chunk import HeadChunk
 from relic.chunk_formats.shared.imag.imag_chunk import ImagChunk
 from relic.chunky import FolderChunk
 

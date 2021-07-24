@@ -103,11 +103,13 @@ class ImagConverter:
                 create_image(temp, imag)
                 # We have to check needs fixing otherwise non-dds images will be dds_fixed
                 perform_dds_fix = not raw and cls.__needs_fix(imag)
+                temp.seek(0,0)
                 cls.__convert(temp, stream, format, perform_dds_fix)
         else:
             if cls.__needs_fix(imag):
                 with BytesIO() as temp:
                     create_image(temp, imag)
+                    temp.seek(0, 0)
                     cls.__fix_dds(temp, stream)
             else:  # TGA, no fixes
                 create_image(stream, imag)

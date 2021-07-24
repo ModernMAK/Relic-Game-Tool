@@ -8,22 +8,23 @@ from typing import Tuple, List, BinaryIO, Union
 from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
 from relic.chunk_formats.whm.shared import num_layout
 from relic.chunky import FolderChunk, DataChunk
+from relic.shared import unpack_from_stream
 
 
 @dataclass
 class MsclHeader:
-    unk_a: int
-    flag_b: bytes
-    unk_c: int
-    unk_d: int
+    reserved_zero_a: int
+    # flag_b: bytes
+    # unk_c: int
+    unk_b: bytes
+    reserved_zero_b: int
     name_count: int
 
-    _HEADER = struct.Struct("< L b L L L")
+    _HEADER = struct.Struct("< L 5s L L")
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'MsclHeader':
-        buffer = stream.read(cls._HEADER.size)
-        args = cls._HEADER.unpack(buffer)
+        args = unpack_from_stream(cls._HEADER, stream)
         return MsclHeader(*args)
 
 
@@ -81,6 +82,7 @@ class VertexMsclBlock:
     format: MslcBlockFormat
     count: int
     vertex_buffer: bytes
+    _code: int = 0
 
 
 @dataclass
@@ -101,12 +103,18 @@ class TextureMsclBlock:
     unk_a: int
     unk_b: int
     unk_c: int
+    _code: int = 0
 
 
 MslcBlock = Union[VertexMsclBlock, TextureMsclBlock]
 
+DB_UniqueCodes: List[Tuple[MsclHeader, List[int]]] = list()
+DB_LAST = []
+
 
 class MslcBlockUtil:
+    _HEADER_LAYOUT = struct.Struct("< L L")
+
     @classmethod
     def unpack(cls, stream: BinaryIO) -> MslcBlock:
         def read_index_block() -> TextureMsclSubBlock:
@@ -116,9 +124,12 @@ class MslcBlockUtil:
             i_buffer = stream.read(index_size * 2)
             return TextureMsclSubBlock(name, index_size, i_buffer, count)
 
-        block_header = stream.read(8)
-        count, code = struct.unpack("< L L", block_header)
+        # Code currently has a lot of 'garbage values'
+        #   But '5', '3', '2', '39', '37', '1', '6', look the least garbagey and the most common.
+        #       All those numbers occur at least 9+ times; 39, 37 & 1 occur at least 3000 times
 
+        count, code = unpack_from_stream(cls._HEADER_LAYOUT, stream)
+        DB_LAST.append(code)
         f = MslcBlockFormat.from_code(code)
         if f == MslcBlockFormat.Texture:
             texture_count = code
@@ -139,12 +150,12 @@ class MslcBlockUtil:
             buffer = stream.read(UNK.size)
             unks = UNK.unpack(buffer)
 
-            return TextureMsclBlock(f, count, subs, infos, *unks)
+            return TextureMsclBlock(f, count, subs, infos, *unks, code)
 
         try:
             buffer_size = f.vertex_buffer_size()
             v_buffer = stream.read(buffer_size * count)
-            return VertexMsclBlock(f, count, v_buffer)
+            return VertexMsclBlock(f, count, v_buffer, code)
         except KeyError:
             pass
 
@@ -166,9 +177,12 @@ class MslcChunk:
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MslcChunk':
         data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
-
+        # WHM's data.header.version always '2'
         with BytesIO(data.data) as stream:
             header = MsclHeader.unpack(stream)
+            global DB_LAST
+            DB_LAST = []
+            DB_UniqueCodes.append((header, DB_LAST))
             names = [MslcName.unpack(stream) for _ in range(header.name_count)]
 
             blocks = []
@@ -182,4 +196,7 @@ class MslcChunk:
                 block = MslcBlockUtil.unpack(stream)
                 blocks.append(block)
 
+            # assert len(blocks) == 2
+            # assert isinstance(blocks[0], VertexMsclBlock)
+            # assert isinstance(blocks[1], TextureMsclBlock)
             return MslcChunk(header, names, blocks)

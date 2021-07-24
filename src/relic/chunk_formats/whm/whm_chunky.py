@@ -16,4 +16,4 @@ class WhmChunky(AbstractRelicChunky):
     def create(cls, chunky: RelicChunky) -> 'WhmChunky':
         sshr = [SshrChunk.create(c) for c in chunky.get_chunks(id='SSHR')]
         msgr = MsgrChunk.create(chunky.get_chunk(id="MSGR"))
-        return WhmChunky(chunky.header, sshr, msgr)
+        return WhmChunky(chunky.chunks,chunky.header, sshr, msgr)

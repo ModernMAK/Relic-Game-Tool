@@ -13,4 +13,4 @@ class RshChunky(AbstractRelicChunky):
     def create(cls, chunky: RelicChunky) -> 'RshChunky':
         shrf_folder = chunky.get_chunk(id="SHRF", recursive=True)
         shrf = ShrfChunk.create(shrf_folder)
-        return RshChunky(chunky.header, shrf)
+        return RshChunky(chunky.chunks, chunky.header, shrf)
