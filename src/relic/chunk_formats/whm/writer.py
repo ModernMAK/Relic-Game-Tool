@@ -35,7 +35,7 @@ class InvalidMeshBufferError(Exception):
 
 
 def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0,
-                      validate: bool = True) -> int:
+                      validate: bool = True, axis_fix: bool = True) -> int:
     writer = ObjWriter(stream)
     v_local_offset = 0
 
@@ -54,6 +54,19 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
             v_count = block.count
             try:
                 for pos in reader.read_float3(v_count, validate=validate):
+                    if axis_fix:
+                        # X axis seems to be inverted? .
+                        #   After fixing the Texture's invertedness (upsidedown), the UV still displays text incorrectly (mirrored), but the texture matches the UV coordinates now. 
+                        #   To fix this; I could mirror the UV on the U axis and also perform an HFlip on the texture
+                        #       BUT the baneblade's distinctive demolisher cannon is on the wrong side (Left); As is the forward gun placement on the Leman-Russ,
+                        #            So I think the issue is that the model's X axis is inverted. Reflecting the X axis does solve the issue
+                        #       FURTHERMORE; while some Text is incorrect in the textures (E.G. Leman-Russ), other texture's text IS correct after the initial V-Flip (E.G. Baneblade). 
+                        #            This means I can't practically fix the UV's text being mirrored (in the texture, not the final material), without somehow knowing that I'm not invalidiating other text.
+                        x, y ,z  = pos
+                        x *= -1
+                        pos = (x,y, z)
+                        
+
                     writer.write_vertex_position(*pos)
 
                 if block.format in [MslcBlockFormat.Vertex48]:
@@ -112,7 +125,8 @@ def fetch_textures_from_msgr(chunk: MsgrChunk) -> Iterable[str]:
             yield texture
 
 
-def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None, force_valid:bool=True):
+def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None,
+                      force_valid: bool = True):
     texture_ext = texture_ext or ""
     textures = [t for t in fetch_textures_from_msgr(chunk)]
     textures = set(textures)

@@ -1,13 +1,13 @@
 import os
 import subprocess
 from io import BytesIO
-from os.path import dirname, basename, splitext
+from os.path import dirname, splitext
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO, Dict
 
 from relic.chunk_formats.shared.imag.imag_chunk import ImagChunk
-from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
 from relic.config import texconv_path
+from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
 
 _DDS_FORMAT_LOOKUP: Dict[int, str] = {
     8: "DXT1",
@@ -75,7 +75,15 @@ class ImagConverter:
         return imag.attr.img in _DDS_FORMATS
 
     @classmethod
-    def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str,
+    def __get_ext(cls, imag: ImagChunk) -> str:
+        if imag.attr.img in _DDS_FORMATS:
+            return ".dds"
+        elif imag.attr.img in _TGA_FORMATS:
+            return ".tga"
+        raise NotImplementedError(imag.attr.img)
+
+    @classmethod
+    def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str, input_ext:str,
                   perform_dds_fix: bool = False):  # An option to fix the dds inversion to avoid redoing a temp file
         def get_texconv_fmt_ext() -> str:
             lookup = {
@@ -84,7 +92,7 @@ class ImagConverter:
             return lookup[fmt.lower()]
 
         try:
-            with NamedTemporaryFile("wb", delete=False) as in_file:
+            with NamedTemporaryFile("wb", suffix=input_ext, delete=False) as in_file:
                 in_file.write(input_stream.read())
                 in_file.close()
 
@@ -120,7 +128,7 @@ class ImagConverter:
                 # We have to check needs fixing otherwise non-dds images will be dds_fixed
                 perform_dds_fix = not raw and cls.__needs_fix(imag)
                 temp.seek(0, 0)
-                cls.__convert(temp, stream, format, perform_dds_fix)
+                cls.__convert(temp, stream, format, cls.__get_ext(imag), perform_dds_fix)
         else:
             if cls.__needs_fix(imag):
                 with BytesIO() as temp:
