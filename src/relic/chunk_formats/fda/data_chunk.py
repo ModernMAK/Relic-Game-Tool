@@ -6,8 +6,6 @@ from relic.chunky import DataChunk
 _DATA_STRUCT = struct.Struct("< L")
 
 
-
-
 @dataclass
 class FdaDataChunk:
     size: int

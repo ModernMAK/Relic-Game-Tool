@@ -19,4 +19,3 @@ class ShrfChunk:
         # shdr = ShdrChunk.create(shdr_chunk)
 
         return ShrfChunk(txtr)  # shdr,)
-
