@@ -75,6 +75,7 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
                         #            So I think the issue is that the model's X axis is inverted. Reflecting the X axis does solve the issue
                         #       FURTHERMORE; while some Text is incorrect in the textures (E.G. Leman-Russ), other texture's text IS correct after the initial V-Flip (E.G. Baneblade).
                         #            This means I can't practically fix the UV's text being mirrored (in the texture, not the final material), without somehow knowing that I'm not invalidiating other text.
+
                         pos = flip_float3(pos, flip_x=True)
 
                     writer.write_vertex_position(*pos)
@@ -84,9 +85,8 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
 
                 for normal in reader.read_float3(v_count, validate=validate):
                     if axis_fix:
-                        # See axis_fix in for positions for an explanation
-                        # We need to do it here too, otherwise the normals are inverted along the x axis
                         pos = flip_float3(pos, flip_x=True)
+                        normal = flip_float3(normal, flip_x=True)# flip_y=True, flip_z=True)
                     writer.write_vertex_normal(*normal)
 
                 for uv in reader.read_float2(v_count, validate=validate):
@@ -106,7 +106,7 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
                 triangles = int(sub.count / 3)
 
                 for tri in reader.read_short3(triangles):
-                    writer.write_index_face(*tri, offset=v_offset, zero_based=True)
+                    writer.write_index_face(*tri, offset=v_offset, zero_based=True, flip_winding=True)
 
     return v_local_offset
 

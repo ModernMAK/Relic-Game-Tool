@@ -7,7 +7,11 @@ class ObjWriter:
     def __init__(self, stream: TextIO):
         self._stream = stream
 
-    def __write_index(self, code: str, *indexes: int, offset: int = 0, zero_based: bool = False):
+    def __write_index(self, code: str, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding:bool=False):
+
+        if flip_winding:
+            j = len(indexes)
+            indexes = [indexes[j-i-1] for i in range(j)]
         indexes = [i + offset + (1 if zero_based else 0) for i in indexes]
         part = "%i/%i/%i"
         parts = [part % (i, i, i) for i in indexes]
@@ -36,8 +40,8 @@ class ObjWriter:
         return self._stream.write(line)
 
     # Index Info
-    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False):
-        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based)
+    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding:bool=False):
+        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based, flip_winding=flip_winding)
 
     def write_index_line(self, *indexes: int, offset: int = 0, zero_based: bool = False):
         return self.__write_index("l", *indexes, offset=offset, zero_based=zero_based)
