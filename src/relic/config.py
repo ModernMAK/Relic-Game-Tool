@@ -73,7 +73,7 @@ def get_dow_root_directories() -> Iterable[Tuple[DowGame, str]]:
                 yield game, path
 
 
-def get_unique_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> Iterable[Tuple[DowGame, str]]:
+def filter_unique_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> Iterable[Tuple[DowGame, str]]:
     unique: Set[DowGame] = set()
     for game, path in dow_root_directories:
         if game in unique:
@@ -90,7 +90,7 @@ def get_unique_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> 
 #       If we only want to dump ONE game; we'd want to dump the latest to get all the assets from the previous one
 #           With the exception of campaign  assets; which are unique to each install
 #           For Campaign assets, use get_unique and dump each to a seperate directory (or order the dumps such that later games come after earlier games)
-def get_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> Optional[Tuple[DowGame, str]]:
+def filter_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> Optional[Tuple[DowGame, str]]:
     latest = latest_path = None
     for game, path in dow_root_directories:
         if latest and latest.value > game.value:
@@ -100,6 +100,14 @@ def get_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> 
     return latest, latest_path
 
 
+def get_latest_dow_game() -> Optional[Tuple[DowGame, str]]:
+    return filter_latest_dow_game(get_dow_root_directories())
+
+
+def get_unique_dow_game() -> Iterable[Tuple[DowGame, str]]:
+    return filter_unique_dow_game(get_dow_root_directories())
+
+
 if __name__ == "__main__":
     print("\nAll Dirs")
     for game, path in get_dow_root_directories():
@@ -107,5 +115,5 @@ if __name__ == "__main__":
 
     print("\nLatest")
     dirs = get_dow_root_directories()
-    latest = get_latest_dow_game(dirs)
+    latest = filter_latest_dow_game(dirs)
     print(latest)

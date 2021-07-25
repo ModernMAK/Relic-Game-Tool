@@ -4,7 +4,7 @@ from typing import TextIO, Tuple, Optional, Iterable
 
 from relic.chunk_formats.whm.msgr_chunk import MsgrChunk
 from relic.chunk_formats.whm.mslc_chunk import MslcChunk, TextureMsclBlock, VertexMsclBlock, MslcBlockFormat
-from relic.file_formats.mesh_io import MeshReader
+from relic.file_formats.mesh_io import MeshReader, Float3
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
 
 
@@ -34,6 +34,19 @@ class InvalidMeshBufferError(Exception):
         super().__init__(parent, *args)
 
 
+def flip_float3(v: Float3, flip_x: bool = False, flip_y: bool = False, flip_z: bool = False) -> Float3:
+    if not any([flip_x, flip_y, flip_z]):  # Used a list to avoid confusion with any((flip_x,flip_y,flip_z))
+        return v
+    x, y, z = v
+    if flip_x:
+        x *= -1
+    if flip_y:
+        y *= -1
+    if flip_z:
+        z *= -1
+    return x, y, z
+
+
 def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0,
                       validate: bool = True, axis_fix: bool = True) -> int:
     writer = ObjWriter(stream)
@@ -56,16 +69,13 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
                 for pos in reader.read_float3(v_count, validate=validate):
                     if axis_fix:
                         # X axis seems to be inverted? .
-                        #   After fixing the Texture's invertedness (upsidedown), the UV still displays text incorrectly (mirrored), but the texture matches the UV coordinates now. 
+                        #   After fixing the Texture's invertedness (upsidedown), the UV still displays text incorrectly (mirrored), but the texture matches the UV coordinates now.
                         #   To fix this; I could mirror the UV on the U axis and also perform an HFlip on the texture
                         #       BUT the baneblade's distinctive demolisher cannon is on the wrong side (Left); As is the forward gun placement on the Leman-Russ,
                         #            So I think the issue is that the model's X axis is inverted. Reflecting the X axis does solve the issue
-                        #       FURTHERMORE; while some Text is incorrect in the textures (E.G. Leman-Russ), other texture's text IS correct after the initial V-Flip (E.G. Baneblade). 
+                        #       FURTHERMORE; while some Text is incorrect in the textures (E.G. Leman-Russ), other texture's text IS correct after the initial V-Flip (E.G. Baneblade).
                         #            This means I can't practically fix the UV's text being mirrored (in the texture, not the final material), without somehow knowing that I'm not invalidiating other text.
-                        x, y ,z  = pos
-                        x *= -1
-                        pos = (x,y, z)
-                        
+                        pos = flip_float3(pos, flip_x=True)
 
                     writer.write_vertex_position(*pos)
 
@@ -73,6 +83,10 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
                     reader.seek_float4(v_count)
 
                 for normal in reader.read_float3(v_count, validate=validate):
+                    if axis_fix:
+                        # See axis_fix in for positions for an explanation
+                        # We need to do it here too, otherwise the normals are inverted along the x axis
+                        pos = flip_float3(pos, flip_x=True)
                     writer.write_vertex_normal(*normal)
 
                 for uv in reader.read_float2(v_count, validate=validate):
@@ -102,7 +116,7 @@ def write_mtllib_to_obj(stream: TextIO, mtl_path: str):
     matlib_writer.write_material_library(mtl_path)
 
 
-def write_msgr_to_obj(stream: TextIO, chunk: MsgrChunk) -> Tuple[int, Optional[str]]:
+def write_msgr_to_obj(stream: TextIO, chunk: MsgrChunk) -> int:
     v_offset = 0
     for i, mesh in enumerate(chunk.sub_meshes):
         name = chunk.parts[i].name

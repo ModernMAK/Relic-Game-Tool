@@ -22,7 +22,7 @@ from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
 from relic.chunky import RelicChunky, DataChunk
 from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
 from relic.chunky.magic import RELIC_CHUNKY_MAGIC
-from relic.config import get_latest_dow_game, get_dow_root_directories
+from relic.config import filter_latest_dow_game, get_dow_root_directories
 from relic.sga.archive import Archive
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
@@ -92,6 +92,8 @@ def unpack_archive_file(file: File, check_magic: bool = True) -> Optional[Abstra
 
 def unpack_stream(stream: BinaryIO, chunk_format: ChunkyFormat) -> AbstractRelicChunky:
     chunky = RelicChunky.unpack(stream)
+    assert chunky.header.version_major == 1, ("Major", chunky.header.version_major)
+    assert chunky.header.version_minor == 1, ("Minor", chunky.header.version_minor)
     return create(chunky, chunk_format)
 
 
@@ -301,7 +303,7 @@ def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dum
 def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = None,
                ext_blacklist: KW_LIST = None, lang_code: Optional[str] = "en", **kwargs):
     # HACK to do some pretty printing
-    input_folder = input_folder or get_latest_dow_game(get_dow_root_directories())[1]
+    input_folder = input_folder or filter_latest_dow_game(get_dow_root_directories())[1]
 
     if lang_code:
         locale_env = build_locale_environment(input_folder, lang_code)
@@ -330,7 +332,6 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
     def print_walk_archive_files(w: Iterable[Tuple[str, File]]) -> Iterable[Tuple[str, File]]:
         nonlocal current_file
         nonlocal file_count
-
         spinner = __get_bar_spinner()
         for p, f in w:
             fp = join(p, f.name)
@@ -363,7 +364,7 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 if __name__ == "__main__":
     quick_dump(r"D:\Dumps\DOW_I\full_dump", texture_root=r"D:\Dumps\DOW_I\full_dump", texture_ext=".png",
-               ext_whitelist=[".rsh"],
+               # ext_whitelist=[".rsh"],
                force_valid=True,
                include_meta=False)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
 
