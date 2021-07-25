@@ -85,8 +85,8 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
 
                 for normal in reader.read_float3(v_count, validate=validate):
                     if axis_fix:
-                        pos = flip_float3(pos, flip_x=True)
-                        normal = flip_float3(normal, flip_x=True)# flip_y=True, flip_z=True)
+                        # See axis_fix in for positions for an explanation
+                        normal = flip_float3(normal, flip_x=True)
                     writer.write_vertex_normal(*normal)
 
                 for uv in reader.read_float2(v_count, validate=validate):
