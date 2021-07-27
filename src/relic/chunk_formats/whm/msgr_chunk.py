@@ -30,7 +30,7 @@ class MsgrChunk:
     sub_meshes: List['MslcChunk']
 
     @classmethod
-    def create(cls, chunk: FolderChunk) -> 'MsgrChunk':
+    def convert(cls, chunk: FolderChunk) -> 'MsgrChunk':
         # the id is DATA not the type (alhough it is coincidentally, a ChunkType.Data)
         data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
         with BytesIO(data.data) as stream:

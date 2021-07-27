@@ -10,7 +10,7 @@ class SshrChunk:
     name: str
 
     @classmethod
-    def create(cls, chunk: DataChunk) -> 'SshrChunk':
+    def convert(cls, chunk: DataChunk) -> 'SshrChunk':
         with BytesIO(chunk.data) as stream:
             buffer = stream.read(num_layout.size)
             num = num_layout.unpack(buffer)[0]

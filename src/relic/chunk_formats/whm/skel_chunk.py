@@ -31,9 +31,11 @@ class SkelChunk:
     bones: List[SkelBone]
 
     def unpack(self, chunk: DataChunk) -> 'SkelChunk':
+    @classmethod
+    def convert(cls, chunk: DataChunk) -> 'SkelChunk':
         with BytesIO(chunk.data) as stream:
             buffer = stream.read(num_layout.size)
             bone_size = num_layout.unpack(buffer)[0]
             bones = [SkelBone.unpack(stream) for _ in range(bone_size)]
-        return SkelChunk(bones)
+            return SkelChunk(bones)
 

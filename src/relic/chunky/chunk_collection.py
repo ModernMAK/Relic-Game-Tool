@@ -11,7 +11,7 @@ from relic.chunky.chunk_header import ChunkType
 ChunkWalkResult = Tuple[str, List['ChunkCollection'], List[AbstractChunk]]
 
 
-def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool = True) -> Iterable[ChunkWalkResult]:
+def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool = True, unique: bool = True) -> Iterable[ChunkWalkResult]:
     path = path or ""
     folders: List[ChunkCollection] = []
     data: List[AbstractChunk] = []
@@ -25,7 +25,11 @@ def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool =
 
     if recursive:
         for i, folder in enumerate(folders):
-            folder_path = join(path, f"{folder.header.id}-{i + 1}")
+            folder_path = join(path, f"{folder.header.id}")
+
+            if unique:
+                folder_path = f"{folder_path}-{i + 1}"
+
             for args in walk_chunks(folder.chunks, folder_path, recursive):
                 yield args
 
@@ -89,8 +93,8 @@ class ChunkCollection:
     ) -> Iterable[ChunkWalkResult]:
         return walk_chunks_filtered(self.chunks, recursive=recursive, ids=ids, types=types, names=names)
 
-    def walk_chunks(self, recursive: bool = True) -> Iterable[ChunkWalkResult]:
-        return walk_chunks(self.chunks, recursive=recursive)
+    def walk_chunks(self, recursive: bool = True, unique: bool = True) -> Iterable[ChunkWalkResult]:
+        return walk_chunks(self.chunks, recursive=recursive, unique=unique)
 
     def get_chunk_list(self, recursive: bool = True, *, id: str = None, type: ChunkType = None, name: str = None,
                        optional: bool = False) -> Optional[List[AbstractChunk]]:
