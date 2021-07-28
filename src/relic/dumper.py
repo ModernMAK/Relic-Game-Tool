@@ -14,7 +14,7 @@ from relic.chunk_formats.whm.whm_chunky import WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
 from relic.chunk_formats.wtp import create_mask_image, WtpChunky
-from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RELIC_CHUNKY_MAGIC
+from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic
 from relic.config import filter_latest_dow_game, get_dow_root_directories
 
 from relic.sga.archive import Archive
@@ -78,7 +78,7 @@ def unpack_file(path: str) -> AbstractRelicChunky:
 def unpack_archive_file(file: File, check_magic: bool = True) -> Optional[AbstractRelicChunky]:
     """Returns the unpacked relic chunky; if check_magic is True; none is returned for Non-Chunkies"""
     with file.open_readonly_stream() as handle:
-        if check_magic and not RELIC_CHUNKY_MAGIC.check_magic_word(handle):
+        if check_magic and not RelicChunkyMagic.check_magic_word(handle):
             return None
         format = ChunkyFormat.from_path(file.name)
         return unpack_stream(handle, format)
@@ -231,7 +231,7 @@ def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, **kw
     with open(join(output_path, "Diffuse" + ext), "wb") as writer:
         ImagConverter.Imag2Stream(imag, writer)
     for p in chunky.tpat.ptld:
-        with open(join(output_path, f"Layer-{WTP_LAYER_NAMES.get(p.layer)}.tga"), "wb") as writer:
+        with open(join(output_path, f"Layer-{p.layer.pretty_name}.tga"), "wb") as writer:
             create_mask_image(writer, p, chunky.tpat.info)
 
 

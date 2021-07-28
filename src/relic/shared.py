@@ -5,22 +5,14 @@ from enum import Enum
 from functools import partial
 from os.path import splitext, join
 from struct import Struct
-from typing import Tuple, List, BinaryIO, Iterable, Any, Optional, Union, Callable
+from typing import Tuple, List, BinaryIO, Iterable, Optional, Union, Callable
 
-
-def unpack_from_stream(layout: Struct, stream: BinaryIO) -> Tuple[Any, ...]:
-    buffer = stream.read(layout.size)
-    return layout.unpack_from(buffer)
-
-
-def pack_into_stream(layout: Struct, stream: BinaryIO, *args) -> int:
-    buffer = layout.pack(*args)
-    return stream.write(buffer)
+from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 
 class MagicUtil:
     @classmethod
-    def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> str:
+    def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> Optional[str]:
         origin = stream.tell()
         try:
             return unpack_from_stream(layout, stream)[0].decode("ascii")
@@ -42,8 +34,8 @@ class MagicUtil:
 
     @classmethod
     def write_magic_word(cls, stream: BinaryIO, layout: Struct, word: str) -> int:
-        return pack_into_stream(layout, stream,
-                                word.encode("ascii"))  # We could just as easily write the word directly, but we don't
+        # We could just as easily write the word directly, but we don't
+        return pack_into_stream(layout, stream, word.encode("ascii"))
 
 
 @dataclass

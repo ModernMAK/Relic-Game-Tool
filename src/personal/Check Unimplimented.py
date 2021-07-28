@@ -2,7 +2,7 @@ import os
 from os.path import splitext
 from typing import Iterable
 
-from relic.chunky.magic import RELIC_CHUNKY_MAGIC
+from relic.chunky.magic import RelicChunkyMagic
 from relic.sga.archive import Archive
 from relic.sga.magic import ARCHIVE_MAGIC_WALKER
 from relic.shared import filter_walk_by_extension, collapse_walk_on_files, KW_LIST, fix_extension_list, \
@@ -43,7 +43,7 @@ def scan_for_unsupported(search_dir: str, supported_extensions: KW_LIST = None, 
                         continue
 
                     with file.open_readonly_stream() as file_handle:
-                        if RELIC_CHUNKY_MAGIC.check_magic_word(file_handle):
+                        if RelicChunkyMagic.check_magic_word(file_handle):
                             yield x
                             unsupported_extensions.append(x)
                         elif ignore_non_chunky:
