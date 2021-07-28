@@ -1,6 +1,6 @@
 from io import BytesIO
 from os.path import split, splitext, join, basename
-from typing import TextIO, Tuple, Optional, Iterable
+from typing import TextIO, Iterable
 
 from relic.chunk_formats.whm.msgr_chunk import MsgrChunk
 from relic.chunk_formats.whm.mslc_chunk import MslcChunk, TextureMsclBlock, VertexMsclBlock, MslcBlockFormat

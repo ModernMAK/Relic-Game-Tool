@@ -8,13 +8,13 @@ _HEADER = struct.Struct("< l l")
 
 
 @dataclass
-class InfoChunk:
+class WtpInfoChunk:
     width: int
     height: int
 
     @classmethod
-    def create(cls, chunk: DataChunk) -> 'InfoChunk':
+    def create(cls, chunk: DataChunk) -> 'WtpInfoChunk':
         with BytesIO(chunk.data) as stream:
             buffer = stream.read(_HEADER.size)
             height, width = _HEADER.unpack(buffer)  # width and height are swapped?
-            return InfoChunk(width, height)
+            return WtpInfoChunk(width, height)

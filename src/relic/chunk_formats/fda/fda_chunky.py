@@ -12,7 +12,7 @@ class FdaChunky(AbstractRelicChunky):
     data_block: FdaDataChunk
 
     @classmethod
-    def create(cls, chunky: RelicChunky) -> 'FdaChunky':
+    def convert(cls, chunky: RelicChunky) -> 'FdaChunky':
         header = chunky.header
         # We ignore burn info ~ FBIF
         fda: FolderChunk = chunky.get_chunk(id="FDA ")
@@ -22,7 +22,7 @@ class FdaChunky(AbstractRelicChunky):
         data = fda.get_chunk(id="DATA", recursive=False)
 
         # parse the blocks
-        fda_info = FdaInfoChunk.create(info)
-        fda_data = FdaDataChunk.create(data)
+        fda_info = FdaInfoChunk.convert(info)
+        fda_data = FdaDataChunk.convert(data)
 
         return FdaChunky(chunky.chunks, header, fda_info, fda_data)

@@ -30,7 +30,6 @@ class SkelChunk:
     # This chunk is super easy
     bones: List[SkelBone]
 
-    def unpack(self, chunk: DataChunk) -> 'SkelChunk':
     @classmethod
     def convert(cls, chunk: DataChunk) -> 'SkelChunk':
         with BytesIO(chunk.data) as stream:

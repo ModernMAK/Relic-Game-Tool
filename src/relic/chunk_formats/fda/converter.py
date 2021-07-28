@@ -2,15 +2,15 @@ import math
 import os
 import subprocess
 from io import BytesIO
-from tempfile import TemporaryFile, NamedTemporaryFile
+from tempfile import NamedTemporaryFile
 from typing import BinaryIO
 
 from relic.chunk_formats.fda.data_chunk import FdaDataChunk
 from relic.chunk_formats.fda.fda_chunky import FdaChunky
 from relic.chunk_formats.fda.info_chunk import FdaInfoChunk
 from relic.chunky import RelicChunkyHeader
-from relic.file_formats import aiff
 from relic.config import aifc_decoder_path, aifc_encoder_path
+from relic.file_formats import aiff
 
 
 class FdaConverter:

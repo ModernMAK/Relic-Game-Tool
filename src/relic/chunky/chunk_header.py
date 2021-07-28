@@ -16,7 +16,6 @@ class ChunkType(Enum):
     # BLANK = "\x00\x00\x00\x00"
 
 
-
 @dataclass
 class ChunkHeader:
     type: ChunkType
@@ -35,7 +34,7 @@ class ChunkHeader:
             err_pos = stream.tell() - _chunk_header_layout.size
             raise TypeError(f"Type not valid! '{args[0]}' @{err_pos} ~ 0x {hex(err_pos)[2:]}")
 
-        id = args[1].decode("ascii").strip("\x00")#.lstrip("\x00")
+        id = args[1].decode("ascii").strip("\x00")  # .lstrip("\x00")
         version, size = args[2:4]
         raw_name = stream.read(args[4])
         try:
