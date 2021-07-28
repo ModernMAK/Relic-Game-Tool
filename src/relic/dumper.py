@@ -4,23 +4,20 @@ from enum import Enum, auto
 from os import makedirs
 from os.path import splitext, dirname, join, split
 from typing import BinaryIO, Optional, Iterable, Tuple, Dict
-
 from relic.chunk_formats.fda import FdaConverter, FdaChunky
-from relic.chunk_formats.rsh.rsh_chunky import RshChunky
-from relic.chunk_formats.rtx.rtx_chunky import RtxChunky
+from relic.chunk_formats.rsh import RshChunky
+from relic.chunk_formats.rtx import RtxChunky
 from relic.chunk_formats.shared.imag import ImagConverter
-from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
-from relic.chunk_formats.whm.whm_chunky import WhmChunky
+from relic.chunk_formats.whm import UnimplementedMslcBlockFormat, WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
 from relic.chunk_formats.wtp import create_mask_image, WtpChunky
 from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic
 from relic.config import filter_latest_dow_game, get_dow_root_directories
 
-from relic.sga.archive import Archive
+from relic.sga import Archive, File
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
-from relic.sga.file import File
 from relic.shared import KW_LIST, EnhancedJSONEncoder
 from relic.ucs import build_locale_environment, get_lang_string_for_file
 
@@ -159,9 +156,9 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
     mtl_path = output_path + f".mtl"
     with open(obj_path, "w") as obj_handle:
         write_mtllib_to_obj(obj_handle, mtl_path)
-        write_msgr_to_obj(obj_handle, whm.msgr)
+        write_msgr_to_obj(obj_handle, whm.rsgm.msgr)
     with open(mtl_path, "w") as mtl_handle:
-        write_msgr_to_mtl(mtl_handle, whm.msgr, texture_root, texture_ext, force_valid)
+        write_msgr_to_mtl(mtl_handle, whm.rsgm.msgr, texture_root, texture_ext, force_valid)
 
     if include_meta:
         dump_chunky(whm, output_path, replace_ext=False, include_meta=True)

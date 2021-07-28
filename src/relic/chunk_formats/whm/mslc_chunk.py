@@ -36,11 +36,11 @@ class MslcName:
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'MslcName':
         buffer = stream.read(num_layout.size)
-        size = num_layout.unpack(buffer)[0]
+        size = num_layout.convert(buffer)[0]
         name = stream.read(size).decode("ascii")
 
         buffer = stream.read(num_layout.size)
-        unk_a = num_layout.unpack(buffer)[0]
+        unk_a = num_layout.convert(buffer)[0]
 
         return MslcName(name, unk_a)
 
@@ -115,9 +115,9 @@ class MslcBlockUtil:
     @classmethod
     def unpack(cls, stream: BinaryIO) -> MslcBlock:
         def read_index_block() -> TextureMsclSubBlock:
-            name_size = num_layout.unpack(stream.read(num_layout.size))[0]
+            name_size = num_layout.convert(stream.read(num_layout.size))[0]
             name = stream.read(name_size).decode("ascii")
-            index_size = num_layout.unpack(stream.read(num_layout.size))[0]
+            index_size = num_layout.convert(stream.read(num_layout.size))[0]
             i_buffer = stream.read(index_size * 2)
             return TextureMsclSubBlock(name, index_size, i_buffer, count)
 

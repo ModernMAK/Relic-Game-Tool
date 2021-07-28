@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import List, Optional
-
+from relic.chunk_formats.whm.anim_chunk import AnimChunk
+from relic.chunk_formats.whm.mark_chunk import MarkChunk
 from relic.chunk_formats.whm.msgr_chunk import MsgrChunk
 from relic.chunk_formats.whm.skel_chunk import SkelChunk
 from relic.chunk_formats.whm.sshr_chunk import SshrChunk
-from relic.chunk_formats.whm.whm_chunky import MarkChunk, AnimChunk
 from relic.chunky import ChunkCollection
 
 

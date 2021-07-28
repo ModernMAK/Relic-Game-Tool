@@ -17,7 +17,7 @@ class SkelBone:
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'SkelBone':
         buffer = stream.read(num_layout.size)
-        name_size = num_layout.unpack(buffer)[0]
+        name_size = num_layout.convert(buffer)[0]
         name = stream.read(name_size).decode("ascii")
         data = stream.read(32)
         args = struct.unpack("< l 7f", data)
@@ -34,7 +34,7 @@ class SkelChunk:
     def convert(cls, chunk: DataChunk) -> 'SkelChunk':
         with BytesIO(chunk.data) as stream:
             buffer = stream.read(num_layout.size)
-            bone_size = num_layout.unpack(buffer)[0]
+            bone_size = num_layout.convert(buffer)[0]
             bones = [SkelBone.unpack(stream) for _ in range(bone_size)]
             return SkelChunk(bones)
 

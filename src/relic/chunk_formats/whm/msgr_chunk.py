@@ -8,6 +8,7 @@ from relic.chunky import DataChunk, FolderChunk
 
 _NUM = num_layout
 
+
 @dataclass
 class MsgrName:
     name: str
@@ -17,10 +18,10 @@ class MsgrName:
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'MsgrName':
         buffer = stream.read(_NUM.size)
-        count = _NUM.unpack(buffer)[0]
+        count = _NUM.convert(buffer)[0]
         name = stream.read(count).decode("ascii")
         buffer = stream.read(_UNK_STRUCT.size)
-        unk_a, unk_b = _UNK_STRUCT.unpack(buffer)
+        unk_a, unk_b = _UNK_STRUCT.convert(buffer)
         return MsgrName(name, unk_a, unk_b)
 
 
@@ -35,7 +36,7 @@ class MsgrChunk:
         data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
         with BytesIO(data.data) as stream:
             buffer = stream.read(_NUM.size)
-            count = _NUM.unpack(buffer)[0]
+            count = _NUM.convert(buffer)[0]
             parts = [MsgrName.unpack(stream) for _ in range(count)]
         submeshes = [MslcChunk.create(mscl) for mscl in chunk.get_chunks(id="MSLC")]
 
