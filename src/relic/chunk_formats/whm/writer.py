@@ -4,6 +4,7 @@ from typing import TextIO, Tuple, Optional, Iterable
 
 from relic.chunk_formats.whm.msgr_chunk import MsgrChunk
 from relic.chunk_formats.whm.mslc_chunk import MslcChunk, TextureMsclBlock, VertexMsclBlock, MslcBlockFormat
+from relic.chunk_formats.whm.skel_chunk import SkelChunk, Skeleton
 from relic.file_formats.mesh_io import MeshReader, Float3
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
 
@@ -45,6 +46,23 @@ def flip_float3(v: Float3, flip_x: bool = False, flip_y: bool = False, flip_z: b
     if flip_z:
         z *= -1
     return x, y, z
+
+
+def write_skel_to_obj(stream: TextIO, chunk: SkelChunk, axis_fix: bool = True, use_local:bool=False,use_global:bool=False):
+    writer = ObjWriter(stream)
+    writer.write_object_name("Skeleton")
+    skeleton = Skeleton.create(chunk)
+    for bone in skeleton:
+        position = bone.world_position #()
+        if use_local:
+            position = bone.local_position
+
+        if use_global:
+            position = bone.world_position
+
+        if axis_fix:
+            position = flip_float3(position, flip_x=True)
+        writer.write_vertex_position(*position)
 
 
 def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offset: int = 0,

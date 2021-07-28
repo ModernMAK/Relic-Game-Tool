@@ -1,6 +1,7 @@
 import json
 import struct
-from dataclasses import asdict
+# from StringIO import StringIO
+# from dataclasses import asdict
 from enum import Enum, auto
 from os import makedirs
 from os.path import splitext, dirname, join, split
@@ -13,9 +14,10 @@ from relic.chunk_formats.rtx.rtx_chunky import RtxChunky
 from relic.chunk_formats.shared.imag.writer import ImagConverter, get_imag_chunk_extension
 from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
 from relic.chunk_formats.whm.mslc_chunk import DB_UniqueCodes
+from relic.chunk_formats.whm.skel_chunk import Skeleton
 from relic.chunk_formats.whm.whm_chunky import WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
-    InvalidMeshBufferError
+    InvalidMeshBufferError, write_skel_to_obj
 from relic.chunk_formats.wtp.dumper import WTP_LAYER_NAMES
 from relic.chunk_formats.wtp.writer import create_mask_image
 from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
@@ -148,7 +150,8 @@ def dump_fda(fda: FdaChunky, output_path: str, replace_ext: bool = True, use_wav
             FdaConverter.Fda2Aiffr(fda, handle)
 
 
-def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format: str = "png", force_valid:bool=False, **kwargs):
+def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format: str = "png", force_valid: bool = False,
+             **kwargs):
     output_path = __file_replace_name(output_path, f".{format}", replace_ext)
     if force_valid:
         d, b = split(output_path)
@@ -159,22 +162,36 @@ def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format:
 
 
 def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture_root: str = None,
-             texture_ext: str = None, include_meta: bool = False, force_valid:bool=False, **kwargs):
+             texture_ext: str = None, include_meta: bool = False, force_valid: bool = False, **kwargs):
     output_path = __dir_replace_name(output_path, replace_ext)
+
     obj_path = output_path + f".obj"
     mtl_path = output_path + f".mtl"
     with open(obj_path, "w") as obj_handle:
         write_mtllib_to_obj(obj_handle, mtl_path)
-        write_msgr_to_obj(obj_handle, whm.msgr)
+        write_msgr_to_obj(obj_handle, whm.rsgm.msgr)
     with open(mtl_path, "w") as mtl_handle:
-        write_msgr_to_mtl(mtl_handle, whm.msgr, texture_root, texture_ext, force_valid)
+        write_msgr_to_mtl(mtl_handle, whm.rsgm.msgr, texture_root, texture_ext, force_valid)
+    if whm.rsgm.skel:
+        # with open(output_path + f"_skel_wxyz.json", "w") as skel_handle:
+        #     s_wxyz = Skeleton.create_wxyz(whm.rsgm.skel)
+        #     d_wxyz = [{'name': sp.name, 'pos': sp.world_position.xyz, 'parent_index': sp._parent_index} for sp in s_wxyz]
+        #     json.dump(d_wxyz, skel_handle, indent=4, cls=EnhancedJSONEncoder)
+        with open(output_path + f"_skel.json", "w") as skel_handle:
+            s = Skeleton.create_xyzw(whm.rsgm.skel)
+            d = [{'name': sp.name, 'pos': sp.local_position.xyz, 'rot':sp.local_rotation.xyzw, 'parent_index': sp._parent_index} for sp in s]
+            json.dump(d, skel_handle, indent=4, cls=EnhancedJSONEncoder)
+    # for i in range(len(whm.rsgm.skel.bones[0].anypos)):
+    #     with open(output_path + f"_skel_{i+1}.obj", "w") as skel_handle:
+    #         write_skel_to_obj(skel_handle, whm.rsgm.skel,i=i)
+    # with open(output_path + f"_skel_world.obj", "w") as skel_handle:
+    #     write_skel_to_obj(skel_handle, whm.rsgm.skel,use_local=True)
+    #
+    # with open(output_path + f"_skel_local.obj", "w") as skel_handle:
+    #     write_skel_to_obj(skel_handle, whm.rsgm.skel,use_global=True)
 
     if include_meta:
         dump_chunky(whm, output_path, replace_ext=False, include_meta=True)
-        # dump_chunky_meta(whm, output_path, replace_ext=False)
-    #     with open(output_path + ".meta", "w") as meta:
-    #         json_text = json.dumps(whm.header, indent=4, cls=EnhancedJSONEncoder)
-    #         meta.write(json_text)
 
 
 def dump_chunky_meta(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True, **kwargs):
@@ -279,22 +296,28 @@ def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True
 
 #
 def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dump_non_chunkies: bool = True,
-                       dump_unsupported_chunkies: bool = True, **kwargs):
+                       dump_unsupported_chunkies: bool = True, dump_default_as_file: bool = False, **kwargs):
     for directory, file in walk:
         out_path = join(out_directory, directory, file.name)
         file.decompress()  # May be a bug; files aren't being decompressed somewhere? This has led to fewer errors
         try:
             chunky = unpack_archive_file(file)
+
             if chunky:
-                if not dump_unsupported_chunkies and isinstance(chunky, RelicChunky):  # Default means unsupported
-                    continue
+                if isinstance(chunky, RelicChunky):  # Default means unsupported
+                    if not dump_unsupported_chunkies:
+                        continue
+                    elif dump_default_as_file:
+                        __safe_makedirs(out_path)
+                        write_file_as_binary(directory, file, out_directory)
+                        continue
                 __safe_makedirs(out_path)
                 dump(chunky, out_path, **kwargs)
             elif dump_non_chunkies:
                 __safe_makedirs(out_path)
                 write_file_as_binary(directory, file, out_directory)
         except (TypeError,
-                InvalidMeshBufferError):  # Covers the two most basic cases: TypeError in Headers & WHM's still mysterious mesh buffer format
+                InvalidMeshBufferError) as e:  # Covers the two most basic cases: TypeError in Headers & WHM's still mysterious mesh buffer format
             if dump_unsupported_chunkies:
                 __safe_makedirs(out_path)
                 write_file_as_binary(directory, file, out_directory)
@@ -344,7 +367,7 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
     walk = walk_archive_paths(input_folder)  # , whitelist="Speech")
     # I was trying to speed things up on my speech debugging, I will add whitelist/blacklist for keywords, the current funciton seems to be bugged
     # TODO support whitelist/blacklsit on Archives & Files
-    # walk = (f for f in walk if filter_path_by_keyword(f, blacklist=["Speech", "Sound", "Texture"]))
+    # walk = (f for f in walk if filter_path_by_keyword(f, blacklist=["Speech", "Sound", "Texture", "Music"]))
     walk = print_walk_archive_path(walk)  # PRETTY
 
     walk = walk_archives(walk)
@@ -364,16 +387,17 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 if __name__ == "__main__":
     quick_dump(r"D:\Dumps\DOW_I\full_dump", texture_root=r"D:\Dumps\DOW_I\full_dump", texture_ext=".png",
-               # ext_whitelist=[".rsh"],
-               force_valid=True,
-               include_meta=False)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
+               ext_whitelist=[".whm"],
+               force_valid=True, dump_unsupported_chunks=False,
+               include_meta=False)
+    # dump_default_as_file=True)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
 
-    print("---")
-    for u, v in DB_UniqueCodes:
-        # v_l = [i for i in v]
-        # v_l.sort()
-        # 0, 1, ???, 0,
-        assert u.reserved_zero_a == 0
-        # assert u.flag_b == 1
-        assert u.reserved_zero_b == 0
-        print(", ".join((str(b) for b in u.unk_b)), "\t~\t", ", ".join((str(w) for w in v)))
+    # print("---")
+    # for u, v in DB_UniqueCodes:
+    #     # v_l = [i for i in v]
+    #     # v_l.sort()
+    #     # 0, 1, ???, 0,
+    #     assert u.reserved_zero_a == 0
+    #     # assert u.flag_b == 1
+    #     assert u.reserved_zero_b == 0
+    #     print(", ".join((str(b) for b in u.unk_b)), "\t~\t", ", ".join((str(w) for w in v)))
