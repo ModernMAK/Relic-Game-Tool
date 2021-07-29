@@ -172,15 +172,21 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
     with open(mtl_path, "w") as mtl_handle:
         write_msgr_to_mtl(mtl_handle, whm.rsgm.msgr, texture_root, texture_ext, force_valid)
     if whm.rsgm.skel:
-        # with open(output_path + f"_skel_wxyz.json", "w") as skel_handle:
-        #     s_wxyz = Skeleton.create_wxyz(whm.rsgm.skel)
-        #     d_wxyz = [{'name': sp.name, 'pos': sp.world_position.xyz, 'parent_index': sp._parent_index} for sp in s_wxyz]
-        #     json.dump(d_wxyz, skel_handle, indent=4, cls=EnhancedJSONEncoder)
-        with open(output_path + f"_skel_3ds.json", "w") as skel_handle:
-            # s = Skeleton.create(whm.rsgm.skel)
-            # d = [{'name': sp.name, 'pos': sp.world_position.xyz, 'rot':sp.world_rotation.xyzw, 'parent_index': sp._parent_index} for sp in s]
-            d = parse_bone_data(whm.rsgm.skel.bones)
-            json.dump(d, skel_handle, indent=4, cls=EnhancedJSONEncoder)
+        with open(output_path + f"_skel_transform.json", "w") as skel_handle:
+            try:
+                skel = Skeleton.create(whm.rsgm.skel)
+                d = [{'name': s.name,
+                      'parent': s.parent_index,
+                      'world': s.transform.world_matrix()._array,
+                      'local': s.transform.local_matrix()._array,
+                      'rotation': s.transform.rotation,
+                      'axis_angle': s.transform.rotation.as_axis_angle(),
+                      'translation': s.transform.translation} for s in skel]
+                json.dump(d, skel_handle, indent=4, cls=EnhancedJSONEncoder)
+            except Exception as e:
+                print(e)
+                raise
+                # exit()
     # for i in range(len(whm.rsgm.skel.bones[0].anypos)):
     #     with open(output_path + f"_skel_{i+1}.obj", "w") as skel_handle:
     #         write_skel_to_obj(skel_handle, whm.rsgm.skel,i=i)

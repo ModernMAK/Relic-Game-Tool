@@ -9,7 +9,7 @@ import numpy as np
 
 from relic.chunk_formats.whm.shared import num_layout
 from relic.chunky import DataChunk
-from relic.file_formats.matrix_math import Quaternion, Vector3, AxisOrder, Matrix
+from relic.file_formats.matrix_math import Quaternion, Vector3, AxisOrder, Matrix, Transform
 from relic.file_formats.mesh_io import Float3, Float4
 
 # STOLEN FROM 'https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/'
@@ -113,95 +113,59 @@ class SkelChunk:
             return SkelChunk(bones)
 
 
+_Euler90_0_0 = Quaternion(0.7071068, 0, 0, 0.7071068)
 @dataclass
 class Skeleton:
     name: str
-    local_position: Vector3
-    local_rotation: Quaternion
-    _parent_index: int = None
-
-    _parent: Optional['Skeleton'] = None
-    _children: List['Skeleton'] = None
-
-    _world_position: Vector3 = None
-    _world_rotation: Quaternion = None
-
-    @property
-    def world_position(self) -> Vector3:
-        return self._world_position or self._calc_world_position()
-
-    @property
-    def world_rotation(self) -> Quaternion:
-        return self._world_rotation or self._calc_world_rotation()
-
-    def _calc_world_position(self) -> Vector3:
-        if self._world_position:
-            return self._world_position
-
-        d: Vector3 = self.local_position
-        q: Quaternion = None  # self.local_rotation
-
-        if self._parent:
-            d = self._parent._calc_world_position()
-            q = self._parent._calc_world_rotation()
-
-        p = self.local_position
-        if q:
-            p = q.as_matrix().multiply_matrix(p.as_matrix()).to_vector()
-        return p + d if d else p
-
-    def _calc_world_rotation(self) -> Quaternion:
-        if self._world_rotation:
-            return self._world_rotation
-        q = self.local_rotation
-        if self._parent:
-            p_q = self._parent._calc_world_rotation()
-            q = p_q * q
-        return q
-
-    def cache(self):
-        self._world_position = self._calc_world_position()
-        self._world_rotation = self._calc_world_rotation()
-
-    # def transform(self, v: Float3, parent: np.array = None) -> Float3:
-    #     vw = v[0], v[1], v[2], 1
-    #     m = self.local_to_world(parent)
-    #     r = np.matmul(m, vw)
-    #     return r[0], r[1], r[2]
-    #
-    # def get_position(self) -> Float3:
-    #     pos = (0, 0, 0)
-    #     return self.transform(pos)
-    #
-    # def get_simple_position(self) -> Float3:
-    #     dx, dy, dz = 0, 0, 0
-    #     if self._parent:
-    #         dx, dy, dz = self._parent.get_simple_position()
-    #     x, y, z = self.local_position
-    #     return x + dx, y + dy, z + dz
-
+    transform: Transform
+    parent_index:int
     @classmethod
     def create(cls, chunk: SkelChunk) -> List['Skeleton']:
-        temp = [Skeleton(bone.name, Vector3(*bone.pos), Quaternion(*bone.quaternion), bone.parent_index) for bone in
+
+        temp = [Skeleton(bone.name, Transform(Quaternion(*bone.quaternion), Vector3(*bone.pos)), bone.parent_index) for bone in
                 chunk.bones]
-        for bone in temp:
-            # Convert Axis
-            pos = bone.local_position.xyz
-            pos = -pos[0], pos[1], pos[2]
-            bone.local_position = Vector3(*pos)
-            # Convert Quaternion
-            q = bone.local_rotation
-            q = q.Invert(x=True)  # , w=True)
-            bone.local_rotation = q
-
-        for t in temp:
-            t._children = []
-
-        for i, bone in enumerate(chunk.bones):
+        for i, skel in enumerate(temp):
+            bone = chunk.bones[i]
+            # x, y, z = skel.transform.translation.xyz
             if bone.parent_index != -1:
-                temp[i]._parent = temp[bone.parent_index]
-                temp[bone.parent_index]._children.append(temp[i])
-            temp[i].cache()
+                skel.transform.parent = temp[bone.parent_index].transform
+                # skel.transform.translation = Vector3(-x, z, y) # Magically preserves handedness
+                # skel.transform.rotation = skel.transform.rotation.Swap(AxisOrder.XZY)
+                # rotation_matrix = skel.transform.rotation.Swap(AxisOrder.ZXY).as_matrix()
+                # rotation_matrix._array[1][0] *= -1
+                # rotation_matrix._array[2][0] *= -1
+                # rotation_matrix._array[0][1] *= -1
+                # rotation_matrix._array[0][2] *= -1
+                # skel.transform.rotation = Quaternion.from_matrix(rotation_matrix)
+
+            # else:
+            #     pass
+            # skel.transform.translation
+            skel.transform.rotation = skel.transform.rotation.normalized()#.Swap(AxisOrder.XZY).normalized()
+            # skel.transform.translation = Vector3(-x, z, y)  # Magically preserves handedness
+
+            # r = skel.transform.rotation
+            # r = r.Invert(x).Swap(AxisOrder.XZY)
+            # skel.transform.rotation = r
+
+        # for bone in temp:
+        #     # Convert Axis
+        #     pos = bone.local_position.xyz
+        #     pos = -pos[0], pos[1], pos[2]
+        #     bone.local_position = Vector3(*pos)
+        #     # Convert Quaternion
+        #     q = bone.local_rotation
+        #     q = q.Invert(x=True)  # , w=True)
+        #     bone.local_rotation = q
+        #
+        # for t in temp:
+        #     t._children = []
+        #
+        # for i, bone in enumerate(chunk.bones):
+        #     if bone.parent_index != -1:
+        #         temp[i]._parent = temp[bone.parent_index]
+        #         temp[bone.parent_index]._children.append(temp[i])
+        #     temp[i].cache()
 
         # for bone in temp:
         #     # Convert Axis
@@ -218,26 +182,19 @@ class Skeleton:
 
 
 def parse_bone_data(bone_data: List[SkelBone]) -> List[Dict[str, Any]]:
-    bones:List = []
+    bones: List = []
     for data in bone_data:
         if data.parent_index == -1:
             q = Quaternion.XYZW(*data.quaternion)
-            # try:
-            rotation_matrix = q.as_matrix().inverse()
-            # except NotImplementedError as e:
-            #     # Approximate it?
-            #     # try:
-            #     #     # Second time so I can wlak thorough it
-            #     rotation_matrix = q.as_matrix()
-            #     inverse = rotation_matrix.inverse()
-            #     rotation_matrix = q.Invert(w=True).as_matrix()
-            #     # except:
-            #     #     rotation_matrix = Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-
+            # WTF is this ?
+            # Inverse matrix, multiply by arbitrary and the inverse (while I know order matters, should that still result in the original?)
+            #   THEN invert that matrix (to original) and get the quaternion?
+            # Im pretty sure this can be simplified to
+            #   world_rotation = q.as_matrix()
+            rotation_matrix = q.as_matrix().inversed()
             world_matrix = Matrix([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
             matrix = world_matrix @ rotation_matrix @ world_matrix.inverse()
-            world_rotation = Quaternion.from_matrix(matrix).inverse()
-
+            world_rotation = Quaternion.from_matrix(matrix).inversed()
 
             # Rotate by euler 90, 0, 0
             x, y, z = data.pos

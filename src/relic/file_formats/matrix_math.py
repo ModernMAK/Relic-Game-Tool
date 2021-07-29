@@ -1,7 +1,10 @@
+import math
 from dataclasses import dataclass
 from enum import Enum, auto
 from math import sqrt
 from typing import Tuple, Any, List
+
+from relic.file_formats.mesh_io import Float3
 
 
 class Matrix:
@@ -60,8 +63,29 @@ class Matrix:
         return Matrix(output)
 
     @classmethod
-    def __get_2x2_determinant(cls, a: int, b: int, c: int, d: int):
+    def __get_2x2_determinant(cls, *parts: int) -> int:
+        a, b, c, d = parts
         return (a * d) - (b * c)
+
+    @classmethod
+    def __get_3x3_determinant(cls, *parts: int) -> int:
+        a, b, c, d, e, f, g, h, i = parts
+        a_det = cls.__get_2x2_determinant(e, f, h, i)
+        b_det = cls.__get_2x2_determinant(d, f, g, i)
+        c_det = cls.__get_2x2_determinant(d, e, g, h)
+        return a * a_det - b * b_det + c * c_det
+
+    @classmethod
+    def __get_4x4_determinant(cls, *parts: int) -> int:
+        a, b, c, d, \
+        e, f, g, h, \
+        i, j, k, l, \
+        m, n, o, p = parts
+        a_det = cls.__get_3x3_determinant(f, g, h, j, k, l, n, o, p)
+        b_det = cls.__get_3x3_determinant(e, g, h, i, k, l, m, o, p)
+        c_det = cls.__get_3x3_determinant(e, f, h, i, j, l, m, n, p)
+        d_det = cls.__get_3x3_determinant(e, f, g, i, j, k, m, n, o)
+        return a * a_det - b * b_det + c * c_det - d * d_det
 
     @classmethod
     def __determinant_2x2(cls, matrix: 'Matrix'):
@@ -79,10 +103,18 @@ class Matrix:
         a, b, c = matrix[0][0], matrix[0][1], matrix[0][2]
         d, e, f = matrix[1][0], matrix[1][1], matrix[1][2]
         g, h, i = matrix[2][0], matrix[2][1], matrix[2][2]
-        a_det = cls.__get_2x2_determinant(e, f, h, i)
-        b_det = cls.__get_2x2_determinant(d, f, g, i)
-        c_det = cls.__get_2x2_determinant(d, e, g, h)
-        return a * a_det - b * b_det + c * c_det
+        return cls.__get_3x3_determinant(a, b, c, d, e, f, g, h, i)
+
+    @classmethod
+    def __determinant_4x4(cls, matrix: 'Matrix') -> int:
+        assert matrix.rows == 4
+        assert matrix.cols == 4
+        matrix = matrix._array
+        a, b, c, d = matrix[0][0], matrix[0][1], matrix[0][2], matrix[0][3]
+        e, f, g, h = matrix[1][0], matrix[1][1], matrix[1][2], matrix[1][3]
+        i, j, k, l = matrix[2][0], matrix[2][1], matrix[2][2], matrix[2][3]
+        m, n, o, p = matrix[3][0], matrix[3][1], matrix[3][2], matrix[3][3]
+        return cls.__get_4x4_determinant(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
 
     @classmethod
     def __inverse_2x2(cls, matrix: 'Matrix') -> 'Matrix':
@@ -111,11 +143,28 @@ class Matrix:
         return [[cls.__get_minor_3x3_part(matrix, r, c) for c in range(3)] for r in range(3)]
 
     @classmethod
-    def __apply_3x3_cofactor(cls, minor: List[List[int]]):
-        minor[0][1] *= -1
-        minor[1][0] *= -1
-        minor[1][2] *= -1
-        minor[2][1] *= -1
+    def __get_minor_4x4_part(cls, matrix: 'Matrix', r: int, c: int) -> int:
+        minor = []
+        for r_i in range(4):
+            for c_i in range(4):
+                if r == r_i or c == c_i:
+                    continue
+                minor.append(matrix.get(r_i, c_i))
+        return cls.__get_3x3_determinant(*minor)
+
+    @classmethod
+    def __get_minor_4x4(cls, matrix: 'Matrix') -> List[List[int]]:
+        S = 4
+        return [[cls.__get_minor_3x3_part(matrix, r, c) for c in range(S)] for r in range(S)]
+
+    @classmethod
+    def __apply_NxN_cofactor(cls, minor: List[List[int]]):
+        N = len(minor)
+        for r in range(N):
+            for c in range(N):
+                if c + r % 2 == 0:
+                    continue
+                minor[r][c] *= -1
 
     @classmethod
     def __apply_3x3_adjugate(cls, minor: List[List[int]]):
@@ -133,6 +182,30 @@ class Matrix:
         minor[1][2] = temp21
 
     @classmethod
+    def __apply_4x4_adjugate(cls, minor: List[List[int]]):
+        # Reflect over the 'Diagonal'
+        temp10 = minor[1][0]
+        temp20 = minor[2][0]
+        temp21 = minor[2][0]
+        temp30 = minor[3][0]
+        temp31 = minor[3][1]
+        temp32 = minor[3][2]
+
+        minor[1][0] = minor[0][1]
+        minor[2][0] = minor[0][2]
+        minor[2][1] = minor[1][2]
+        minor[3][0] = minor[0][3]
+        minor[3][1] = minor[1][3]
+        minor[3][2] = minor[2][3]
+
+        minor[0][1] = temp10
+        minor[0][2] = temp20
+        minor[1][2] = temp21
+        minor[0][3] = temp30
+        minor[1][3] = temp31
+        minor[2][3] = temp32
+
+    @classmethod
     def __inverse_3x3(cls, matrix: 'Matrix') -> 'Matrix':
         assert matrix.rows == 3
         assert matrix.cols == 3
@@ -141,16 +214,34 @@ class Matrix:
             raise NotImplementedError
 
         inverse = cls.__get_minor_3x3(matrix)
-        cls.__apply_3x3_cofactor(inverse)
+        cls.__apply_NxN_cofactor(inverse)
         cls.__apply_3x3_adjugate(inverse)
         for r in range(3):
             for c in range(3):
                 inverse[r][c] = inverse[r][c] / determinant
         return Matrix(inverse)
 
+    @classmethod
+    def __inverse_4x4(cls, matrix: 'Matrix') -> 'Matrix':
+        assert matrix.rows == 4
+        assert matrix.cols == 4
+        determinant = cls.__determinant_4x4(matrix)
+        if determinant == 0:
+            raise NotImplementedError
+
+        inverse = cls.__get_minor_4x4(matrix)
+        cls.__apply_NxN_cofactor(inverse)
+        cls.__apply_4x4_adjugate(inverse)
+        for r in range(4):
+            for c in range(4):
+                inverse[r][c] = inverse[r][c] / determinant
+        return Matrix(inverse)
+
     def inverse(self) -> 'Matrix':
         if self.rows != self.cols:
             raise NotImplementedError
+        elif self.rows == 4:
+            return Matrix.__inverse_4x4(self)
         elif self.rows == 3:
             return Matrix.__inverse_3x3(self)
         elif self.rows == 2:
@@ -266,6 +357,13 @@ class Quaternion:
             values[3] *= -1
         return Quaternion.XYZW(*values)
 
+    # _DEG2RAD = math.pi / 180
+    # _RAD2DEG = 180 / math.pi
+
+    # def _ToDeg(self) -> Tuple[Float3,float]:
+    #     angle = 2 * math.acos(self.w) * self._RAD2DEG
+    #     temp = Quaternion
+
     def _quaternion_multiply(self, other: 'Quaternion') -> 'Quaternion':
         left_w, left_x, left_y, left_z = self.wxyz
         right_w, right_x, right_y, right_z = other.wxyz
@@ -276,14 +374,50 @@ class Quaternion:
             left_w * right_z + left_x * right_y - left_y * right_x + left_z * right_w
         )
 
-    def conjugate(self) -> 'Quaternion':
-        return Quaternion(-self.x, -self.y, -self.z, self.w)
-
-    def inverse(self) -> 'Quaternion':
+    def normalized(self) -> 'Quaternion':
         x, y, z, w = self.xyzw
         sum = x ** 2 + y ** 2 + z ** 2 + w ** 2
-        x, y, z, w = self.conjugate().xyzw
+        root = math.sqrt(sum)
+        # Special case:
+        if root == 0.0:
+            return Quaternion(*self.xyzw)
+        else:
+            return Quaternion(x / root, y / root, z / root, w / root)
+
+    def conjugated(self) -> 'Quaternion':
+        return Quaternion(-self.x, -self.y, -self.z, self.w)
+
+    def inversed(self) -> 'Quaternion':
+        x, y, z, w = self.xyzw
+        sum = x ** 2 + y ** 2 + z ** 2 + w ** 2
+        x, y, z, w = self.conjugated().xyzw
         return Quaternion.XYZW(-x / sum, -y / sum, -z / sum, w / sum)
+
+    def __as_axis_angle(self, use_deg: bool = True) -> Tuple[Float3, float]:
+        qx, qy, qz, qw = self.xyzw
+        angle = 2 * math.acos(qw)
+        if use_deg:
+            angle *= 180.0 / math.pi
+        if qw == 0.0:
+            return (0, 0, 0), 0
+        elif qw == 1.0:
+            return (qx, qy, qz), 180.0
+        else:
+            root = sqrt(1 - (qw ** 2))
+            if root == 0.0:
+                return (0, 0, 0), 0 #Uncaught
+            x = qx / root
+            y = qy / root
+            z = qz / root
+            return (x, y, z), angle
+
+    def as_axis_angle(self, use_deg: bool = True) -> Tuple[Float3, float]:
+        axis, angle = self.__as_axis_angle(use_deg)
+        x, y, z = axis
+        P = 4
+        axis = round(x, P), round(y, P), round(z, P)
+        angle = round(angle, P)
+        return axis, angle
 
     def as_matrix(self) -> Matrix:
         m: List[List, List, List] = [[None, None, None], [None, None, None], [None, None, None]]
@@ -451,6 +585,52 @@ class Vector3:
 
     def as_matrix(self) -> Matrix:
         return Matrix([[self.x], [self.y], [self.z]])
+
+    def normalized(self) -> 'Vector3':
+        sum = self.x ** 2 + self.y ** 2 + self.z ** 2
+        root = math.sqrt(sum)
+        # V0 Special Case
+        if root == 0.0:
+            return Vector3(*self.xyz)
+        else:
+            x, y, z = self.xyz
+            return Vector3(x / root, y / root, z / root)
+
+
+class Transform:
+    def __init__(self, rotation: Quaternion, translation: Vector3, parent: 'Transform' = None):
+        self.rotation = rotation
+        self.translation = translation
+        self.parent = parent
+        self._cached_local = None
+        self._cached_world = None
+
+    def local_matrix(self, use_cached: bool = True) -> Matrix:
+        if use_cached and self._cached_local:
+            return self._cached_local
+
+        rot3x3 = self.rotation.as_matrix()._array
+        x, y, z = self.translation.xyz
+        m4x4 = [
+            [rot3x3[0][0], rot3x3[0][1], rot3x3[0][2], x],
+            [rot3x3[1][0], rot3x3[1][1], rot3x3[1][2], y],
+            [rot3x3[2][0], rot3x3[2][1], rot3x3[2][2], z],
+            [0, 0, 0, 1],
+        ]
+        self._cached_local = Matrix(m4x4)
+        return self._cached_local
+
+    def world_matrix(self, use_cached: bool = True) -> Matrix:
+        if use_cached and self._cached_world:
+            return self._cached_world
+
+        if self.parent:
+            parent_matrix = self.parent.world_matrix()
+            local_matrix = self.local_matrix(use_cached=use_cached)
+            self._cached_world = parent_matrix @ local_matrix
+        else:
+            self._cached_world = self.local_matrix(use_cached=use_cached)
+        return self._cached_world
 
 
 if __name__ == "__main__":
