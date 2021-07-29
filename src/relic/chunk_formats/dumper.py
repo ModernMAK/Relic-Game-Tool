@@ -13,11 +13,10 @@ from relic.chunk_formats.rsh.rsh_chunky import RshChunky
 from relic.chunk_formats.rtx.rtx_chunky import RtxChunky
 from relic.chunk_formats.shared.imag.writer import ImagConverter, get_imag_chunk_extension
 from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
-from relic.chunk_formats.whm.mslc_chunk import DB_UniqueCodes
-from relic.chunk_formats.whm.skel_chunk import Skeleton
+from relic.chunk_formats.whm.skel_chunk import Skeleton, parse_bone_data
 from relic.chunk_formats.whm.whm_chunky import WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
-    InvalidMeshBufferError, write_skel_to_obj
+    InvalidMeshBufferError
 from relic.chunk_formats.wtp.dumper import WTP_LAYER_NAMES
 from relic.chunk_formats.wtp.writer import create_mask_image
 from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
@@ -29,7 +28,7 @@ from relic.sga.archive import Archive
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
 from relic.sga.file import File
-from relic.shared import KW_LIST, EnhancedJSONEncoder, filter_path_by_keyword
+from relic.shared import KW_LIST, EnhancedJSONEncoder
 from relic.ucs import build_locale_environment, get_lang_string_for_file
 
 
@@ -177,9 +176,10 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
         #     s_wxyz = Skeleton.create_wxyz(whm.rsgm.skel)
         #     d_wxyz = [{'name': sp.name, 'pos': sp.world_position.xyz, 'parent_index': sp._parent_index} for sp in s_wxyz]
         #     json.dump(d_wxyz, skel_handle, indent=4, cls=EnhancedJSONEncoder)
-        with open(output_path + f"_skel.json", "w") as skel_handle:
-            s = Skeleton.create_xyzw(whm.rsgm.skel)
-            d = [{'name': sp.name, 'pos': sp.local_position.xyz, 'rot':sp.local_rotation.xyzw, 'parent_index': sp._parent_index} for sp in s]
+        with open(output_path + f"_skel_3ds.json", "w") as skel_handle:
+            # s = Skeleton.create(whm.rsgm.skel)
+            # d = [{'name': sp.name, 'pos': sp.world_position.xyz, 'rot':sp.world_rotation.xyzw, 'parent_index': sp._parent_index} for sp in s]
+            d = parse_bone_data(whm.rsgm.skel.bones)
             json.dump(d, skel_handle, indent=4, cls=EnhancedJSONEncoder)
     # for i in range(len(whm.rsgm.skel.bones[0].anypos)):
     #     with open(output_path + f"_skel_{i+1}.obj", "w") as skel_handle:

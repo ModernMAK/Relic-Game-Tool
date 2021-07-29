@@ -33,14 +33,13 @@ class MeshReader:
             yield self.__read(layout)
 
     @classmethod
-    def _validate_float(cls, validate: bool, *values:float):
+    def _validate_float(cls, validate: bool, *values: float):
         if validate:
             for value in values:
                 assert not math.isnan(value)
 
-
     @classmethod
-    def _validate_float_list(cls, validate: bool, *value_lists:Iterable[float]) -> Iterable[Iterable[float]]:
+    def _validate_float_list(cls, validate: bool, *value_lists: Iterable[float]) -> Iterable[Iterable[float]]:
         if validate:
             for list in value_lists:
                 for value in list:

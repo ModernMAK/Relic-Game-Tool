@@ -2,13 +2,14 @@ import math
 import struct
 from dataclasses import dataclass
 from io import BytesIO
-from typing import BinaryIO, List, Optional, Tuple
+from queue import Queue
+from typing import BinaryIO, List, Optional, Tuple, Dict, Any
 
 import numpy as np
 
 from relic.chunk_formats.whm.shared import num_layout
 from relic.chunky import DataChunk
-from relic.file_formats.matrix_math import Quaternion, Vector3
+from relic.file_formats.matrix_math import Quaternion, Vector3, AxisOrder, Matrix
 from relic.file_formats.mesh_io import Float3, Float4
 
 # STOLEN FROM 'https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/'
@@ -77,9 +78,10 @@ def quaternion_multiply(Q0, Q1):
 
 @dataclass
 class SkelBone:
-    # This chunk is also super easy
     name: str
     parent_index: int
+
+    # Original coordinate system
     pos: Float3
     quaternion: Float4
 
@@ -91,8 +93,10 @@ class SkelBone:
         name_size = num_layout.unpack(buffer)[0]
         name = stream.read(name_size).decode("ascii")
         parent, px, py, pz, rx, ry, rz, rw = unpack_from_stream(cls._LAYOUT, stream)
+        p = (px, py, pz)
+        q = (rx, ry, rz, rw)
 
-        return SkelBone(name, parent, (px, py, pz), (rx, ry, rz, rw))
+        return SkelBone(name, parent, p, q)
 
 
 @dataclass
@@ -114,14 +118,13 @@ class Skeleton:
     name: str
     local_position: Vector3
     local_rotation: Quaternion
-    _parent_index:int = None
+    _parent_index: int = None
 
     _parent: Optional['Skeleton'] = None
     _children: List['Skeleton'] = None
 
     _world_position: Vector3 = None
     _world_rotation: Quaternion = None
-
 
     @property
     def world_position(self) -> Vector3:
@@ -136,14 +139,15 @@ class Skeleton:
             return self._world_position
 
         d: Vector3 = self.local_position
-        q: Quaternion = self.local_rotation
+        q: Quaternion = None  # self.local_rotation
 
         if self._parent:
             d = self._parent._calc_world_position()
-            q = self._parent._calc_world_rotation() * q
+            q = self._parent._calc_world_rotation()
 
         p = self.local_position
-        p = q.as_matrix().multiply_matrix(p.as_matrix()).to_vector()
+        if q:
+            p = q.as_matrix().multiply_matrix(p.as_matrix()).to_vector()
         return p + d if d else p
 
     def _calc_world_rotation(self) -> Quaternion:
@@ -178,7 +182,18 @@ class Skeleton:
 
     @classmethod
     def create(cls, chunk: SkelChunk) -> List['Skeleton']:
-        temp = [Skeleton(bone.name, Vector3(*bone.pos), Quaternion(*bone.quaternion), bone.parent_index) for bone in chunk.bones]
+        temp = [Skeleton(bone.name, Vector3(*bone.pos), Quaternion(*bone.quaternion), bone.parent_index) for bone in
+                chunk.bones]
+        for bone in temp:
+            # Convert Axis
+            pos = bone.local_position.xyz
+            pos = -pos[0], pos[1], pos[2]
+            bone.local_position = Vector3(*pos)
+            # Convert Quaternion
+            q = bone.local_rotation
+            q = q.Invert(x=True)  # , w=True)
+            bone.local_rotation = q
+
         for t in temp:
             t._children = []
 
@@ -187,31 +202,155 @@ class Skeleton:
                 temp[i]._parent = temp[bone.parent_index]
                 temp[bone.parent_index]._children.append(temp[i])
             temp[i].cache()
+
+        # for bone in temp:
+        #     # Convert Axis
+        #     pos = bone.world_position.xyz
+        #     pos = -pos[0], pos[1], pos[2]
+        #     bone._world_position = Vector3(*pos)
+        #     # Convert Quaternion
+        #     q = bone.world_rotation
+        #     q = q.Invert(x=True)#, w=True)
+        #     # q = q.Swap(AxisOrder.XZY)
+        #     bone._world_rotation = q
+
         return temp
 
 
-    @classmethod
-    def create_wxyz(cls, chunk: SkelChunk) -> List['Skeleton']:
-        temp = [Skeleton(bone.name, Vector3(*bone.pos), Quaternion.WXYZ(*bone.quaternion), bone.parent_index) for bone in chunk.bones]
-        for t in temp:
-            t._children = []
+def parse_bone_data(bone_data: List[SkelBone]) -> List[Dict[str, Any]]:
+    bones:List = []
+    for data in bone_data:
+        if data.parent_index == -1:
+            q = Quaternion.XYZW(*data.quaternion)
+            # try:
+            rotation_matrix = q.as_matrix().inverse()
+            # except NotImplementedError as e:
+            #     # Approximate it?
+            #     # try:
+            #     #     # Second time so I can wlak thorough it
+            #     rotation_matrix = q.as_matrix()
+            #     inverse = rotation_matrix.inverse()
+            #     rotation_matrix = q.Invert(w=True).as_matrix()
+            #     # except:
+            #     #     rotation_matrix = Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
-        for i, bone in enumerate(chunk.bones):
-            if bone.parent_index != -1:
-                temp[i]._parent = temp[bone.parent_index]
-                temp[bone.parent_index]._children.append(temp[i])
-            temp[i].cache()
-        return temp
+            world_matrix = Matrix([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
+            matrix = world_matrix @ rotation_matrix @ world_matrix.inverse()
+            world_rotation = Quaternion.from_matrix(matrix).inverse()
 
-    @classmethod
-    def create_xyzw(cls, chunk: SkelChunk) -> List['Skeleton']:
-        temp = [Skeleton(bone.name, Vector3(*bone.pos), Quaternion.XYZW(*bone.quaternion), bone.parent_index) for bone in chunk.bones]
-        for t in temp:
-            t._children = []
 
-        for i, bone in enumerate(chunk.bones):
-            if bone.parent_index != -1:
-                temp[i]._parent = temp[bone.parent_index]
-                temp[bone.parent_index]._children.append(temp[i])
-            temp[i].cache()
-        return temp
+            # Rotate by euler 90, 0, 0
+            x, y, z = data.pos
+            world_position = Vector3(-x, -z, y)
+            t = (world_rotation, world_position, True, data.parent_index, data.name)
+            bones.append(t)
+        else:
+            rotation_matrix = Quaternion.XYZW(*data.quaternion).as_matrix()
+            rotation_matrix._array[1][0] *= -1
+            rotation_matrix._array[2][0] *= -1
+            rotation_matrix._array[0][1] *= -1
+            rotation_matrix._array[0][2] *= -1
+            local_rotation = Quaternion.from_matrix(rotation_matrix)
+            x, y, z = data.pos
+            local_position = Vector3(-x, y, z)
+            t = (local_rotation, local_position, False, data.parent_index, data.name)
+            bones.append(t)
+
+    # frontier = Queue()
+    # for i in range(len(bones)):
+    #     frontier.put(i)
+    # while not frontier.empty():
+    #     i = frontier.get()
+    #     rot, pos, world_space, parent_index, name = bones[i]
+    #     # If in world space or no parent; nothing to do
+    #     if world_space or parent_index == -1:
+    #         continue
+    #     # IF parent not in world space, add this to the frontier so that next time it's hopefully completed
+    #     p_rot, p_pos, p_world_space, _, _ = bones[parent_index]
+    #     if not p_world_space:
+    #         frontier.put(i)
+    #         continue
+    #
+    #     world_rot = p_rot * rot
+    #     world_pos = p_pos + world_rot.as_matrix().multiply_matrix(pos.as_matrix()).to_vector()
+    #
+    #     bones[i] = world_rot, world_pos, True, parent_index, name
+    #     continue
+
+    return [{'pos': pos, "rot": rot, "parent": parent, "name": name} for rot, pos, _, parent, name in bones]
+
+    # (
+    #     rotmat = (quat bone_array[i].rot_x bone_array[i].rot_y bone_array[i].rot_z bone_array[i].rot_w) as matrix3
+    # rotmat = inverse rotmat
+    # mat = matrix3[1, 0, 0][0, 0, 1][0, -1, 0][0, 0, 0]
+    # newmat = mat * rotmat * (inverse mat)
+    # newmat = newmat as quat
+    # new_bone.rotation = (inverse newmat)
+    # rot = eulerangles 90 0 0
+    # in coordsys local rotate new_bone rot         - - Set Bone Rotation
+    # new_bone.pos = (point3 - bone_array[i].pos_x - bone_array[i].pos_z bone_array[i].pos_y) - - Set
+    # Bone
+    # Position
+    # )
+    # else -- Child
+    # Bones - Parent
+    # Coordinates
+    # (
+    #     newmat = (matrix3[0, 0, 0][0, 0, 0][0, 0, 0][0, 0, 0]) - - Create
+    # Zero
+    # Matrix
+    #
+    # bonequat = (quat
+    #             bone_array[i].rot_x bone_array[i].rot_y bone_array[i].rot_z bone_array[i].rot_w) as matrix3 - - Turn
+    # Quat
+    # Into
+    # Matrix
+    # newmat.row1 = (point3 bonequat[1][1] -bonequat[2][1] -bonequat[3][1]) - - Set
+    # 1
+    # st
+    # Row
+    # newmat.row2 = (point3 - bonequat[1][2] bonequat[2][2] bonequat[3][2]) - - Set
+    # 2
+    # nd
+    # Row
+    # newmat.row3 = (point3 - bonequat[1][3] bonequat[2][3] bonequat[3][3]) - - Set
+    # 3
+    # rd
+    # Row
+    # newmat.row4 = (point3 bone_array[i].pos_x bone_array[i].pos_y bone_array[i].pos_z) - - Set
+    # 4
+    # th
+    # Row
+    #
+    # newrot = newmat as quat - - Get
+    # Rotation
+    # Part
+    # From
+    # Matrix
+    # newrot.w *= -1 - - Negate
+    # Rotation
+    # W
+    #
+    # newpos = newmat.translationpart - - Get
+    # Translation
+    # Part
+    # From
+    # Matrix
+    # newpos.x *= -1 - - Negate
+    # Position
+    # X
+    #
+    # in coordsys
+    # parent
+    # new_bone.rotation = newrot - - Set
+    # Child
+    # Bone
+    # Rotation
+    # in coordsys
+    # parent
+    # new_bone.pos = newpos - - Set
+    # Child
+    # Bone
+    # Position
+    # )
+    # )
