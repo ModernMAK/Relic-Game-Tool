@@ -181,6 +181,7 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
                       'local': s.transform.local_matrix()._array,
                       'rotation': s.transform.rotation,
                       'axis_angle': s.transform.rotation.as_axis_angle(),
+                      'euler_angle': s.transform.rotation.as_euler(),
                       'translation': s.transform.translation} for s in skel]
                 json.dump(d, skel_handle, indent=4, cls=EnhancedJSONEncoder)
             except Exception as e:

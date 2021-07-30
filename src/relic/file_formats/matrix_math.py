@@ -393,11 +393,14 @@ class Quaternion:
         x, y, z, w = self.conjugated().xyzw
         return Quaternion.XYZW(-x / sum, -y / sum, -z / sum, w / sum)
 
+    _RAD2DEG = 180.0 / math.pi
+    _DEG2RAD = math.pi / 180
+
     def __as_axis_angle(self, use_deg: bool = True) -> Tuple[Float3, float]:
         qx, qy, qz, qw = self.xyzw
         angle = 2 * math.acos(qw)
         if use_deg:
-            angle *= 180.0 / math.pi
+            angle *= self._RAD2DEG
         if qw == 0.0:
             return (0, 0, 0), 0
         elif qw == 1.0:
@@ -405,19 +408,71 @@ class Quaternion:
         else:
             root = sqrt(1 - (qw ** 2))
             if root == 0.0:
-                return (0, 0, 0), 0 #Uncaught
+                return (0, 0, 0), 0  # Uncaught
             x = qx / root
             y = qy / root
             z = qz / root
             return (x, y, z), angle
 
-    def as_axis_angle(self, use_deg: bool = True) -> Tuple[Float3, float]:
+    def as_axis_angle(self, use_deg: bool = True, round_places: int = 4) -> Tuple[Float3, float]:
         axis, angle = self.__as_axis_angle(use_deg)
         x, y, z = axis
-        P = 4
+        P = round_places
         axis = round(x, P), round(y, P), round(z, P)
         angle = round(angle, P)
         return axis, angle
+
+    def as_euler(self, use_deg: bool = True, round_places: int = 4) -> Float3:
+        qx, qy, qz, qw = self.xyzw
+
+        roll = math.atan2(2 * (qx*qy+qz*qw), 1 - 2 * (qy ** 2 + qz **2))
+        sin_term = 2 * (qx * qz - qw * qy)
+        if sin_term >= 1.0:
+            pitch = 90 * self._DEG2RAD
+        elif sin_term <= -1.0:
+            pitch = -90*self._RAD2DEG
+        else:
+            pitch = math.asin(sin_term)
+        yaw = math.atan2(2 * (qx*qw+qy*qz), 1 - 2 * (qz ** 2 + qw **2))
+
+        # special = 2 * (qx * qy + qz * qw)
+        # if special >= 1.0:
+        #     heading = 2 * math.atan2(qx, qw)
+        #     attitude = math.pi / 2
+        #     bank = 0.0
+        # elif special <= -1.0:
+        #     heading = -2 * math.atan2(qx, qw)
+        #     attitude = -math.pi / 2
+        #     bank = 0.0
+        # else:
+        #     qxx = qx ** 2
+        #     qyy = qy ** 2
+        #     qzz = qz ** 2
+        #     qww = qw ** 2
+        #     heading = math.atan2(2 * qy * qw - 2 * qx * qz, qxx - qyy - qzz + qww)
+        #     attitude = math.asin(special)
+        #     bank = math.atan2(2 * qx * qw - 2 * qy * qz, -qxx + qyy + qzz  + qww)
+        #
+        if use_deg:
+            pitch *= self._RAD2DEG
+            roll *= self._RAD2DEG
+            yaw *= self._RAD2DEG
+
+        if round_places:
+            pitch = round(pitch, round_places)
+            roll = round(roll, round_places)
+            yaw = round(yaw, round_places)
+
+        # Heading-Attitude-Bank
+        #   Assuming Y is up, Z is forward
+        # Heading ~ Y (
+        # Attitude ~ X
+        # Bank ~ Z
+        #   EXCEPT
+        # Axis-Angle we know is correct:
+        #   And attitude and bank are swapped when checking against AA-euler
+
+        return yaw, pitch, roll
 
     def as_matrix(self) -> Matrix:
         m: List[List, List, List] = [[None, None, None], [None, None, None], [None, None, None]]
