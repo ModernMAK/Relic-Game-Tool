@@ -14,7 +14,7 @@ class Folder(AbstractDirectory):
 
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FolderHeader) -> 'Folder':
-        name = info.read_name(stream, archive_info.filenames_info)
+        name = info.read_name(stream, archive_info)
         folders: List['Folder'] = [None] * (info.last_sub - info.first_sub)
         files: List[File] = [None] * (info.last_filename - info.first_filename)
         return Folder(folders, files, info, name)

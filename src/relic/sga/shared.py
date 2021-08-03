@@ -1,12 +1,12 @@
-from os.path import join
 from typing import BinaryIO
+
 
 ARCHIVE_HEADER_OFFSET = 180
 
 
-def read_name(stream: BinaryIO, offset: 'OffsetInfo', name_offset: int) -> str:
+def read_name(stream: BinaryIO, info: 'ArchiveInfo', name_offset: int) -> str:
     temp = stream.tell()
-    stream.seek(offset.offset_absolute + name_offset)
+    stream.seek(info.sub_header.toc_offset + info.table_of_contents.filenames_info.offset_relative + name_offset)
     s = read_until_terminal(stream)
     stream.seek(temp, 0)
     return s

@@ -23,7 +23,7 @@ from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
 from relic.chunky import RelicChunky, DataChunk
 from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
 from relic.chunky.magic import RELIC_CHUNKY_MAGIC
-from relic.config import filter_latest_dow_game, get_dow_root_directories
+from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame
 from relic.sga.archive import Archive
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
@@ -303,7 +303,7 @@ def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True
 
 #
 def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dump_non_chunkies: bool = True,
-                       dump_unsupported_chunkies: bool = True, dump_default_as_file: bool = False, **kwargs):
+                       dump_unsupported_chunkies: bool = True, dump_default_as_file: bool = True, **kwargs):
     for directory, file in walk:
         out_path = join(out_directory, directory, file.name)
         file.decompress()  # May be a bug; files aren't being decompressed somewhere? This has led to fewer errors
@@ -331,9 +331,12 @@ def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dum
 
 
 def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = None,
-               ext_blacklist: KW_LIST = None, lang_code: Optional[str] = "en", **kwargs):
+               ext_blacklist: KW_LIST = None, lang_code: Optional[str] = "en", series: Enum = DowGame, **kwargs):
     # HACK to do some pretty printing
-    input_folder = input_folder or filter_latest_dow_game(get_dow_root_directories())[1]
+    input_folder = input_folder or filter_latest_dow_game(get_dow_root_directories(), series=series)[1]
+    if not input_folder:
+        print(f"No input specifed OR could not find a suitable installation for '{series}'")
+        return
 
     if lang_code:
         locale_env = build_locale_environment(input_folder, lang_code)
@@ -393,10 +396,10 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW_I\full_dump", texture_root=r"D:\Dumps\DOW_I\full_dump", texture_ext=".png",
-               ext_whitelist=[".whm"],
-               force_valid=True, dump_unsupported_chunks=False,
-               include_meta=False)
+    quick_dump(r"D:\Dumps\DOW_II\full_dump", texture_root=r"D:\Dumps\DOW_II\full_dump", texture_ext=".png",
+               # ext_whitelist=[".whm"],
+               force_valid=True, # dump_unsupported_chunks=True,
+               include_meta=False, series=DowIIGame)
     # dump_default_as_file=True)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
 
     # print("---")

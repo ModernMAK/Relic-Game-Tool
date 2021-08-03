@@ -19,8 +19,8 @@ class File:
 
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader) -> 'File':
-        name = info.read_name(stream, archive_info.filenames_info)
-        data = info.read_data(stream, archive_info.data_info)
+        name = info.read_name(stream, archive_info)
+        data = info.read_data(stream, archive_info.sub_header)
         _decompressed = not info.compressed
         return File(info, name, data, _decompressed)
 

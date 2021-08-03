@@ -15,14 +15,18 @@ def read_ucs_file(input_filename: str) -> Dict[int, str]:
 def read_ucs(stream: TextIO) -> Dict[int, str]:
     lookup = {}
     for line in stream.readlines():
-        parts = line.split(maxsplit=1)
+        safe_line = line.lstrip()
+        parts = safe_line.split(maxsplit=1)
         if len(parts) == 0:
             continue
 
         num_str = parts[0]
         line_str = parts[1] if len(parts) >= 2 else "No Localisation"
 
-        num = int(num_str)
+        try:
+            num = int(num_str)
+        except ValueError:
+            continue
         line_str = line_str.rstrip("\n")
         lookup[num] = line_str
     return lookup

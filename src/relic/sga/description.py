@@ -7,13 +7,15 @@ from relic.shared import unpack_from_stream, pack_into_stream
 
 @dataclass
 class Description:
-    __DESC_LAYOUT = Struct("< 64s 64s H L L")
+    __DESC_LAYOUT = Struct("< 64s 64s 5H")
 
     category: str
     name: str
-    unk_a1: int
-    unk_a2: int
-    unk_a3: int
+    unk_a1: int  # 0
+    unk_a2: int  # folder count
+    unk_a3: int  # 0
+    unk_a4: int  # File Count
+    unk_a5: int  # 0
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'Description':
@@ -21,6 +23,9 @@ class Description:
         category = args[0].decode("ascii").rstrip("\x00")
         name = args[1].decode("ascii").rstrip("\x00")
         unks = args[2:]
+        assert (unks[0] == 0)
+        assert (unks[2] == 0)
+        assert (unks[4] == 0)
         return Description(category, name, *unks)
 
     def pack(self, stream: BinaryIO) -> int:
