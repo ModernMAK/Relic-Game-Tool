@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, BinaryIO
 
 from relic.sga.archive_info import ArchiveInfo
-from relic.sga.description import Description
+from relic.sga.virtual_drive_header import VirtualDriveHeader
 from relic.sga.file_header import FileHeader
 from relic.sga.folder_header import FolderHeader
 
@@ -10,7 +10,7 @@ from relic.sga.folder_header import FolderHeader
 @dataclass
 class SparseArchive:
     info: ArchiveInfo
-    descriptions: List[Description]
+    descriptions: List[VirtualDriveHeader]
     files: List[FileHeader]
     folders: List[FolderHeader]
 
@@ -24,7 +24,7 @@ class SparseArchive:
         version = archive_info.header.version
         desc_info = archive_info.table_of_contents.descriptions_info
         stream.seek(desc_info.offset_absolute, 0)
-        descriptions = [Description.unpack(stream) for _ in range(desc_info.count)]
+        descriptions = [VirtualDriveHeader.unpack(stream) for _ in range(desc_info.count)]
 
         fold_info = archive_info.table_of_contents.folders_info
         stream.seek(fold_info.offset_absolute, 0)

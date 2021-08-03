@@ -12,19 +12,27 @@ class ArchiveSubHeader:
     __v2_LAYOUT = Struct("< 2L")
     __v5_LAYOUT = Struct("< 6L")
     # V2.0 2L (8)
-    #   Relative Offset
+    #   Relative Offset (TOC SIZE!!!)
+    #       While reading my notes, I realaized that 'Relative Offset' would be the size of the TOC Header + TOC Data
+    #       Specifically 'data_offset - toc_offset'
+    #           If Data_Offset is aboslute offset, and TOC Offset is always 180 (which it is in v2)
+    #           Then TOC size lines up with what we know about this field!
     #   Absolute Offset
     # V5.0 6L (24)
-    #   ???
+    #   TOC Size
     #   Data Offset (Absolute)
     #   TOC Offset (Absolute)
     #   1
     #   ??? (0)
     #   ??? (Garbage?)
+
+    # This is the size of the TOC Header + TOC Data
+    # For DOW 2; this is typically the size of the file - toc_offset
+    # For DOW 1; this is typically the data_offset - toc_offset
+    toc_size: int
     data_offset: int
     # To make reading TOC easier (code-wise); this is always included, despite not exisitng before v5
     toc_offset: int
-    unk_a: Optional[int] = None
     unk_one: Optional[int] = None
     unk_zero: Optional[int] = None
     unk_b: Optional[int] = None
@@ -32,15 +40,15 @@ class ArchiveSubHeader:
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version = Version.DowI_Version()) -> 'ArchiveSubHeader':
         if version.DowI_Version() == version:
-            rel_off, abs_off = unpack_from_stream(cls.__v2_LAYOUT, stream)
-            if rel_off + ARCHIVE_HEADER_OFFSET != abs_off:
-                raise Exception(
-                    f"Invalid Data Offset, rel: '{rel_off}', abs_off: '{abs_off}' dif: '{abs_off - rel_off}'")
+            toc_size, data_off = unpack_from_stream(cls.__v2_LAYOUT, stream)
             toc_offset = stream.tell()
-            return ArchiveSubHeader(data_offset=abs_off, toc_offset=toc_offset)
+            if toc_size + toc_offset != data_off:
+                raise Exception(
+                    f"Invalid Data Offset, rel: '{toc_size}', abs_off: '{data_off}' dif: '{data_off - toc_size}'")
+            return ArchiveSubHeader(toc_size, data_off, toc_offset)
         elif version.DowII_Version() == version:
-            unk_a, data_off, toc_off, unk_one, unk_zero, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
-            return ArchiveSubHeader(data_off, toc_off, unk_a, unk_one, unk_zero, unk_b)
+            toc_size, data_off, toc_off, unk_one, unk_zero, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
+            return ArchiveSubHeader(toc_size, data_off, toc_off, unk_one, unk_zero, unk_b)
         else:
             raise NotImplementedError(version)
         # args = unpack_from_stream(cls.__DATA_OFFSET_LAYOUT, stream)

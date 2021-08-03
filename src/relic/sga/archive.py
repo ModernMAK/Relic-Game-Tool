@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, BinaryIO
 
 from relic.sga.archive_info import ArchiveInfo
-from relic.sga.description import Description
+from relic.sga.virtual_drive_header import VirtualDriveHeader
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory
 from relic.sga.folder import Folder
@@ -12,7 +12,7 @@ from relic.sga.sparse_archive import SparseArchive
 @dataclass
 class Archive(AbstractDirectory):
     info: ArchiveInfo
-    descriptions: List[Description]
+    virtual_drives: List[VirtualDriveHeader]
 
     # A helper to know the total # of files without performing a full walk
     _total_files: int = 0

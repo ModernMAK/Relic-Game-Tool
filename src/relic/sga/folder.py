@@ -15,21 +15,21 @@ class Folder(AbstractDirectory):
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FolderHeader) -> 'Folder':
         name = info.read_name(stream, archive_info)
-        folders: List['Folder'] = [None] * (info.last_sub - info.first_sub)
-        files: List[File] = [None] * (info.last_filename - info.first_filename)
+        folders: List['Folder'] = [None] * info.subfolder_range.size
+        files: List[File] = [None] * info.file_range.size
         return Folder(folders, files, info, name)
 
     def load_folders(self, folders: List['Folder']):
-        if self._info.first_sub < len(folders):
-            for i in range(self._info.first_sub, self._info.last_sub):
-                i_0 = i - self._info.first_sub
+        if self._info.subfolder_range.start < len(folders):
+            for i in self._info.subfolder_range:
+                i_0 = i - self._info.subfolder_range.start
                 self.folders[i_0] = folders[i]
 
     def load_files(self, files: List['File']):
-        if self._info.first_filename < len(files):
-            for i in range(self._info.first_filename, self._info.last_filename):
-                i_0 = i - self._info.first_filename
+        if self._info.file_range.start < len(files):
+            for i in self._info.file_range:
+                i_0 = i - self._info.file_range.start
                 self.files[i_0] = files[i]
 
-    def walk(self) -> ArchiveWalkResult: # Specify name for
+    def walk(self) -> ArchiveWalkResult:  # Specify name for
         return self._walk(self.name)
