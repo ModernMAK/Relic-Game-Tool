@@ -36,11 +36,11 @@ class MslcName:
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'MslcName':
         buffer = stream.read(num_layout.size)
-        size = num_layout.unpack(buffer)[0]
+        size = num_layout.convert(buffer)[0]
         name = stream.read(size).decode("ascii")
 
         buffer = stream.read(num_layout.size)
-        unk_a = num_layout.unpack(buffer)[0]
+        unk_a = num_layout.convert(buffer)[0]
 
         return MslcName(name, unk_a)
 
@@ -108,9 +108,6 @@ class TextureMsclBlock:
 
 MslcBlock = Union[VertexMsclBlock, TextureMsclBlock]
 
-DB_UniqueCodes: List[Tuple[MsclHeader, List[int]]] = list()
-DB_LAST = []
-
 
 class MslcBlockUtil:
     _HEADER_LAYOUT = struct.Struct("< L L")
@@ -118,9 +115,9 @@ class MslcBlockUtil:
     @classmethod
     def unpack(cls, stream: BinaryIO) -> MslcBlock:
         def read_index_block() -> TextureMsclSubBlock:
-            name_size = num_layout.unpack(stream.read(num_layout.size))[0]
+            name_size = num_layout.convert(stream.read(num_layout.size))[0]
             name = stream.read(name_size).decode("ascii")
-            index_size = num_layout.unpack(stream.read(num_layout.size))[0]
+            index_size = num_layout.convert(stream.read(num_layout.size))[0]
             i_buffer = stream.read(index_size * 2)
             return TextureMsclSubBlock(name, index_size, i_buffer, count)
 
@@ -129,7 +126,6 @@ class MslcBlockUtil:
         #       All those numbers occur at least 9+ times; 39, 37 & 1 occur at least 3000 times
 
         count, code = unpack_from_stream(cls._HEADER_LAYOUT, stream)
-        DB_LAST.append(code)
         f = MslcBlockFormat.from_code(code)
         if f == MslcBlockFormat.Texture:
             texture_count = code
@@ -164,14 +160,8 @@ class MslcBlockUtil:
 
 @dataclass
 class MslcChunk:
-    V_SIZE_39 = 48
-    V_SIZE_37 = 32
-    V_SIZE = {39: V_SIZE_39, 37: V_SIZE_37}
-    I_SIZE = 2
-
     header: MsclHeader
     names: List[MslcName]
-
     blocks: List[MslcBlock]
 
     @classmethod
@@ -182,7 +172,6 @@ class MslcChunk:
             header = MsclHeader.unpack(stream)
             global DB_LAST
             DB_LAST = []
-            DB_UniqueCodes.append((header, DB_LAST))
             names = [MslcName.unpack(stream) for _ in range(header.name_count)]
 
             blocks = []
@@ -195,8 +184,4 @@ class MslcChunk:
             while stream.tell() != end:
                 block = MslcBlockUtil.unpack(stream)
                 blocks.append(block)
-
-            # assert len(blocks) == 2
-            # assert isinstance(blocks[0], VertexMsclBlock)
-            # assert isinstance(blocks[1], TextureMsclBlock)
             return MslcChunk(header, names, blocks)

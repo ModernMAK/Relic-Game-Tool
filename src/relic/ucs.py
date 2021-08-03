@@ -1,9 +1,9 @@
 import os
 import re
-from os.path import join, basename, splitext, split
-from typing import TextIO, Dict, BinaryIO, Optional, Iterable
+from os.path import join, splitext, split
+from typing import TextIO, Dict, Optional, Iterable
 
-from relic.shared import filter_walk_by_extension, filter_walk_by_keyword, WalkResult, collapse_walk_on_files, \
+from relic.shared import filter_walk_by_extension, collapse_walk_on_files, \
     filter_path_by_keyword
 
 

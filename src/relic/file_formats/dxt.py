@@ -90,8 +90,6 @@ def build_dow_tga_color_header(width: int, height: int):
     return _TGA_HEADER.pack(0, 0, _COLOR, 0, 0, 0, 0, 0, width, height, _PIXEL_SIZE, _DOW_FORMAT)
 
 
-
 def build_dow_tga_gray_header(width: int, height: int):
-    _PIXEL_SIZE = 8 # size seems roughly 1/4th the size of the color
+    _PIXEL_SIZE = 8  # size seems roughly 1/4th the size of the color
     return _TGA_HEADER.pack(0, 0, _GRAY, 0, 0, 0, 0, 0, width, height, _PIXEL_SIZE, _DOW_FORMAT)
-

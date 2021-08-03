@@ -2,8 +2,7 @@ import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from io import BytesIO
-from os.path import splitext
-from typing import BinaryIO, List, Iterable, Union
+from typing import BinaryIO, Iterable
 
 from relic.sga.archive_info import ArchiveInfo
 from relic.sga.file_header import FileHeader

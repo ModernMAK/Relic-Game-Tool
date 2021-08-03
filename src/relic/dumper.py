@@ -1,33 +1,23 @@
 import json
 import struct
-# from StringIO import StringIO
-# from dataclasses import asdict
 from enum import Enum, auto
 from os import makedirs
 from os.path import splitext, dirname, join, split
 from typing import BinaryIO, Optional, Iterable, Tuple, Dict
-
-from relic.chunk_formats.fda.converter import FdaConverter
-from relic.chunk_formats.fda.fda_chunky import FdaChunky
-from relic.chunk_formats.rsh.rsh_chunky import RshChunky
-from relic.chunk_formats.rtx.rtx_chunky import RtxChunky
-from relic.chunk_formats.shared.imag.writer import ImagConverter, get_imag_chunk_extension
-from relic.chunk_formats.whm.errors import UnimplementedMslcBlockFormat
-from relic.chunk_formats.whm.skel_chunk import Skeleton, parse_bone_data
-from relic.chunk_formats.whm.whm_chunky import WhmChunky
+from relic.chunk_formats.fda import FdaConverter, FdaChunky
+from relic.chunk_formats.rsh import RshChunky
+from relic.chunk_formats.rtx import RtxChunky
+from relic.chunk_formats.shared.imag import ImagConverter
+from relic.chunk_formats.whm import UnimplementedMslcBlockFormat, WhmChunky
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
-from relic.chunk_formats.wtp.dumper import WTP_LAYER_NAMES
-from relic.chunk_formats.wtp.writer import create_mask_image
-from relic.chunk_formats.wtp.wtp_chunky import WtpChunky
-from relic.chunky import RelicChunky, DataChunk
-from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
-from relic.chunky.magic import RELIC_CHUNKY_MAGIC
-from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame
-from relic.sga.archive import Archive
+from relic.chunk_formats.wtp import create_mask_image, WtpChunky
+from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic
+from relic.config import filter_latest_dow_game, get_dow_root_directories
+
+from relic.sga import Archive, File
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
-from relic.sga.file import File
 from relic.shared import KW_LIST, EnhancedJSONEncoder
 from relic.ucs import build_locale_environment, get_lang_string_for_file
 
@@ -85,7 +75,7 @@ def unpack_file(path: str) -> AbstractRelicChunky:
 def unpack_archive_file(file: File, check_magic: bool = True) -> Optional[AbstractRelicChunky]:
     """Returns the unpacked relic chunky; if check_magic is True; none is returned for Non-Chunkies"""
     with file.open_readonly_stream() as handle:
-        if check_magic and not RELIC_CHUNKY_MAGIC.check_magic_word(handle):
+        if check_magic and not RelicChunkyMagic.check_magic_word(handle):
             return None
         format = ChunkyFormat.from_path(file.name)
         return unpack_stream(handle, format)
@@ -102,7 +92,7 @@ def create(chunky: RelicChunky, chunk_format: ChunkyFormat) -> AbstractRelicChun
     if chunk_format == ChunkyFormat.RTX:
         return RtxChunky.create(chunky)
     elif chunk_format == ChunkyFormat.FDA:
-        return FdaChunky.create(chunky)
+        return FdaChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.RSH:
         return RshChunky.create(chunky)
     elif chunk_format == ChunkyFormat.WHM:
@@ -111,7 +101,7 @@ def create(chunky: RelicChunky, chunk_format: ChunkyFormat) -> AbstractRelicChun
         except (UnimplementedMslcBlockFormat, UnicodeDecodeError, struct.error) as e:
             return chunky
     elif chunk_format == ChunkyFormat.WTP:
-        return WtpChunky.create(chunky)
+        return WtpChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.Unsupported:
         return chunky
 
@@ -255,13 +245,13 @@ def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True,
 
 def dump_wtp(chunky: WtpChunky, output_path: str, replace_ext: bool = True, **kwargs):
     imag = chunky.tpat.imag
-    ext = get_imag_chunk_extension(imag.attr.img)
+    ext = imag.attr.img.extension
     output_path = __dir_replace_name(output_path, replace_ext)
     __create_dirs(output_path, use_dirname=False)
     with open(join(output_path, "Diffuse" + ext), "wb") as writer:
         ImagConverter.Imag2Stream(imag, writer)
     for p in chunky.tpat.ptld:
-        with open(join(output_path, f"Layer-{WTP_LAYER_NAMES.get(p.layer)}.tga"), "wb") as writer:
+        with open(join(output_path, f"Layer-{p.layer.pretty_name}.tga"), "wb") as writer:
             create_mask_image(writer, p, chunky.tpat.info)
 
 
@@ -400,14 +390,3 @@ if __name__ == "__main__":
                # ext_whitelist=[".whm"],
                force_valid=True, # dump_unsupported_chunks=True,
                include_meta=False, series=DowIIGame)
-    # dump_default_as_file=True)  # , ext_whitelist=".fda")  # , ext_blacklist=[".wtp",".whm",".rsh",".fda"])
-
-    # print("---")
-    # for u, v in DB_UniqueCodes:
-    #     # v_l = [i for i in v]
-    #     # v_l.sort()
-    #     # 0, 1, ???, 0,
-    #     assert u.reserved_zero_a == 0
-    #     # assert u.flag_b == 1
-    #     assert u.reserved_zero_b == 0
-    #     print(", ".join((str(b) for b in u.unk_b)), "\t~\t", ", ".join((str(w) for w in v)))

@@ -17,6 +17,6 @@ class FdaInfoChunk:
     start_offset: int
 
     @classmethod
-    def create(cls, chunk: DataChunk) -> 'FdaInfoChunk':
+    def convert(cls, chunk: DataChunk) -> 'FdaInfoChunk':
         args = _INFO_STRUCT.unpack_from(chunk.data, 0)
         return FdaInfoChunk(*args)

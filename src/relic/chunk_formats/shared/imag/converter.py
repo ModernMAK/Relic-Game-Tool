@@ -9,45 +9,8 @@ from relic.chunk_formats.shared.imag.imag_chunk import ImagChunk
 from relic.config import texconv_path
 from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
 
-_DDS_FORMAT_LOOKUP: Dict[int, str] = {
-    8: "DXT1",
-    10: "DXT3",
-    11: "DXT5",
-}
-_DDS_FORMATS = [id for id, _ in _DDS_FORMAT_LOOKUP.items()]
-_TGA_FORMATS = [0]
-
-
-def get_imag_chunk_extension(format: int) -> str:
-    if format in _TGA_FORMATS:
-        return ".tga"
-    elif format in _DDS_FORMATS:
-        return ".dds"
-    else:
-        raise NotImplementedError(format)
-
 
 # Dumps the raw image, DDS images will be inverted, TGA images will be normal
-def create_image(stream: BinaryIO, chunk: ImagChunk):
-    info = chunk.attr
-    data = chunk.data.data
-    if info.img in _DDS_FORMATS:
-        # DDS
-        dds_format = _DDS_FORMAT_LOOKUP[info.img]
-        header = get_full_dxt_header(dds_format, info.width, info.height, len(data), info.mips)
-        stream.write(DDS_MAGIC)
-        stream.write(header)
-        stream.write(data)
-        return
-
-    if info.img in _TGA_FORMATS:
-        header = build_dow_tga_color_header(info.width, info.height)
-        stream.write(header)
-        stream.write(data)
-        return
-
-    if format is None:
-        raise NotImplementedError(info.img)
 
 
 class ImagConverter:
@@ -71,19 +34,7 @@ class ImagConverter:
                 pass
 
     @classmethod
-    def __needs_fix(cls, imag: ImagChunk) -> bool:
-        return imag.attr.img in _DDS_FORMATS
-
-    @classmethod
-    def __get_ext(cls, imag: ImagChunk) -> str:
-        if imag.attr.img in _DDS_FORMATS:
-            return ".dds"
-        elif imag.attr.img in _TGA_FORMATS:
-            return ".tga"
-        raise NotImplementedError(imag.attr.img)
-
-    @classmethod
-    def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str, input_ext:str,
+    def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str, input_ext: str,
                   perform_dds_fix: bool = False):  # An option to fix the dds inversion to avoid redoing a temp file
         def get_texconv_fmt_ext() -> str:
             lookup = {
@@ -116,24 +67,40 @@ class ImagConverter:
             except FileNotFoundError:
                 pass
 
+    @classmethod
+    def Imag2StreamRaw(cls, imag: ImagChunk, stream: BinaryIO):
+        info = imag.attr
+        data = imag.data.data
+        if info.img.is_dxt:
+            header = get_full_dxt_header(info.img.fourCC, info.width, info.height, len(data), info.mips)
+            stream.write(DDS_MAGIC)
+            stream.write(header)
+            stream.write(data)
+        elif info.img.is_tga:
+            header = build_dow_tga_color_header(info.width, info.height)
+            stream.write(header)
+            stream.write(data)
+        else:
+            raise NotImplementedError(info.img)
+
     # Less of a conversion
     # writes the imag as an image to the stream, raw will not perform a DDS fix (or any other fixes)
     @classmethod
-    def Imag2Stream(cls, imag: ImagChunk, stream: BinaryIO, format: str = None, raw: bool = False):
+    def Imag2Stream(cls, imag: ImagChunk, stream: BinaryIO, out_format: str = None, raw: bool = False):
         if raw:  # Regardless of type, don't perform any fixes
-            create_image(stream, imag)
-        elif format:
+            cls.Imag2StreamRaw(imag, stream)
+        elif out_format:
             with BytesIO() as temp:
-                create_image(temp, imag)
+                cls.Imag2StreamRaw(imag, temp)
                 # We have to check needs fixing otherwise non-dds images will be dds_fixed
-                perform_dds_fix = not raw and cls.__needs_fix(imag)
+                perform_dds_fix = not raw and imag.attr.img.is_dxt
                 temp.seek(0, 0)
-                cls.__convert(temp, stream, format, cls.__get_ext(imag), perform_dds_fix)
+                cls.__convert(temp, stream, out_format, imag.attr.img.extension, perform_dds_fix)
         else:
-            if cls.__needs_fix(imag):
+            if imag.attr.img.is_dxt:
                 with BytesIO() as temp:
-                    create_image(temp, imag)
+                    cls.Imag2StreamRaw(imag, temp)
                     temp.seek(0, 0)
                     cls.__fix_dds(temp, stream)
             else:  # TGA, no fixes
-                create_image(stream, imag)
+                cls.Imag2StreamRaw(imag, stream)

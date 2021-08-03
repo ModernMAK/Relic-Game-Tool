@@ -2,15 +2,16 @@ import math
 import os
 import subprocess
 from io import BytesIO
-from tempfile import TemporaryFile, NamedTemporaryFile
+from tempfile import NamedTemporaryFile
 from typing import BinaryIO
 
 from relic.chunk_formats.fda.data_chunk import FdaDataChunk
-from relic.chunk_formats.fda.fda_chunky import FdaChunky
+from relic.chunk_formats.fda.fda_chunky import FdaChunky, FdaChunk
 from relic.chunk_formats.fda.info_chunk import FdaInfoChunk
+from relic.chunk_formats.shared.fbif_chunk import FbifChunk
 from relic.chunky import RelicChunkyHeader
-from relic.file_formats import aiff
 from relic.config import aifc_decoder_path, aifc_encoder_path
+from relic.file_formats import aiff
 
 
 class FdaConverter:
@@ -22,14 +23,14 @@ class FdaConverter:
     def Fda2Aiffr(cls, chunky: FdaChunky, stream: BinaryIO) -> int:
         with BytesIO() as temp:
             aiff.write_default_FVER(temp)
-            info = chunky.info_block
-            frames = len(chunky.data_block.data) / math.ceil(info.block_bitrate / 8)
+            info = chunky.fda.info
+            frames = len(chunky.fda.data.data) / math.ceil(info.block_bitrate / 8)
             assert frames == int(frames)
             frames = int(frames)
 
             aiff.write_COMM(temp, info.channels, frames, info.sample_size, info.sample_rate, cls.COMP, cls.COMP_desc,
                             use_fixed=True)
-            aiff.write_SSND(temp, chunky.data_block.data, info.block_bitrate)
+            aiff.write_SSND(temp, chunky.fda.data.data, info.block_bitrate)
             with BytesIO() as marker:
                 aiff.write_default_markers(marker)
                 marker.seek(0, 0)
@@ -57,7 +58,7 @@ class FdaConverter:
                 elif block_type == aiff.SSND:
                     data, info.block_bitrate = aiff.read_SSND(form)
 
-        return FdaChunky(RelicChunkyHeader.default(), info, FdaDataChunk(len(data), data))
+        return FdaChunky([], RelicChunkyHeader.default(), None, FdaChunk(info, FdaDataChunk(len(data), data)))
 
     # WAV <---> AIFF-C (Relic)
     # Assuming I do figure out the Relic Compression Algorithm from the .EXE, I wont need the binaries anymore

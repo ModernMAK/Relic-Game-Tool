@@ -18,7 +18,7 @@ class FbifChunk:
     timestamp: str
 
     @classmethod
-    def unpack(cls, chunk: DataChunk) -> 'FbifChunk':
+    def convert(cls, chunk: DataChunk) -> 'FbifChunk':
         def read_len_str(s: BinaryIO):
             size = unpack_from_stream(cls._NUM, s)[0]
             string = s.read(size).decode("ASCII")

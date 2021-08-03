@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Tuple, Union, Iterable, Optional
+from typing import List, Tuple, Iterable, Optional
 
 from relic.chunky.abstract_chunk import AbstractChunk
-
-# Here for any pu
 from relic.chunky.chunk_header import ChunkType
 
 # Path / Folders / Data
