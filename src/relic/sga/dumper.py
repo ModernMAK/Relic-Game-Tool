@@ -5,7 +5,7 @@ from typing import Tuple, Optional, Iterable
 from relic.sga.archive import Archive
 from relic.sga.file import File
 from relic.sga.file_collection import ArchiveWalkResult
-from relic.sga.magic import ARCHIVE_MAGIC_WALKER
+from relic.sga.shared import ARCHIVE_MAGIC_WALKER
 from relic.shared import filter_walk_by_extension, KW_LIST, fix_extension_list, filter_path_by_extension, \
     filter_walk_by_keyword, collapse_walk_on_files
 

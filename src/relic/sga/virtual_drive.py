@@ -1,13 +1,11 @@
 from dataclasses import dataclass
 from struct import Struct
 from typing import BinaryIO, List
-
-from relic.sga.archive_range import ArchiveRange
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.sga.folder import Folder
-from relic.sga.version import Version
-from relic.shared import unpack_from_stream, pack_into_stream
+from relic.sga.shared import Version, ArchiveRange
+from relic.shared import unpack_from_stream
 
 
 # Are there ever more than one V-Drives?
@@ -67,7 +65,7 @@ class VirtualDrive(AbstractDirectory):
     @classmethod
     def create(cls, header: VirtualDriveHeader):
         path, name = header.path, header.name
-        folders: List[Folder] = [None] * header.subfolder_range.size.subfolder_range.size
+        folders: List[Folder] = [None] * header.subfolder_range.size
         files: List[File] = [None] * header.file_range.size
         return VirtualDrive(folders, files, path, name, header)
 

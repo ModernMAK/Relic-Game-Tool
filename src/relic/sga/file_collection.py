@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Iterable, Tuple, Optional
+from typing import List, Iterable, Tuple
 
 ArchiveWalkResult = Tuple[str, Iterable['Folder'], Iterable['File']]
 
