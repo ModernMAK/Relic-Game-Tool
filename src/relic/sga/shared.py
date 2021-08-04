@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Optional, Iterator, BinaryIO
+from typing import Optional, Iterator, BinaryIO, Dict
 from struct import Struct
 
 from relic.shared import Magic, MagicWalker
@@ -57,6 +57,7 @@ class ArchiveRange:
     def __next__(self) -> int:
         return next(self.__iterable)
 
+
 @dataclass
 class OffsetInfo:
     __v2_LAYOUT = Struct("< L H")  # 6 bytes
@@ -106,7 +107,7 @@ class FilenameOffsetInfo(OffsetInfo):
                 index = b.index(0x00) + 1  # +1 to include \00
                 offset = prev - start
                 stream.seek(start)
-                s = stream.read(offset+index).decode("ascii")
+                s = stream.read(offset + index).decode("ascii")
                 if strip_terminal:
                     s = s.rstrip("\x00")
                 return s
@@ -114,7 +115,7 @@ class FilenameOffsetInfo(OffsetInfo):
                 prev = now
                 continue
 
-    def get_name_lookup(self, stream: BinaryIO, use_absolute:bool=True) -> Dict[int,str]:
+    def get_name_lookup(self, stream: BinaryIO, use_absolute: bool = True) -> Dict[int, str]:
         temp = stream.tell()
         start = self.toc_offset + self.offset_relative
         stream.seek(start)
@@ -139,9 +140,6 @@ class FilenameOffsetInfo(OffsetInfo):
             raise NotImplementedError
         stream.seek(temp)
         return d
-
-
-
 
     @classmethod
     def unpack(cls, stream: BinaryIO, toc_offset: int, version: Version) -> 'FilenameOffsetInfo':

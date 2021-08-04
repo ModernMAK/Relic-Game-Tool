@@ -6,6 +6,7 @@ from relic.sga import OffsetInfo
 from relic.sga.shared import ARCHIVE_MAGIC, Version, FilenameOffsetInfo
 from relic.shared import unpack_from_stream
 
+
 @dataclass
 class ArchiveHeader:
     __NAME_SIZE = 128
@@ -79,7 +80,7 @@ ArchiveToC = ArchiveTableOfContents
 class ArchiveSubHeader:
     __v2_LAYOUT = Struct("< 2L")
     __v5_LAYOUT = Struct("< 6L")
-    __v9_LAYOUT = Struct("< Q L Q 4L 160s")
+    __v9_LAYOUT = Struct("< Q L Q 4L 256s")
     # V2.0 2L (8)
     #   Relative Offset (TOC SIZE!!!)
     #       While reading my notes, I realaized that 'Relative Offset' would be the size of the TOC Header + TOC Data
