@@ -26,3 +26,7 @@ class Version:
     @classmethod
     def DowII_Version(cls):
         return cls(5)
+
+    @classmethod
+    def DowIII_Version(cls):
+        return cls(9)

@@ -11,6 +11,7 @@ from relic.shared import unpack_from_stream, pack_into_stream
 class ArchiveSubHeader:
     __v2_LAYOUT = Struct("< 2L")
     __v5_LAYOUT = Struct("< 6L")
+    __v9_LAYOUT = Struct("< Q L Q 4L 160s")
     # V2.0 2L (8)
     #   Relative Offset (TOC SIZE!!!)
     #       While reading my notes, I realaized that 'Relative Offset' would be the size of the TOC Header + TOC Data
@@ -25,6 +26,15 @@ class ArchiveSubHeader:
     #   1
     #   ??? (0)
     #   ??? (Garbage?)
+    # V9.0
+    #   TOC Offset (Absolute) (Long?)
+    #   TOC Size
+    #   Data Offset?        This points to 78 DA which is standard for a zlib header (Long?)
+    #   Data Size?          This value is the difference between TOC offset and Data Offset
+    #   ??? (0)
+    #   ??? (1)
+    #   ??? (Garbage?)
+    #   160 bytes of ???
 
     # This is the size of the TOC Header + TOC Data
     # For DOW 2; this is typically the size of the file - toc_offset
@@ -33,9 +43,16 @@ class ArchiveSubHeader:
     data_offset: int
     # To make reading TOC easier (code-wise); this is always included, despite not exisitng before v5
     toc_offset: int
-    unk_one: Optional[int] = None
-    unk_zero: Optional[int] = None
-    unk_b: Optional[int] = None
+    # V5 Exclusives
+    unk_v5_one: Optional[int] = None
+    unk_v5_zero: Optional[int] = None
+    unk_v5_b: Optional[int] = None
+    # V9 Exclusives
+    unk_v9_a: Optional[int] = None
+    unk_v9_zero: Optional[int] = None
+    unk_v9_one: Optional[int] = None
+    unk_v9_160_bytes: Optional[bytes] = None
+    unk_v9_data_size: Optional[int] = None
 
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version = Version.DowI_Version()) -> 'ArchiveSubHeader':
@@ -48,7 +65,21 @@ class ArchiveSubHeader:
             return ArchiveSubHeader(toc_size, data_off, toc_offset)
         elif version.DowII_Version() == version:
             toc_size, data_off, toc_off, unk_one, unk_zero, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
-            return ArchiveSubHeader(toc_size, data_off, toc_off, unk_one, unk_zero, unk_b)
+            return ArchiveSubHeader(toc_size, data_off, toc_off, unk_v5_one=unk_one, unk_v5_zero=unk_zero,
+                                    unk_v5_b=unk_b)
+        elif version.DowIII_Version() == version:
+            args = unpack_from_stream(cls.__v9_LAYOUT, stream)
+            unk_zero_c, unk_one_d, unk_e = args[4], args[5], args[6]
+            unk_160 = args[7]
+
+            toc_offset, toc_size, data_offset, data_size = args[0], args[1], args[2], args[3]
+
+            assert unk_zero_c == 0, (unk_zero_c, 0, (args))
+            assert unk_one_d == 1, (unk_one_d, 1, (args))
+
+            return ArchiveSubHeader(
+                toc_size, data_offset, toc_offset,
+                unk_v9_zero=unk_zero_c, unk_v9_one=unk_one_d, unk_v9_a=unk_e, unk_v9_160_bytes=unk_160)
         else:
             raise NotImplementedError(version)
         # args = unpack_from_stream(cls.__DATA_OFFSET_LAYOUT, stream)

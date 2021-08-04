@@ -2,7 +2,7 @@ import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from io import BytesIO
-from typing import BinaryIO, Iterable
+from typing import BinaryIO, Iterable, Optional, Dict
 
 from relic.sga.archive_info import ArchiveInfo
 from relic.sga.file_header import FileHeader
@@ -15,10 +15,11 @@ class File:
     name: str
     data: bytes
     _decompressed: bool = False
+    _parent: Optional['Folder'] = None
 
     @classmethod
-    def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader) -> 'File':
-        name = info.read_name(stream, archive_info)
+    def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader, name_lookup: Dict[int, str]) -> 'File':
+        name = info.read_name_from_lookup(name_lookup)
         data = info.read_data(stream, archive_info.sub_header)
         _decompressed = not info.compressed
         return File(info, name, data, _decompressed)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from relic.chunky import ChunkCollection
+from relic.chunky.chunk_collection import ChunkCollection
 from relic.chunky.relic_chunky_header import RelicChunkyHeader
 
 

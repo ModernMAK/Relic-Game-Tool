@@ -6,6 +6,7 @@ from relic.sga.archive_range import ArchiveRange
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.sga.folder import Folder
+from relic.sga.version import Version
 from relic.shared import unpack_from_stream, pack_into_stream
 
 
@@ -15,7 +16,9 @@ from relic.shared import unpack_from_stream, pack_into_stream
 #   I stuck to V-Drive since this does function differently
 @dataclass
 class VirtualDriveHeader:
-    __DESC_LAYOUT = Struct("< 64s 64s 5H")
+    __v2_LAYOUT = Struct("< 64s 64s 5H")
+    __v5_LAYOUT = __v2_LAYOUT
+    __v9_LAYOUT = Struct("< 64s 64s 5L")
 
     # Th path of the drive (used in resolving archive paths)
     # E.G. 'data'
@@ -35,13 +38,19 @@ class VirtualDriveHeader:
     unk_a5: int  # 0
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> 'VirtualDriveHeader':
-        args = unpack_from_stream(cls.__DESC_LAYOUT, stream)
+    def unpack(cls, stream: BinaryIO, version: Version) -> 'VirtualDriveHeader':
+        if version == Version.DowIII_Version():
+            args = unpack_from_stream(cls.__v9_LAYOUT, stream)
+        elif version in [Version.DowII_Version, Version.DowI_Version]:
+            args = unpack_from_stream(cls.__v2_LAYOUT, stream)
+        else:
+            raise NotImplementedError(version)
+
         category = args[0].decode("ascii").rstrip("\x00")
         name = args[1].decode("ascii").rstrip("\x00")
         subfolder_range = ArchiveRange(args[2], args[3])
         file_range = ArchiveRange(args[4], args[5])
-        assert args[6] == 0, args[6]
+        assert args[6] == args[2], args[2:]
         return VirtualDriveHeader(category, name, subfolder_range, file_range, args[6])
 
     # def pack(self, stream: BinaryIO) -> int:

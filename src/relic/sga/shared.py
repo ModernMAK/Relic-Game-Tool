@@ -1,11 +1,22 @@
-from typing import BinaryIO
+from typing import BinaryIO, Dict
 
+# from relic.sga.archive_info import ArchiveInfo
 
 ARCHIVE_HEADER_OFFSET = 180
 
 
-def read_name(stream: BinaryIO, info: 'ArchiveInfo', name_offset: int) -> str:
+def get_name_lookup(stream: BinaryIO, info: 'ArchiveInfo') -> Dict[int, str]:
+    raise NotImplementedError()
     temp = stream.tell()
+    start = info.sub_header.toc_offset + info.table_of_contents.filenames_info.offset_relative
+    stream.seek(start)
+    # for i in range(info.table_of_contents.filenames_info.count):
+
+
+def read_name(stream: BinaryIO, info: 'ArchiveInfo', name_offset: int) -> str:
+    raise NotImplementedError()
+    temp = stream.tell()
+    t = info.table_of_contents.filenames_info.count
     stream.seek(info.sub_header.toc_offset + info.table_of_contents.filenames_info.offset_relative + name_offset)
     s = read_until_terminal(stream)
     stream.seek(temp, 0)
@@ -13,6 +24,7 @@ def read_name(stream: BinaryIO, info: 'ArchiveInfo', name_offset: int) -> str:
 
 
 def read_until_terminal(stream: BinaryIO, chunk_size: int = 512, strip_terminal: bool = True) -> str:
+    raise NotImplementedError()
     start = stream.tell()
     prev = start
     while True:

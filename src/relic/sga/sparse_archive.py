@@ -24,11 +24,11 @@ class SparseArchive:
         version = archive_info.header.version
         desc_info = archive_info.table_of_contents.descriptions_info
         stream.seek(desc_info.offset_absolute, 0)
-        descriptions = [VirtualDriveHeader.unpack(stream) for _ in range(desc_info.count)]
+        descriptions = [VirtualDriveHeader.unpack(stream, version) for _ in range(desc_info.count)]
 
         fold_info = archive_info.table_of_contents.folders_info
         stream.seek(fold_info.offset_absolute, 0)
-        folders = [FolderHeader.unpack(stream) for _ in range(fold_info.count)]
+        folders = [FolderHeader.unpack(stream, version) for _ in range(fold_info.count)]
 
         file_info = archive_info.table_of_contents.files_info
         stream.seek(file_info.offset_absolute, 0)

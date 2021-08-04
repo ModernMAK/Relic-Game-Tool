@@ -47,6 +47,8 @@ root_dirs = [
 
 ]
 
+class DowIIIGame(Enum):
+    BaseGame = 0
 
 class DowIIGame(Enum):
     Retribution = 2
@@ -63,6 +65,8 @@ class DowGame(Enum):
 
 
 dow_game_paths = {
+    DowIIIGame.BaseGame: "Dawn of War III",
+
     DowIIGame.Retribution: "Dawn of War II - Retribution",
 
     DowGame.Soulstorm: "Dawn of War Soulstorm",

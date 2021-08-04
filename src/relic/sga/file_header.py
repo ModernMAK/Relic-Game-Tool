@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
 from struct import Struct
-from typing import BinaryIO, Optional
+from typing import BinaryIO, Optional, Dict
 
 from relic.sga.archive_info import ArchiveInfo
-from relic.sga.data_offset_info import DataOffsetInfo, ArchiveSubHeader
-from relic.sga.offset_info import OffsetInfo
+from relic.sga.data_offset_info import ArchiveSubHeader
 from relic.sga.shared import read_name
 from relic.sga.version import Version
 from relic.shared import unpack_from_stream
@@ -26,8 +25,9 @@ class FileCompressionFlag(Enum):
 
 @dataclass
 class FileHeader:
-    __v2_LAYOUT = Struct("< L L L L L")
-    __v5_LAYOUT = Struct("< L L L L L H")
+    __v2_LAYOUT = Struct("< 5L")  # 20 Bytes
+    __v5_LAYOUT = Struct("< 5L H")  # 22 Bytes
+    __v9_LAYOUT = Struct("< 7L H L")  # 34 Bytes
 
     name_offset: int
     data_offset: int
@@ -38,6 +38,12 @@ class FileHeader:
     # V5 Exclusive
     unk_v5_a: Optional[int] = None
     unk_v5_b: Optional[int] = None
+    # V9 Exclusive
+    unk_v9_a: Optional[int] = None
+    unk_v9_b: Optional[int] = None
+    unk_v9_c: Optional[int] = None
+    unk_v9_d: Optional[int] = None  # 256?
+    unk_v9_e: Optional[int] = None
 
     @property
     def compressed(self):
@@ -58,11 +64,34 @@ class FileHeader:
             name_off, data_off, comp_size, decomp_size, unk_a, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
             # Name, File, Compressed, Decompressed, ???, ???
             return FileHeader(name_off, data_off, decomp_size, comp_size, unk_v5_a=unk_a, unk_v5_b=unk_b)
+        elif version == Version.DowIII_Version():
+            name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e = unpack_from_stream(
+                cls.__v9_LAYOUT,
+                stream)
+            # assert unk_a == 0, (unk_a, 0)
+            # assert unk_b == 0, (unk_b, 0)
+
+            # UNK_D is a new compression flag?!
+            # if comp_size != decomp_size:
+            #     assert unk_d in [256,512], ((comp_size, decomp_size), (unk_d, [256,512]), (name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e))
+
+            # Name, File, Compressed, Decompressed, ???, ???
+            return FileHeader(name_off, data_off, decomp_size, comp_size,
+                              unk_v9_a=unk_a, unk_v9_b=unk_b,
+                              unk_v9_c=unk_c, unk_v9_d=unk_d, unk_v9_e=unk_e)
         else:
             raise NotImplementedError(version)
 
-    def read_name(self, stream: BinaryIO, info: ArchiveInfo) -> str:
-        return read_name(stream, info, self.name_offset)
+    def read_name_from_lookup(self, lookup: Dict[int, str], info: Optional[ArchiveInfo] = None) -> str:
+        # If info is provided; use absolute values
+        if info:
+            offset = info.sub_header.toc_offset + info.table_of_contents.filenames_info.offset_relative + self.name_offset
+        else:
+            offset = self.name_offset
+        try:
+            return lookup[offset]
+        except KeyError as e:
+            raise KeyError(e, offset, lookup)
 
     def read_data(self, stream: BinaryIO, offset: ArchiveSubHeader) -> bytes:
         stream.seek(offset.data_offset + self.data_offset)

@@ -3,7 +3,8 @@ __all__ = [
     "ArchiveHeader",
     "ArchiveInfo",
     "DataOffsetInfo",
-    "Description",
+    "VirtualDriveHeader",
+    "VirtualDrive",
     "dumper",
     "File",
     "AbstractDirectory",
@@ -20,7 +21,7 @@ from relic.sga.archive import Archive
 from relic.sga.archive_header import ArchiveHeader
 from relic.sga.archive_info import ArchiveInfo
 from relic.sga.data_offset_info import DataOffsetInfo
-from relic.sga.description import Description
+from relic.sga.virtual_drive_header import VirtualDriveHeader, VirtualDrive
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory
 from relic.sga.file_header import FileHeader

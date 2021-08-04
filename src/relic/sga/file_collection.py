@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Iterable, Tuple
-
+from typing import List, Iterable, Tuple, Optional
 
 ArchiveWalkResult = Tuple[str, Iterable['Folder'], Iterable['File']]
 
+
 @dataclass
 class AbstractDirectory:
-
     folders: List['Folder']
     files: List['File']
 
@@ -27,4 +26,4 @@ class AbstractDirectory:
                 yield child_walk
 
     def walk(self) -> ArchiveWalkResult:
-        return self._walk() # Default, no name given
+        return self._walk()  # Default, no name given

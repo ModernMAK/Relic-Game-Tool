@@ -9,11 +9,12 @@ from relic.chunk_formats.rsh import RshChunky
 from relic.chunk_formats.rtx import RtxChunky
 from relic.chunk_formats.shared.imag import ImagConverter
 from relic.chunk_formats.whm import UnimplementedMslcBlockFormat, WhmChunky
+from relic.chunk_formats.whm.skel_chunk import Skeleton
 from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
 from relic.chunk_formats.wtp import create_mask_image, WtpChunky
 from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic
-from relic.config import filter_latest_dow_game, get_dow_root_directories
+from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame, DowIIIGame
 
 from relic.sga import Archive, File
 from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
@@ -83,8 +84,8 @@ def unpack_archive_file(file: File, check_magic: bool = True) -> Optional[Abstra
 
 def unpack_stream(stream: BinaryIO, chunk_format: ChunkyFormat) -> AbstractRelicChunky:
     chunky = RelicChunky.unpack(stream)
-    assert chunky.header.version_major == 1, ("Major", chunky.header.version_major)
-    assert chunky.header.version_minor == 1, ("Minor", chunky.header.version_minor)
+    # assert chunky.header.version_major == 1, ("Major", chunky.header.version_major)
+    # assert chunky.header.version_minor == 1, ("Minor", chunky.header.version_minor)
     return create(chunky, chunk_format)
 
 
@@ -381,12 +382,8 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
     walk = print_walk_archive_files(walk)  # PRETTY
 
     dump_archive_files(walk, out_dir, **kwargs)
-    # How long has this been duplicated?
-    # dump_archive_files(walk, out_dir, **kwargs)
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW_II\full_dump", texture_root=r"D:\Dumps\DOW_II\full_dump", texture_ext=".png",
-               # ext_whitelist=[".whm"],
-               force_valid=True, # dump_unsupported_chunks=True,
-               include_meta=False, series=DowIIGame)
+    quick_dump(r"D:\Dumps\DOW_III\full_dump", texture_root=r"D:\Dumps\DOW_III\full_dump", texture_ext=".png",
+               force_valid=True, include_meta=False, series=DowIIIGame)
