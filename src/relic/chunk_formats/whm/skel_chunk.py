@@ -2,16 +2,12 @@ import math
 import struct
 from dataclasses import dataclass
 from io import BytesIO
-from queue import Queue
-from typing import BinaryIO, List, Optional, Tuple, Dict, Any
-
-import numpy as np
+from typing import BinaryIO, List, Dict, Any
 
 from relic.chunk_formats.whm.shared import num_layout
 from relic.chunky import DataChunk
-from relic.file_formats.matrix_math import Quaternion, Vector3, AxisOrder, Matrix, Transform
+from relic.file_formats.matrix_math import Quaternion, Vector3, Matrix, Transform
 from relic.file_formats.mesh_io import Float3, Float4
-
 # STOLEN FROM 'https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/'
 from relic.shared import unpack_from_stream
 

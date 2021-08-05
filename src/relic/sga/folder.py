@@ -3,7 +3,7 @@ from struct import Struct
 from typing import BinaryIO, Dict, Optional, List
 
 from relic.sga.archive_header import ArchiveInfo
-from relic.sga.shared import ArchiveRange, Version
+from relic.sga.shared import ArchiveRange, Version, DowIII_Version, DowII_Version, DowI_Version
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.shared import unpack_from_stream
@@ -21,12 +21,12 @@ class FolderHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version) -> 'FolderHeader':
-        if version in [Version.DowI_Version(), Version.DowII_Version()]:
+        if version in [DowI_Version, DowII_Version]:
             args = unpack_from_stream(cls.__v2_LAYOUT, stream)
             subfolder_range = ArchiveRange(args[1], args[2])
             file_range = ArchiveRange(args[3], args[4])
             return FolderHeader(args[0], subfolder_range, file_range)
-        elif version == version.DowIII_Version():
+        elif version == DowIII_Version:
             args = unpack_from_stream(cls.__v9_LAYOUT, stream)
             subfolder_range = ArchiveRange(args[1], args[2])
             file_range = ArchiveRange(args[3], args[4])

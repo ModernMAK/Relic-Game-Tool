@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from struct import Struct
 from typing import BinaryIO, Optional
 
-from relic.sga import OffsetInfo
-from relic.sga.shared import ARCHIVE_MAGIC, Version, FilenameOffsetInfo
+from relic.sga.shared import ARCHIVE_MAGIC, Version, FilenameOffsetInfo, OffsetInfo, DowIII_Version, DowI_Version, \
+    DowII_Version
 from relic.shared import unpack_from_stream
 
 
@@ -26,12 +26,12 @@ class ArchiveHeader:
             ARCHIVE_MAGIC.assert_magic_word(stream, True)
         version_args = unpack_from_stream(cls.__VERSION_LAYOUT, stream)
         version = Version(*version_args)
-        if version == Version.DowIII_Version():
+        if version == DowIII_Version:
             args = unpack_from_stream(cls.__v9_LAYOUT, stream)
             name = args[0].decode("utf-16-le").rstrip("\x00")
             return ArchiveHeader(version, name)
 
-        elif version in [Version.DowII_Version(), Version.DowI_Version()]:
+        elif version in [DowII_Version, DowI_Version]:
             args = unpack_from_stream(cls.__v2_LAYOUT, stream)
             md5_a = args[0]
             name = args[1].decode("utf-16-le").rstrip("\x00")
@@ -124,19 +124,19 @@ class ArchiveSubHeader:
     unk_v9_data_size: Optional[int] = None
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, version: Version = Version.DowI_Version()) -> 'ArchiveSubHeader':
-        if version.DowI_Version() == version:
+    def unpack(cls, stream: BinaryIO, version: Version = DowI_Version) -> 'ArchiveSubHeader':
+        if DowI_Version == version:
             toc_size, data_off = unpack_from_stream(cls.__v2_LAYOUT, stream)
             toc_offset = stream.tell()
             if toc_size + toc_offset != data_off:
                 raise Exception(
                     f"Invalid Data Offset, rel: '{toc_size}', abs_off: '{data_off}' dif: '{data_off - toc_size}'")
             return ArchiveSubHeader(toc_size, data_off, toc_offset)
-        elif version.DowII_Version() == version:
+        elif DowII_Version == version:
             toc_size, data_off, toc_off, unk_one, unk_zero, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
             return ArchiveSubHeader(toc_size, data_off, toc_off, unk_v5_one=unk_one, unk_v5_zero=unk_zero,
                                     unk_v5_b=unk_b)
-        elif version.DowIII_Version() == version:
+        elif DowIII_Version == version:
             args = unpack_from_stream(cls.__v9_LAYOUT, stream)
             unk_zero_c, unk_one_d, unk_e = args[4], args[5], args[6]
             unk_160 = args[7]

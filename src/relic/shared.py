@@ -10,6 +10,31 @@ from typing import Tuple, List, BinaryIO, Iterable, Optional, Union, Callable
 from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 
+@dataclass
+class Version:
+    major: int
+    minor: Optional[int] = 0
+
+    __32 = Struct("< H H")
+    __64 = Struct("< L L")
+
+    def __str__(self) -> str:
+        return f"Version {self.major}.{self.minor}"
+
+    def __eq__(self, other):
+        if not isinstance(other, Version):
+            return NotImplementedError
+        return self.major == other.major and self.minor == other.minor
+
+    @classmethod
+    def unpack_32(cls, stream: BinaryIO):
+        return Version(*unpack_from_stream(cls.__32, stream))
+
+    @classmethod
+    def unpack_64(cls, stream: BinaryIO):
+        return Version(*unpack_from_stream(cls.__64, stream))
+
+
 class MagicUtil:
     @classmethod
     def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> Optional[str]:

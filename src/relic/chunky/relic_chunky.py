@@ -16,5 +16,5 @@ class RelicChunky(AbstractRelicChunky):
         if read_magic:
             RelicChunkyMagic.assert_magic_word(stream)
         header = RelicChunkyHeader.unpack(stream)
-        chunks = read_all_chunks(stream)
+        chunks = read_all_chunks(stream,header.version)
         return RelicChunky(chunks, header)
