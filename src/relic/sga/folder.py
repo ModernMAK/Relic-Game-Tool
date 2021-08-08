@@ -3,7 +3,7 @@ from struct import Struct
 from typing import BinaryIO, Dict, Optional, List
 
 from relic.sga.archive_header import ArchiveInfo
-from relic.sga.shared import ArchiveRange, Version, DowIII_Version, DowII_Version, DowI_Version
+from relic.sga.shared import ArchiveRange, Version, SgaVersion
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.shared import unpack_from_stream
@@ -21,12 +21,12 @@ class FolderHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version) -> 'FolderHeader':
-        if version in [DowI_Version, DowII_Version]:
+        if version in [SgaVersion.Dow, SgaVersion.Dow2]:
             args = unpack_from_stream(cls.__v2_LAYOUT, stream)
             subfolder_range = ArchiveRange(args[1], args[2])
             file_range = ArchiveRange(args[3], args[4])
             return FolderHeader(args[0], subfolder_range, file_range)
-        elif version == DowIII_Version:
+        elif version == SgaVersion.Dow3:
             args = unpack_from_stream(cls.__v9_LAYOUT, stream)
             subfolder_range = ArchiveRange(args[1], args[2])
             file_range = ArchiveRange(args[3], args[4])
@@ -42,15 +42,15 @@ class FolderHeader:
             offset = self.name_offset
         return lookup[offset]
 
+
 @dataclass
 class Folder(AbstractDirectory):
     _info: FolderHeader
     name: str
-    _parent:Optional['Folder'] = None
-
+    _parent: Optional['Folder'] = None
 
     @classmethod
-    def create(cls, info: FolderHeader, name_lookup:Dict[int, str]) -> 'Folder':
+    def create(cls, info: FolderHeader, name_lookup: Dict[int, str]) -> 'Folder':
         name = info.read_name_from_lookup(name_lookup)
         folders: List['Folder'] = [None] * info.subfolder_range.size
         files: List[File] = [None] * info.file_range.size

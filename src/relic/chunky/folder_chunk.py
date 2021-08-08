@@ -15,6 +15,7 @@ class FolderChunk(AbstractChunk, ChunkCollection):
     def unpack(cls, stream: BinaryIO, header: ChunkHeader, chunky_version: Version) -> 'FolderChunk':
         from relic.chunky.reader import read_all_chunks  # Causes cylic dependency, must be included inside unpack
         data = stream.read(header.size)
+        assert len(data) == header.size
         with BytesIO(data) as window:
             chunks = read_all_chunks(window, chunky_version)
         return FolderChunk(chunks, header)

@@ -4,7 +4,7 @@ from typing import BinaryIO, List
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.sga.folder import Folder
-from relic.sga.shared import Version, ArchiveRange, DowI_Version, DowII_Version, DowIII_Version
+from relic.sga.shared import Version, ArchiveRange, SgaVersion
 from relic.shared import unpack_from_stream
 
 
@@ -37,9 +37,9 @@ class VirtualDriveHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version) -> 'VirtualDriveHeader':
-        if version == DowIII_Version:
+        if version == SgaVersion.Dow3:
             args = unpack_from_stream(cls.__v9_LAYOUT, stream)
-        elif version in [DowII_Version, DowI_Version]:
+        elif version in [SgaVersion.Dow2, SgaVersion.Dow]:
             args = unpack_from_stream(cls.__v2_LAYOUT, stream)
         else:
             raise NotImplementedError(version)

@@ -4,15 +4,15 @@ from enum import Enum, auto
 from os import makedirs
 from os.path import splitext, dirname, join, split
 from typing import BinaryIO, Optional, Iterable, Tuple, Dict
-from relic.chunk_formats.fda import FdaConverter, FdaChunky
-from relic.chunk_formats.rsh import RshChunky
-from relic.chunk_formats.rtx import RtxChunky
-from relic.chunk_formats.shared.imag import ImagConverter
-from relic.chunk_formats.whm import UnimplementedMslcBlockFormat, WhmChunky
-from relic.chunk_formats.whm.skel_chunk import Skeleton
-from relic.chunk_formats.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
+from relic.chunk_formats.Dow.fda import FdaConverter, FdaChunky
+from relic.chunk_formats.Dow.rsh import RshChunky
+from relic.chunk_formats.Dow.rtx import RtxChunky
+from relic.chunk_formats.Dow.shared.imag import ImagConverter
+from relic.chunk_formats.Dow.whm import UnimplementedMslcBlockFormat, WhmChunky
+from relic.chunk_formats.Dow.whm.skel_chunk import Skeleton
+from relic.chunk_formats.Dow.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
-from relic.chunk_formats.wtp import create_mask_image, WtpChunky
+from relic.chunk_formats.Dow.wtp import create_mask_image, WtpChunky
 from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic
 from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame, DowIIIGame
 
@@ -91,14 +91,14 @@ def unpack_stream(stream: BinaryIO, chunk_format: ChunkyFormat) -> AbstractRelic
 
 def create(chunky: RelicChunky, chunk_format: ChunkyFormat) -> AbstractRelicChunky:
     if chunk_format == ChunkyFormat.RTX:
-        return RtxChunky.create(chunky)
+        return RtxChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.FDA:
         return FdaChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.RSH:
-        return RshChunky.create(chunky)
+        return RshChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.WHM:
         try:
-            return WhmChunky.create(chunky)
+            return WhmChunky.convert(chunky)
         except (UnimplementedMslcBlockFormat, UnicodeDecodeError, struct.error) as e:
             return chunky
     elif chunk_format == ChunkyFormat.WTP:
@@ -165,8 +165,8 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
     if whm.rsgm.skel:
         with open(output_path + f"_skel_transform.json", "w") as skel_handle:
             try:
-                skel = Skeleton.create(whm.rsgm.skel)
                 d = [{'name': s.name,
+                skel = Skeleton.convert(whm.rsgm.skel)
                       'parent': s.parent_index,
                       'world': s.transform.world_matrix()._array,
                       'local': s.transform.local_matrix()._array,

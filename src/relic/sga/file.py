@@ -7,7 +7,7 @@ from struct import Struct
 from typing import BinaryIO, Optional, Dict, Iterable
 
 from relic.sga.archive_header import ArchiveInfo, ArchiveSubHeader
-from relic.sga.shared import Version, DowI_Version, DowII_Version, DowIII_Version
+from relic.sga.shared import Version, SgaVersion
 from relic.shared import fix_extension_list, filter_path_by_extension, KW_LIST, unpack_from_stream
 
 
@@ -54,18 +54,18 @@ class FileHeader:
             return self.compressed_size < self.decompressed_size
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, version: Version = DowI_Version) -> 'FileHeader':
-        if DowI_Version == version:
+    def unpack(cls, stream: BinaryIO, version: Version = SgaVersion.Dow) -> 'FileHeader':
+        if SgaVersion.Dow == version:
             name_offset, compression_flag_value, data_offset, decompressed_size, compressed_size = unpack_from_stream(
                 cls.__v2_LAYOUT, stream)
             compression_flag = FileCompressionFlag(compression_flag_value)
             return FileHeader(name_offset, data_offset, decompressed_size, compressed_size,
                               compression_flag=compression_flag)
-        elif version == DowII_Version:
+        elif version == SgaVersion.Dow2:
             name_off, data_off, comp_size, decomp_size, unk_a, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
             # Name, File, Compressed, Decompressed, ???, ???
             return FileHeader(name_off, data_off, decomp_size, comp_size, unk_v5_a=unk_a, unk_v5_b=unk_b)
-        elif version == DowIII_Version:
+        elif version == SgaVersion.Dow3:
             name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e = unpack_from_stream(
                 cls.__v9_LAYOUT,
                 stream)

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from io import BytesIO
 from typing import Optional, Iterator, BinaryIO, Dict
 from struct import Struct
@@ -12,9 +13,22 @@ __MAGIC_WORD = "_ARCHIVE"
 ARCHIVE_MAGIC = Magic(__MAGIC_LAYOUT, __MAGIC_WORD)
 ARCHIVE_MAGIC_WALKER = MagicWalker(ARCHIVE_MAGIC)
 
-DowI_Version = Version(2)
-DowII_Version = Version(5)
-DowIII_Version = Version(9)
+
+class SgaVersion(Enum):
+    Unsupported = None
+    Dow = Version(2)
+    Dow2 = Version(5)
+    Dow3 = Version(9)
+
+    def __eq__(self, other):
+        # Special Case; allow comparison to Version implicitly
+        if isinstance(other, Version):
+            return self.value == other
+        else:
+            return super.__eq__(self, other)
+
+    def __ne__(self, other):
+        return not (self == other)
 
 
 @dataclass
@@ -122,7 +136,7 @@ class FilenameOffsetInfo(OffsetInfo):
     @classmethod
     def unpack(cls, stream: BinaryIO, toc_offset: int, version: Version) -> 'FilenameOffsetInfo':
         basic = OffsetInfo.unpack(stream, toc_offset, version)
-        if version == Version.DowIII_Version():
+        if version == SgaVersion.Dow3:
             return FilenameOffsetInfo(basic.toc_offset, basic.offset_relative, None, basic.count)
-        else:
+        elif version in [SgaVersion.Dow2, SgaVersion.Dow]:
             return FilenameOffsetInfo(basic.toc_offset, basic.offset_relative, basic.count, None)

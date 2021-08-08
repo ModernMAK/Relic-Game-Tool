@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from os.path import join
 from typing import List, Tuple, Iterable, Optional
 
+from relic.chunky.data_chunk import DataChunk
 from relic.chunky.abstract_chunk import AbstractChunk
 from relic.chunky.chunk_header import ChunkType
 
@@ -9,7 +10,8 @@ from relic.chunky.chunk_header import ChunkType
 ChunkWalkResult = Tuple[str, List['ChunkCollection'], List[AbstractChunk]]
 
 
-def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool = True, unique: bool = True) -> Iterable[ChunkWalkResult]:
+def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool = True, unique: bool = True) -> Iterable[
+    ChunkWalkResult]:
     path = path or ""
     folders: List[ChunkCollection] = []
     data: List[AbstractChunk] = []
@@ -125,3 +127,16 @@ class ChunkCollection:
         if optional:
             return None
         raise Exception(f"Chunk not found! ('{id}' '{type}' '{name}'). To allow missing chunks, set optional=True")
+
+    # Utils for common cases
+    def get_data_chunk(self, id: str, optional: bool = False) -> DataChunk:
+        return self.get_chunk(recursive=False, id=id, type=ChunkType.Data, optional=optional)
+
+    def get_data_chunks(self, id: str) -> Iterable[DataChunk]:
+        return self.get_chunks(recursive=False, id=id, type=ChunkType.Data)
+
+    def get_folder_chunk(self, id: str, optional: bool = False) -> 'FolderChunk':
+        return self.get_chunk(recursive=False, id=id, type=ChunkType.Folder, optional=optional)
+
+    def get_folder_chunks(self, id: str) -> Iterable['FolderChunk']:
+        return self.get_chunks(recursive=False, id=id, type=ChunkType.Folder)

@@ -7,11 +7,11 @@ class ObjWriter:
     def __init__(self, stream: TextIO):
         self._stream = stream
 
-    def __write_index(self, code: str, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding:bool=False):
-
+    def __write_index(self, code: str, *indexes: int, offset: int = 0, zero_based: bool = False,
+                      flip_winding: bool = False):
         if flip_winding:
             j = len(indexes)
-            indexes = [indexes[j-i-1] for i in range(j)]
+            indexes = [indexes[j - i - 1] for i in range(j)]
         indexes = [i + offset + (1 if zero_based else 0) for i in indexes]
         part = "%i/%i/%i"
         parts = [part % (i, i, i) for i in indexes]
@@ -40,7 +40,7 @@ class ObjWriter:
         return self._stream.write(line)
 
     # Index Info
-    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding:bool=False):
+    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding: bool = False):
         return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based, flip_winding=flip_winding)
 
     def write_index_line(self, *indexes: int, offset: int = 0, zero_based: bool = False):
@@ -82,11 +82,14 @@ class MtlWriter:
         return self._stream.write(line)
 
     def __write_texture(self, code: str, path: str, prefix: str = "map_") -> int:
-
         if " " in path:
             raise ValueError(f'path cannot contain any spaces! (Limitation of OBJ standard) \'{path}\'')
         line = f"\t{prefix}{code} {path}\n"
         return self._stream.write(line)
+
+    # Comment
+    def start_comment(self):
+        return self._stream.write("#\t")
 
     # Colors
     def write_color_ambient(self, color: Float3):
@@ -107,7 +110,7 @@ class MtlWriter:
 
     def write_dissolve(self, value: float):
         written = self.__write_float("d", value)
-        written += self.__write_float("Tr", 1.0-value)
+        written += self.__write_float("Tr", 1.0 - value)
         return written
 
     # Enum
@@ -125,6 +128,9 @@ class MtlWriter:
     def write_texture_ambient(self, path: str) -> int:
         return self.__write_texture("Kd", path)
 
+    def write_texture_specular(self, path: str) -> int:
+        return self.write_texture_specular_highlight(path) + self.write_texture_specular_color(path)
+
     def write_texture_specular_color(self, path: str) -> int:
         return self.__write_texture("Ks", path)
 
@@ -135,9 +141,8 @@ class MtlWriter:
         return self.__write_texture("d", path)
 
     def write_texture_bump(self, path: str) -> int:
-        written = self.__write_texture("bump", path)
-        written += self.__write_texture("bump", path, prefix="")
-        return written
+        return self.__write_texture("bump", path) + \
+               self.__write_texture("bump", path, prefix="")
 
     def write_texture_displacement(self, path: str) -> int:
         return self.__write_texture("disp", path, prefix="")
@@ -145,13 +150,54 @@ class MtlWriter:
     def write_texture_decal(self, path: str) -> int:
         return self.__write_texture("decal", path, prefix="")
 
+    # UNOFFICIAL ARGS (PBR pipeline)
+    def write_texture_roughness(self, path: str) -> int:
+        return self.__write_texture("Pr", path) + \
+               self.__write_texture("Pr", path, prefix="")
+
+    def write_texture_metallic(self, path: str) -> int:
+        return self.__write_texture("Pm", path) + \
+               self.__write_texture("Pm", path, prefix="")
+
+    def write_texture_sheen(self, path: str) -> int:
+        return self.__write_texture("Ps", path)
+
+    def write_clearcoat_thickness(self, value: float) -> int:
+        return self.__write_float("Pc", value)
+
+    def write_clearcoat_rougness(self, value: float) -> int:
+        return self.__write_float("Pcr", value)
+
+    def write_texture_emissive(self, path: str) -> int:
+        return self.__write_texture("Ke", path)
+
+    def write_anisotropy(self, value: float) -> int:
+        return self.__write_float("aniso", value)
+
+    def write_anisotropy_rotation(self, value: float) -> int:
+        return self.__write_float("anisor", value)
+
+    def write_texture_normal(self, path: str) -> int:
+        return self.__write_texture("norm", path, prefix="") + self.__write_texture("norm", path)
+
+    # UNOFFICIAL ARGS (DirectX)
+    def write_merged_RMA(self, path: str) -> int:
+        return self.__write_texture("RMA", path)
+
+    def write_merged_ORM(self, path: str) -> int:
+        return self.__write_texture("ORM", path)
+
+    #
+    def write_unsupported_texture(self, path: str, name: str) -> int:
+        return self.__write_texture(name, path, prefix="# ")
+
     # Prettify
     def write_blank(self) -> int:
         return self._stream.write("\n")
 
     # Helper to write defaults
     # Can be appended with textures later
-    def write_default_texture(self, name: str) -> int:
+    def write_default_texture(self, name: str, transparent:bool=False) -> int:
         written = 0
         WHITE = (1, 1, 1)
         BLACK = (0, 0, 0)
@@ -159,7 +205,7 @@ class MtlWriter:
         written += self.write_color_ambient(WHITE)
         written += self.write_color_diffuse(WHITE)
         written += self.write_color_specular(BLACK)
-        written += self.write_dissolve(0)
+        written += self.write_dissolve(0 if transparent else 1)
         written += self.write_specular_highlight(0)
         written += self.write_optical_density(1)
         written += self.write_illum_mode(2)

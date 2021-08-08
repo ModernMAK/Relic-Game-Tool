@@ -1,17 +1,17 @@
+import sys
+from os.path import splitext
+from relic.chunky import RelicChunky
+from relic.dumper import dump_chunky
+
+
 def wait():
     _ = input("\nPress Any Key To Continue...")
 
 
-import sys
-from os.path import splitext
-
-from relic.chunky import RelicChunky
-from relic.dumper import dump_chunky
-
 # parser = argparse.ArgumentParser("Convert's a Relic Chunky to a collection of files.")
 
 if __name__ == "__main__":
-    sys.argv = ["",r"D:\Dumps\DOW_II\full_dump\art\race_ig\troops_wargear\heads\general\general_head.model"]
+    # sys.argv = ["", r"D:\Dumps\DOW_II\full_dump\art\race_ig\troops\gaurdsman\gaurdsman.model"]
     # Potentially Drag-N-Drop
     if len(sys.argv) == 2:
         try:
