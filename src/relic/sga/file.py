@@ -105,7 +105,8 @@ class File:
     name: str
     data: bytes
     _decompressed: bool = False
-    _parent: Optional['Folder'] = None
+    _parent_folder: Optional['Folder'] = None
+    _parent_drive: Optional['VirtualDrive'] = None
 
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader, name_lookup: Dict[int, str]) -> 'File':

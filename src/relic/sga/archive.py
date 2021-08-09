@@ -10,7 +10,7 @@ from relic.sga.virtual_drive import VirtualDriveHeader, VirtualDrive
 @dataclass
 class SparseArchive:
     info: ArchiveInfo
-    descriptions: List[VirtualDriveHeader]
+    drives: List[VirtualDriveHeader]
     files: List[FileHeader]
     folders: List[FolderHeader]
 
@@ -38,9 +38,9 @@ class SparseArchive:
 
 
 @dataclass
-class Archive(AbstractDirectory):
+class Archive:
     info: ArchiveInfo
-    virtual_drives: List[VirtualDriveHeader]
+    drives: List[VirtualDrive]
 
     # A helper to know the total # of files without performing a full walk
     _total_files: int = 0
@@ -53,7 +53,6 @@ class Archive(AbstractDirectory):
     @classmethod
     def create(cls, stream: BinaryIO, archive: SparseArchive) -> 'Archive':
         info = archive.info
-        desc = archive.descriptions
         name_lookup = info.table_of_contents.filenames_info.get_name_lookup(stream, use_absolute=False)
         folders = [Folder.create(f, name_lookup) for f in archive.folders]
         files = [File.create(stream, info, f, name_lookup) for f in archive.files]
@@ -61,17 +60,20 @@ class Archive(AbstractDirectory):
             f.load_folders(folders)
             f.load_files(files)
 
-        total_files = len(files)
-        # In is expensive for large lists, so we use a 'flag' instead
-        #   The 'flag' is actually a reference to the parent; not a bool
-        folders = [f for f in folders if not f._parent]
-        files = [f for f in files if not f._parent]
+        drives = [VirtualDrive.create(d) for d in archive.drives]
+        for d in drives:
+            d.load_folders(folders)
+            d.load_files(files)
 
-        return Archive(folders, files, info, desc, total_files)
+        total_files = len(files)
+
+        return Archive(info, drives, total_files)
 
     @classmethod
     def repack(cls, stream: BinaryIO, write_magic: bool = True):
         raise NotImplementedError
 
-    def walk(self) -> ArchiveWalkResult:
-        return self._walk("")
+    def walk(self, specify_drive: bool = True) -> ArchiveWalkResult:
+        for drive in self.drives:
+            for root, folders, files in drive.walk(specify_drive):
+                yield root, folders, files
