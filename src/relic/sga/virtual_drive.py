@@ -7,17 +7,19 @@ from relic.sga.folder import Folder
 from relic.sga.shared import Version, ArchiveRange, SgaVersion
 from relic.shared import unpack_from_stream
 
-
 # Are there ever more than one V-Drives?
 # Looking at a lua script: the path was structured as 'data:path-to-file'
 # Therefore, a 'VirtualDrive' seems more descriptive, RootFolders would also work I suppose
 #   I stuck to V-Drive since this does function differently
+from relic.util.struct_util import pack_into_stream
+
+
 @dataclass
 class VirtualDriveHeader:
     __v2_LAYOUT = Struct("< 64s 64s 5H")
     __v5_LAYOUT = __v2_LAYOUT
     __v9_LAYOUT = Struct("< 64s 64s 5L")
-
+    __LAYOUT = {SgaVersion.Dow: __v2_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow3: __v9_LAYOUT}
     # Th path of the drive (used in resolving archive paths)
     # E.G. 'data'
     path: str
@@ -33,14 +35,12 @@ class VirtualDriveHeader:
     subfolder_range: ArchiveRange
     file_range: ArchiveRange
     # Special field for V_Drive, flags maybe?
-    unk_a5: int  # 0
+    unk_a: int  # 0
 
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version) -> 'VirtualDriveHeader':
-        if version == SgaVersion.Dow3:
-            args = unpack_from_stream(cls.__v9_LAYOUT, stream)
-        elif version in [SgaVersion.Dow2, SgaVersion.Dow]:
-            args = unpack_from_stream(cls.__v2_LAYOUT, stream)
+        if version in cls.__LAYOUT:
+            args = unpack_from_stream(cls.__LAYOUT[version], stream)
         else:
             raise NotImplementedError(version)
 
@@ -51,9 +51,14 @@ class VirtualDriveHeader:
         assert args[6] == args[2], args[2:]
         return VirtualDriveHeader(category, name, subfolder_range, file_range, args[6])
 
-    # def pack(self, stream: BinaryIO) -> int:
-    #     args = (self.drive_name, self.name, self.unk_a1, self.folder_count, self.unk_a3)
-    #     return pack_into_stream(self.__DESC_LAYOUT, stream, *args)
+    def pack(self, stream: BinaryIO, version: Version) -> int:
+        if version in self.__LAYOUT:
+            layout = self.__LAYOUT[version]
+        else:
+            raise NotImplementedError(version)
+        args = self.path, self.name, self.subfolder_range.start, self.subfolder_range.end, \
+            self.file_range.start, self.file_range.end, self.unk_a
+        return pack_into_stream(layout, stream, *args)
 
 
 @dataclass
@@ -84,3 +89,5 @@ class VirtualDrive(AbstractDirectory):
     def walk(self) -> ArchiveWalkResult:  # Specify name for
         for root, folders, files in self._walk():
             return f"{self.path}:{root}", folders, files
+
+    # def build_header(self, ):

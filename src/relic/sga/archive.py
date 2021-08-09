@@ -36,6 +36,7 @@ class SparseArchive:
 
         return SparseArchive(archive_info, descriptions, files, folders)
 
+
 @dataclass
 class Archive(AbstractDirectory):
     info: ArchiveInfo

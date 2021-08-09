@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from enum import Enum
 from io import BytesIO
-from typing import Optional, Iterator, BinaryIO, Dict
 from struct import Struct
+from typing import Optional, Iterator, BinaryIO, Dict
 
-from relic.shared import Magic, MagicWalker, Version
+from relic.shared import Magic, MagicWalker, Version, VersionEnum
 from relic.util.struct_util import unpack_from_stream
 
 __MAGIC_LAYOUT = Struct("< 8s")
@@ -14,21 +13,12 @@ ARCHIVE_MAGIC = Magic(__MAGIC_LAYOUT, __MAGIC_WORD)
 ARCHIVE_MAGIC_WALKER = MagicWalker(ARCHIVE_MAGIC)
 
 
-class SgaVersion(Enum):
+class SgaVersion(VersionEnum):
     Unsupported = None
     Dow = Version(2)
     Dow2 = Version(5)
     Dow3 = Version(9)
 
-    def __eq__(self, other):
-        # Special Case; allow comparison to Version implicitly
-        if isinstance(other, Version):
-            return self.value == other
-        else:
-            return super.__eq__(self, other)
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 @dataclass
@@ -70,9 +60,9 @@ class OffsetInfo:
 
     @classmethod
     def unpack(cls, stream: BinaryIO, toc_offset: int, version: Version) -> 'OffsetInfo':
-        if version == version.DowIII_Version():
+        if version == SgaVersion.Dow3:
             return OffsetInfo(toc_offset, *unpack_from_stream(cls.__v9_LAYOUT, stream))
-        elif version in [version.DowII_Version(), version.DowI_Version()]:
+        elif version in [SgaVersion.Dow2, SgaVersion.Dow]:
             return OffsetInfo(toc_offset, *unpack_from_stream(cls.__v2_LAYOUT, stream))
         else:
             raise NotImplementedError(version)

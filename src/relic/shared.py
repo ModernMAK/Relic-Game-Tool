@@ -10,6 +10,23 @@ from typing import Tuple, List, BinaryIO, Iterable, Optional, Union, Callable
 from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 
+class VersionEnum(Enum):
+
+    def __eq__(self, other):
+        if isinstance(other, VersionEnum):
+            return self.value == other.value
+        elif isinstance(other, Version):
+            return self.value == other
+        else:
+            super().__eq__(other)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return self.value.__hash__()
+
+
 @dataclass
 class Version:
     major: int
@@ -22,9 +39,22 @@ class Version:
         return f"Version {self.major}.{self.minor}"
 
     def __eq__(self, other):
-        if not isinstance(other, Version):
-            return NotImplementedError
-        return self.major == other.major and self.minor == other.minor
+        if other is None:
+            return False
+        elif isinstance(other, VersionEnum):
+            return self.major == other.value.major and self.minor == other.value.minor
+        elif isinstance(other, Version):
+            return self.major == other.major and self.minor == other.minor
+        else:
+            return super().__eq__(other)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        # Realistically; Version will always be <256
+        # But we could manually set it to something much bigger by accident; and that may cause collisions
+        return self.major << 32 + self.minor
 
     @classmethod
     def unpack_32(cls, stream: BinaryIO):

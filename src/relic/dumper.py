@@ -165,8 +165,8 @@ def dump_whm(whm: WhmChunky, output_path: str, replace_ext: bool = True, texture
     if whm.rsgm.skel:
         with open(output_path + f"_skel_transform.json", "w") as skel_handle:
             try:
+                skel = Skeleton.create(whm.rsgm.skel)
                 d = [{'name': s.name,
-                skel = Skeleton.convert(whm.rsgm.skel)
                       'parent': s.parent_index,
                       'world': s.transform.world_matrix()._array,
                       'local': s.transform.local_matrix()._array,
