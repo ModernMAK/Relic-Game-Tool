@@ -156,7 +156,7 @@ def write_file_data(stream: BinaryIO, archive: Archive, version: Version, auto_c
             header.unk_v9_d = get_v9_compflag(decompressed_data, decompressed_data)
             # Garbage values; no promises on this working in DoW3
             header.unk_v9_c = 0
-            header.unk_v5_a = 0
+            header.unk_v9_e = 0
 
         stream.write(compressed_data)
 

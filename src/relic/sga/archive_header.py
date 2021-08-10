@@ -108,7 +108,7 @@ ArchiveToC = ArchiveTableOfContents
 class ArchiveSubHeader:
     __v2_LAYOUT = Struct("< 2L")
     __v5_LAYOUT = Struct("< 6L")
-    __v9_LAYOUT = Struct("< Q L Q 3L 256s")
+    __v9_LAYOUT = Struct("< Q L Q 4L 256s")
     # V2.0 2L (8)
     #   Relative Offset (TOC SIZE!!!)
     #       While reading my notes, I realaized that 'Relative Offset' would be the size of the TOC Header + TOC Data
