@@ -12,4 +12,5 @@ class DataChunk(AbstractChunk):
     @classmethod
     def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'DataChunk':
         data = stream.read(header.size)
+        assert len(data) == header.size
         return DataChunk(header, data)

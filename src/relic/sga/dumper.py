@@ -1,144 +1,122 @@
-import json
 import os
-from os.path import join
-from typing import List, Iterable, Tuple
+from os.path import join, splitext, dirname
+from typing import Tuple, Optional, Iterable
 
 from relic.sga.archive import Archive
-from relic.shared import EnhancedJSONEncoder, walk_ext, fix_ext_list
+from relic.sga.file import File
+from relic.sga.file_collection import ArchiveWalkResult
+from relic.sga.shared import ARCHIVE_MAGIC_WALKER
+from relic.shared import filter_walk_by_extension, KW_LIST, fix_extension_list, filter_path_by_extension, \
+    filter_walk_by_keyword, collapse_walk_on_files
 
 
-def walk_sga_archive(folder: str, blacklist: List[str] = None) -> Iterable[Tuple[str, 'Archive']]:
-    for root, file in walk_sga_paths(folder, blacklist):
-        full = join(root, file)
-        with open(full, "rb") as handle:
-            archive = Archive.unpack(handle)
-            yield full, archive
+def __safe_join(*args: Optional[str]):
+    args = [a for a in args if a is not None]
+    return join(*args)
 
 
-def dump_all_sga(folder: str, out_dir: str = None, blacklist: List[str] = None, verbose: bool = False):
-    blacklist = blacklist or []
-    exts = [".sga"]
-    for root, _, files in walk_ext(os.walk(folder), whitelist=fix_ext_list(exts)):
+def __safe_makedirs(path: str, use_dirname: bool = True):
+    if use_dirname:
+        path = dirname(path)
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        pass
+
+
+def __spinner_generator(symbols: Iterable[str]) -> Iterable[str]:
+    while True:
+        for symbol in symbols:
+            yield symbol
+
+
+def __get_bar_spinner() -> Iterable[str]:
+    return __spinner_generator("|\\-/")
+
+
+def __get_ellipsis_spinner() -> Iterable[str]:
+    return __spinner_generator([".", "..", "...", "....", "....."])
+
+
+def write_binary(walk: Iterable[Tuple[str, File]], out_directory: str, decompress: bool = True,
+                 forced_ext: Optional[str] = None):
+    spinner = __get_bar_spinner()
+    for directory, file in walk:
+        write_file_as_binary(directory, file, out_directory, decompress, forced_ext)
+        print(f"\r\t({next(spinner)}) Writing Binary Chunks, please wait.", end="")
+
+
+def write_file_as_binary(directory: str, file: File, out_directory: str, decompress: bool = True,
+                         forced_ext: Optional[str] = None):
+    full_directory = __safe_join(out_directory, directory, file.name)
+    __safe_makedirs(full_directory)
+    if forced_ext:
+        full_directory = splitext(full_directory)[0] + forced_ext
+    with file.open_readonly_stream(decompress) as read_handle:
+        with open(full_directory, "wb") as write_handle:
+            write_handle.write(read_handle.read())
+            # print(f"\r\t({next(spinner)}) Writing Binary Chunks, please wait.", end="")
+
+
+def collapse_walk_in_files(walk: Iterable[ArchiveWalkResult]) -> Iterable[Tuple[str, File]]:
+    for root, _, files in walk:
         for file in files:
-            full = join(root, file)
-
-            skip = False
-            for word in blacklist:
-                if word in full:
-                    skip = True
-                    break
-
-            if skip:
-                continue
-            if verbose:
-                print(full)
-            shared_dump(full, out_dir, verbose)
+            yield root, file
 
 
-def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
-    out_dir = out_dir or "gen/sga/shared_dump"
-    with open(file, "rb") as handle:
-        archive = Archive.unpack(handle)
-        for f in archive.files:
-            shared_path = join(out_dir, f.name)
-            dir_path = os.path.dirname(shared_path)
-            try:
-                os.makedirs(dir_path)
-            except FileExistsError:
-                pass
-            if verbose:
-                print("\t", shared_path)
-            with open(shared_path, "wb") as writer:
-                writer.write(f.data)
+def filter_archive_files_by_extension(walk: Iterable[ArchiveWalkResult], whitelist: KW_LIST = None,
+                                      blacklist: KW_LIST = None) -> Iterable[ArchiveWalkResult]:
+    whitelist = fix_extension_list(whitelist)
+    blacklist = fix_extension_list(blacklist)
+    for root, folders, files in walk:
+        filtered_files: Iterable[File] = \
+            (file for file in files if filter_path_by_extension(file.name, whitelist, blacklist))
+        yield root, folders, filtered_files
 
 
-def shared_dump(file: str, out_dir: str = None, verbose: bool = False):
-    out_dir = out_dir or "gen/sga/shared_dump"
-    with open(file, "rb") as handle:
-        archive = Archive.unpack(handle)
-        for f in archive.files:
-            shared_path = join(out_dir, f.name)
-            dir_path = os.path.dirname(shared_path)
-            try:
-                os.makedirs(dir_path)
-            except FileExistsError:
-                pass
-            if verbose:
-                print("\t", shared_path)
-            with open(shared_path, "wb") as writer:
-                writer.write(f.data)
+def walk_archive_files(walk: Iterable[Archive]) -> Iterable[ArchiveWalkResult]:
+    for archive in walk:
+        for inner_walk in archive.walk():
+            yield inner_walk
 
 
-def run():
-    root = r"G:\Clients\Steam\Launcher\steamapps\common"
-    game = r"Dawn of War Soulstorm\W40k"
-    files = [
-        r"Locale\English\W40kDataKeys.sga",
-        r"Locale\English\W40kDataLoc.sga",
-        r"Locale\English\W40kData-Sound-Speech.sga",
+def walk_archives(walk: Iterable[str]) -> Iterable[Archive]:
+    for file_path in walk:
+        with open(file_path, "rb") as handle:
+            # print(f"\nUnpacking Archive =>\t{file_path}")
+            yield Archive.unpack(handle)
 
-        "W40kData-Sound-Low.sga",
-        "W40kData-Sound-Med.sga",
-        "W40kData-Sound-Full.sga",
 
-        "W40kData-Whm-Low.sga",
-        "W40kData-Whm-Medium.sga",
-        "W40kData-Whm-High.sga",
+# walk all archives in the given directory, custom whitelist, blacklist, and exts will overwrite defaults
+#   Defaults: .sga, No *-Med, *-Low archives
+def walk_archive_paths(folder: str, exts: KW_LIST = None, whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[str]:
+    # Default EXT and Blacklist
+    exts = exts or ".sga"
+    blacklist = blacklist or ["-Low", "-Med"]
+    # Flattened long call to make it easy to read
+    walk = os.walk(folder)
+    walk = filter_walk_by_extension(walk, whitelist=exts)
+    walk = filter_walk_by_keyword(walk, whitelist=whitelist, blacklist=blacklist)
+    walk = ARCHIVE_MAGIC_WALKER.walk(walk)
+    return collapse_walk_on_files(walk)
 
-        "W40kData.sga",
 
-        "W40kData-SharedTextures-Full.sga",
-    ]
-    root = "gen/sga/"
-    shared_dump = root + "shared_dump"
-    single_dump = root + "dump"
-    meta_dump = root + "meta"
-
-    for i, file in enumerate(files):
-        full = join(root, game, file)
-        print(full)
-        print("\tUnpacking...")
-        with open(full, "rb") as handle:
-            # archive = SGArchive.unpack(handle)
-            archive = Archive.unpack(handle)
-            # print("\t", archive)
-            meta = json.dumps(archive, indent=4, cls=EnhancedJSONEncoder)
-            print("\t\t", meta)
-
-            print("\tWriting Assets...")
-            for f in archive.files:
-                shared_path = join(shared_dump, f.name)
-                dir_path = os.path.dirname(shared_path)
-                try:
-                    os.makedirs(dir_path)
-                except FileExistsError:
-                    pass
-                with open(shared_path, "wb") as writer:
-                    writer.write(f.data)
-
-                own_path = join(single_dump, file, f.name)
-                dir_path = os.path.dirname(own_path)
-                try:
-                    os.makedirs(dir_path)
-                except FileExistsError:
-                    pass
-                with open(own_path, "wb") as writer:
-                    writer.write(f.data)
-
-            print("\tWriting Meta...")
-            meta_path = join(meta_dump, file + ".json")
-            dir_path = os.path.dirname(meta_path)
-            try:
-                os.makedirs(dir_path)
-            except FileExistsError:
-                pass
-            with open(meta_path, "w") as writer:
-                writer.write(meta)
+def dump_archive(input_folder: str, output_folder: str, decompress: bool = True, ext_whitelist: KW_LIST = None,
+                 ext_blacklist: KW_LIST = None, write_ext: Optional[str] = None):
+    walk = walk_archive_paths(input_folder)
+    walk = walk_archives(walk)
+    walk = walk_archive_files(walk)
+    walk = filter_archive_files_by_extension(walk, ext_whitelist, ext_blacklist)
+    walk = collapse_walk_in_files(walk)
+    write_binary(walk, output_folder, decompress, write_ext)
 
 
 if __name__ == "__main__":
-    # root = r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm"
-    root = r"D:\Steam\steamapps\common\Dawn of War Soulstorm"
+    # in_folder = r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm"
+    in_folder = r"D:\Steam\steamapps\common\Dawn of War Soulstorm"
+    out_folder = r"D:/Dumps/DOW I/sga"
 
-    dump_all_sga(root, blacklist=[r"-Low", "-Med"],
-                 out_dir=r"D:/Dumps/DOW I/sga", verbose=True)
+    dump_archive(in_folder, out_folder)
+    # dump_all_sga(root, blacklist=[r"-Low", "-Med"],
+    #              out_dir=r"D:/Dumps/DOW I/sga", verbose=True)

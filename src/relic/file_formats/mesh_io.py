@@ -33,39 +33,41 @@ class MeshReader:
             yield self.__read(layout)
 
     @classmethod
-    def _validate_float(cls, validate: bool, *values:float):
+    def _validate_float(cls, validate: bool, *values: float):
         if validate:
             for value in values:
                 assert not math.isnan(value)
 
-
     @classmethod
-    def _validate_float_list(cls, validate: bool, *value_lists:Iterable[float]):
+    def _validate_float_list(cls, validate: bool, *value_lists: Iterable[float]) -> Iterable[Iterable[float]]:
         if validate:
             for list in value_lists:
                 for value in list:
                     assert not math.isnan(value)
+                yield list
+        else:
+            return value_lists
 
     def read_float3(self, size: int = 1, validate: bool = False) -> Iterable[Float3]:
         values = self.__read_list(Float3_Layout, size)
-        self._validate_float_list(validate, *values)
-        return values
+        return self._validate_float_list(validate, *values)
+        # return values
 
     def seek_float3(self, size: int = 1):
         self.__seek(Float3_Layout, size)
 
     def read_float4(self, size: int = 1, validate: bool = False) -> Iterable[Float4]:
         values = self.__read_list(Float4_Layout, size)
-        self._validate_float_list(validate, *values)
-        return values
+        return self._validate_float_list(validate, *values)
+        # return values
 
     def seek_float4(self, size: int = 1):
         self.__seek(Float4_Layout, size)
 
     def read_float2(self, size: int = 1, validate: bool = False) -> Iterable[Float2]:
         values = self.__read_list(Float2_Layout, size)
-        self._validate_float_list(validate, *values)
-        return values
+        return self._validate_float_list(validate, *values)
+        # return values
 
     def seek_float2(self, size: int = 1):
         self.__seek(Float2_Layout, size)

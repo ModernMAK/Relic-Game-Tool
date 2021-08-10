@@ -1,27 +1,89 @@
 import json
+import struct
 from dataclasses import dataclass, is_dataclass, asdict
+from enum import Enum
+from functools import partial
 from os.path import splitext, join
 from struct import Struct
-from typing import Tuple, List, BinaryIO, Iterable, Any
+from typing import Tuple, List, BinaryIO, Iterable, Optional, Union, Callable
+
+from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 
-def unpack_from_stream(layout: Struct, stream: BinaryIO) -> Tuple[Any, ...]:
-    buffer = stream.read(layout.size)
-    return layout.unpack_from(buffer)
+class VersionEnum(Enum):
+
+    def __eq__(self, other):
+        if isinstance(other, VersionEnum):
+            return self.value == other.value
+        elif isinstance(other, Version):
+            return self.value == other
+        else:
+            super().__eq__(other)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return self.value.__hash__()
 
 
-def pack_into_stream(layout: Struct, stream: BinaryIO, *args) -> int:
-    buffer = layout.pack(*args)
-    return stream.write(buffer)
+@dataclass
+class Version:
+    major: int
+    minor: Optional[int] = 0
+
+    __32 = Struct("< H H")
+    __64 = Struct("< L L")
+
+    def __str__(self) -> str:
+        return f"Version {self.major}.{self.minor}"
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        elif isinstance(other, VersionEnum):
+            return self.major == other.value.major and self.minor == other.value.minor
+        elif isinstance(other, Version):
+            return self.major == other.major and self.minor == other.minor
+        else:
+            return super().__eq__(other)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        # Realistically; Version will always be <256
+        # But we could manually set it to something much bigger by accident; and that may cause collisions
+        return self.major << 32 + self.minor
+
+    @classmethod
+    def unpack_32(cls, stream: BinaryIO):
+        return Version(*unpack_from_stream(cls.__32, stream))
+
+    @classmethod
+    def unpack_64(cls, stream: BinaryIO):
+        return Version(*unpack_from_stream(cls.__64, stream))
+
+    def pack_32(self, stream: BinaryIO) -> int:
+        args = self.minor, self.minor
+        return pack_into_stream(self.__32, stream, *args)
+
+    def pack_64(self, stream: BinaryIO) -> int:
+        args = self.minor, self.minor
+        return pack_into_stream(self.__64, stream, *args)
 
 
 class MagicUtil:
     @classmethod
-    def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> str:
-        magic = unpack_from_stream(layout, stream)[0].decode("ascii")
-        if not advance:  # Useful for checking the header before reading it
-            stream.seek(-layout.size, 1)
-        return magic
+    def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> Optional[str]:
+        origin = stream.tell()
+        try:
+            return unpack_from_stream(layout, stream)[0].decode("ascii")
+        except (struct.error, UnicodeDecodeError):
+            return None
+        finally:
+            if not advance:  # Useful for checking the header before reading it
+                stream.seek(origin)
 
     @classmethod
     def assert_magic_word(cls, stream: BinaryIO, layout: Struct, word: str, advance: bool = True):
@@ -35,7 +97,8 @@ class MagicUtil:
 
     @classmethod
     def write_magic_word(cls, stream: BinaryIO, layout: Struct, word: str) -> int:
-        return pack_into_stream(layout, stream, word.encode("ascii")) # We could just as easily write the word directly, but we don't
+        # We could just as easily write the word directly, but we don't
+        return pack_into_stream(layout, stream, word.encode("ascii"))
 
 
 @dataclass
@@ -56,7 +119,7 @@ class Magic:
         return MagicUtil.check_magic_word(stream, self.layout, self.word, advance)
 
 
-WALK_RESULT = Tuple[str, List[str], List[str]]
+WalkResult = Tuple[str, List[str], List[str]]
 
 
 @dataclass
@@ -74,9 +137,9 @@ class MagicWalker:
     # Pass in the os.walk() generator
     # Root and Folders will remain unchanged
     # Files will be replaced with files starting with the proper magic word
-    def walk(self, walk: Iterable[WALK_RESULT]) -> Iterable[WALK_RESULT]:
+    def walk(self, walk: Iterable[WalkResult]) -> Iterable[WalkResult]:
         for root, _, files in walk:
-            chunky_files = [file for file in files if self.check_file(join(root, file))]
+            chunky_files = (file for file in files if self.check_file(join(root, file)))
             yield root, _, chunky_files
 
 
@@ -85,26 +148,78 @@ def fix_ext_list(exts: List[str]) -> List[str]:
     return [(f".{x.lower()}" if x[0] != "." else x.lower()) for x in exts]
 
 
-def has_ext(path: str, exts: List[str]) -> bool:
-    _, ext = splitext(path)
-    return ext.lower() in exts
+# Appends '.' if necessary and lowers the extension case
+
+KW_LIST = Union[None, str, List[str]]
+VALID_KW_LIST = Optional[List[str]]
 
 
-# Pass in the os.walk() generator
-# Root and Folders will remain unchanged
-# Files will be filtered to match the given extensions
-def walk_ext(walk: Iterable[WALK_RESULT], whitelist: List[str] = None, blacklist: List[str] = None) -> Iterable[
-    WALK_RESULT]:
-    def validate_path(p: str) -> bool:
-        if blacklist and has_ext(p, blacklist):
+def fix_extension_list(exts: KW_LIST) -> VALID_KW_LIST:
+    if exts is None:
+        return None
+    if isinstance(exts, str):
+        exts = [exts]
+    return [(f".{x.lower()}" if x[0] != "." else x.lower()) for x in exts]
+
+
+def fix_keyword_list(kws: KW_LIST) -> VALID_KW_LIST:
+    if kws is None:
+        return None
+    if isinstance(kws, str):
+        kws = [kws]
+    return kws
+
+
+def filter_path_by_extension(file: str, whitelist: VALID_KW_LIST = None, blacklist: VALID_KW_LIST = None) -> bool:
+    """This function does not validate whitelist and blacklist; whitelist and blacklist must be a valid List[str] of '.extension_name'"""
+    _, x = splitext(file)
+    x = x.lower()
+    if blacklist and x in blacklist:
+        return False
+    if whitelist:
+        return x in whitelist
+    return True
+
+
+def filter_path_by_keyword(file: str, whitelist: VALID_KW_LIST = None, blacklist: VALID_KW_LIST = None) -> bool:
+    """This function does not validate whitelist and blacklist; whitelist and blacklist must be a valid List[str] or None"""
+    if blacklist:
+        for word in blacklist:
+            if word in file:
+                return False
+    if whitelist:
+        if not any(word in file for word in whitelist):
             return False
-        if whitelist and not has_ext(p, whitelist):
-            return False
-        return True
+    return True
 
+
+def filter_walk_by_predicate(walk: Iterable[WalkResult], predicate: Callable[[str], bool]) -> Iterable[WalkResult]:
     for root, _, files in walk:
-        valid_files = [f for f in files if validate_path(f)]
+        valid_files = (f for f in files if predicate(f))
         yield root, _, valid_files
+
+
+def filter_walk_by_extension(walk: Iterable[WalkResult], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[WalkResult]:
+    whitelist = fix_extension_list(whitelist)
+    blacklist = fix_extension_list(blacklist)
+    predicate = partial(filter_path_by_extension, whitelist=whitelist, blacklist=blacklist)
+    return filter_walk_by_predicate(walk, predicate)
+
+
+def filter_walk_by_keyword(walk: Iterable[WalkResult], whitelist: KW_LIST = None, blacklist: KW_LIST = None) -> \
+        Iterable[WalkResult]:
+    whitelist = fix_keyword_list(whitelist)
+    blacklist = fix_keyword_list(blacklist)
+    predicate = partial(filter_path_by_keyword, whitelist=whitelist, blacklist=blacklist)
+    return filter_walk_by_predicate(walk, predicate)
+
+
+def collapse_walk_on_files(walk: Iterable[WalkResult]) -> Iterable[str]:
+    """Makes a walk only return an iterator for the full file path."""
+    for root, _, files in walk:
+        for file in files:
+            yield join(root, file)
 
 
 def get_stream_size(stream: BinaryIO) -> int:
@@ -115,42 +230,18 @@ def get_stream_size(stream: BinaryIO) -> int:
     return terminal
 
 
-#
-# def fix_exts(ext: Union[str, List[str]]) -> List[str]:
-#     if isinstance(ext, str):
-#         ext = [ext]
-#
-#     ext = [x.lower() for x in ext]
-#     ext = [f".{x}" if x[0] != '.' else x for x in ext]
-#     return ext
-
-
-# def walk_ext(folder: str, ext: Union[str, List[str]]) -> Tuple[str, str]:
-#     ext = fix_exts(ext)
-#     if os.path.isfile(folder):
-#         root, file = dirname(folder), basename(folder)
-#         _, x = splitext(file)
-#         if x.lower() not in ext:
-#             return
-#         yield root, file
-#
-#     for root, _, files in os.walk(folder):
-#         for file in files:
-#             _, x = splitext(file)
-#             if x.lower() not in ext:
-#                 continue
-#             yield root, file
-
-
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if is_dataclass(o):
             return asdict(o)
-        if isinstance(o, bytes):
+        elif isinstance(o, Enum):
+            return {'name': o.name, 'value': o.value}
+        elif isinstance(o, bytes):
             # return "... Bytes Not Dumped To Avoid Flooding Console ..."
             l = len(o)
             if len(o) > 16:
                 o = o[0:16]
                 return o.hex(sep=" ") + f" ... [+{l - 16} Bytes]"
             return o.hex(sep=" ")
-        return super().default(o)
+        else:
+            return super().default(o)
