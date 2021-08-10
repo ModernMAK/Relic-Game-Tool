@@ -44,7 +44,8 @@ class OffsetInfo:
     __v2_LAYOUT = Struct("< L H")  # 6 bytes
     __v5_LAYOUT = __v2_LAYOUT
     __v9_LAYOUT = Struct("< L L")  # 8 bytes
-    __LAYOUT = {SgaVersion.Dow3: __v9_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow: __v2_LAYOUT}
+    _LAYOUT = {SgaVersion.Dow3: __v9_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow: __v2_LAYOUT}
+
     toc_offset: int
     offset_relative: int
     count: int
@@ -60,16 +61,16 @@ class OffsetInfo:
     @classmethod
     def unpack(cls, stream: BinaryIO, toc_offset: int, version: Version) -> 'OffsetInfo':
 
-        if version in cls.__LAYOUT:
-            layout = cls.__LAYOUT[version]
+        if version in cls._LAYOUT:
+            layout = cls._LAYOUT[version]
             args = unpack_from_stream(layout, stream)
             return OffsetInfo(toc_offset, *args)
         else:
             raise NotImplementedError(version)
 
     def pack(self, stream: BinaryIO, version: Version) -> int:
-        if version in self.__LAYOUT:
-            layout = self.__LAYOUT[version]
+        if version in self._LAYOUT:
+            layout = self._LAYOUT[version]
             args = (self.offset_relative, self.count)
             return pack_into_stream(layout, stream, *args)
         else:
@@ -137,8 +138,8 @@ class FilenameOffsetInfo(OffsetInfo):
             return FilenameOffsetInfo(basic.toc_offset, basic.offset_relative, basic.count, None)
 
     def pack(self, stream: BinaryIO, version: Version) -> int:
-        if version in self.__LAYOUT:
-            layout = self.__LAYOUT[version]
+        if version in self._LAYOUT:
+            layout = self._LAYOUT[version]
             if version == SgaVersion.Dow3:
                 args = self.offset_relative, self.byte_size
             elif version in [SgaVersion.Dow2, SgaVersion.Dow]:

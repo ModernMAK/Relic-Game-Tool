@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from os.path import join
 from struct import Struct
 from typing import BinaryIO, List, Optional
 from relic.sga.file import File
@@ -56,11 +57,10 @@ class VirtualDriveHeader:
             layout = self.__LAYOUT[version]
         else:
             raise NotImplementedError(version)
-        args = self.path, self.name, self.subfolder_range.start, self.subfolder_range.end, \
+        args = self.path.encode("ascii"), self.name.encode(
+            "ascii"), self.subfolder_range.start, self.subfolder_range.end, \
                self.file_range.start, self.file_range.end, self.unk_a
         return pack_into_stream(layout, stream, *args)
-
-
 
 
 @dataclass
@@ -68,7 +68,6 @@ class VirtualDrive(AbstractDirectory):
     path: str
     name: str
     _info: VirtualDriveHeader
-
 
     @classmethod
     def create(cls, header: VirtualDriveHeader):
@@ -93,7 +92,11 @@ class VirtualDrive(AbstractDirectory):
 
     def walk(self, specify_drive: bool = True) -> ArchiveWalkResult:  # Specify name for
         for root, folders, files in self._walk():
-            true_root = f"{self.path}:{root}" if specify_drive else root
+            if root:
+                true_root = f"{self.path}:{root}" if specify_drive else root
+            else:
+                true_root = f"{self.path}:" if specify_drive else None
+
             yield true_root, folders, files
 
     # def build_header(self, ):

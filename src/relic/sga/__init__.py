@@ -18,7 +18,8 @@ __all__ = [
     "ARCHIVE_MAGIC_WALKER",
     "OffsetInfo",
     "SparseArchive",
-    "Version"
+    "Version",
+    "writer"
 ]
 
 from relic.sga.archive import Archive, SparseArchive

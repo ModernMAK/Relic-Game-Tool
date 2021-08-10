@@ -1,6 +1,6 @@
 import zlib
 from io import BytesIO
-from typing import BinaryIO, Tuple, List, Any, Dict
+from typing import BinaryIO, Tuple, List, Any, Dict, Optional
 
 from relic.sga import Archive, AbstractDirectory, Folder, File, VirtualDriveHeader, FolderHeader, FileHeader, \
     ArchiveToC, ArchiveTableOfContents, ArchiveSubHeader
@@ -63,20 +63,22 @@ def write_names(stream: BinaryIO, archive: Archive) -> Tuple[int, int, int, Dict
             return 0
         # We must use relative offset to data_origin
         lookup[name] = stream.tell() - offset
-        sub_written = stream.write(name)
+        terminated_name = name
         if name[-1] != "\0":
-            sub_written += stream.write("\0")
-        return sub_written
+            terminated_name += "\0"
+        encoded = terminated_name.encode("ascii")
+        return stream.write(encoded)
 
     # This will not re-use repeated names; we could change it but I wont since my brain is overoptimizing this
     #   By allowing names to repeat, we avoid perform hash checks in a dictionary (or equality comparisons in a list)
     for drive in archive.drives:
         for _, folders, files in drive.walk():
-            running_total += len(folders) + len(files)
             for f in folders:
                 written += try_write_null_terminated(f.name)
+                running_total += 1
             for f in files:
                 written += try_write_null_terminated(f.name)
+                running_total += 1
 
     return offset, running_total, written, lookup
 
@@ -88,11 +90,12 @@ def write_folders(stream: BinaryIO, archive: Archive, version: Version, name_loo
     running_folder = 0
     running_file = 0
     written = 0
-
+    total_folders = 0
     offset = stream.tell()
     for drive in archive.drives:
         for _, folders, _ in drive.walk():
             for folder in folders:
+                total_folders += 1
                 folder_count = folder.folder_count(recalculate)
                 file_count = folder.file_count(recalculate)
 
@@ -107,7 +110,7 @@ def write_folders(stream: BinaryIO, archive: Archive, version: Version, name_loo
                 header = FolderHeader(name_offset, folder_range, file_range)
                 written += header.pack(stream, version)
 
-    return offset, len(archive.drives), written
+    return offset, total_folders, written
 
 
 def get_v2_compflag(comp_data: bytes, decomp_data: bytes):
@@ -204,6 +207,7 @@ def write_files(stream: BinaryIO, archive: Archive, version: Version, name_looku
                 data_lookup: Dict[File, FileHeader]) -> Tuple[int, int, int]:
     offset = stream.tell()
     written = 0
+    file_count = 0
 
     for drive in archive.drives:
         for _, _, files in drive.walk():
@@ -211,8 +215,9 @@ def write_files(stream: BinaryIO, archive: Archive, version: Version, name_looku
                 header = data_lookup[file]
                 header.name_offset = name_lookup[file.name]
                 written += header.pack(stream, version)
+                file_count += 1
 
-    return offset, len(archive.drives), written
+    return offset, file_count, written
 
 
 def write_table_of_contents(stream: BinaryIO, archive: Archive, version: Version,
@@ -230,48 +235,42 @@ def write_table_of_contents(stream: BinaryIO, archive: Archive, version: Version
     #   I follow their pattern for consistency if nothing else
     #       THIS ONLY WORKS BECAUSE OFFSETS ARE RELATIVE TO THE NAME OFFSET
     with BytesIO() as name_buffer:
-        _, name_count, name_size, name_lookup = write_names(stream, archive)
+        _, name_count, name_size, name_lookup = write_names(name_buffer, archive)
 
-    vd_offset, vd_count, vd_size = write_virtual_drives(stream, archive, version, name_lookup)
-    vd_part = OffsetInfo(toc_offset, vd_offset - toc_offset, vd_count)
+        vd_offset, vd_count, vd_size = write_virtual_drives(stream, archive, version, name_lookup)
+        vd_part = OffsetInfo(toc_offset, vd_offset - toc_offset, vd_count)
 
-    fold_offset, fold_count, fold_size = write_folders(stream, archive, version, name_lookup)
-    fold_part = OffsetInfo(toc_offset, fold_offset - toc_offset, fold_count)
+        fold_offset, fold_count, fold_size = write_folders(stream, archive, version, name_lookup)
+        fold_part = OffsetInfo(toc_offset, fold_offset - toc_offset, fold_count)
 
-    file_offset, file_count, file_size = write_files(stream, archive, version, name_lookup, data_lookup)
-    file_part = OffsetInfo(toc_offset, file_offset - toc_offset, file_count)
+        file_offset, file_count, file_size = write_files(stream, archive, version, name_lookup, data_lookup)
+        file_part = OffsetInfo(toc_offset, file_offset - toc_offset, file_count)
 
-    name_offset = stream.tell()
-    stream.write(name_buffer.read())
-    name_part = FilenameOffsetInfo(toc_offset, name_offset - toc_offset, name_count, name_size)
+        name_offset = stream.tell()
+        name_buffer.seek(0)
+        stream.write(name_buffer.read())
+        name_part = FilenameOffsetInfo(toc_offset, name_offset - toc_offset, name_count, name_size)
 
-    end = stream.tell()
-    # Writeback proper TOC
-    toc = ArchiveTableOfContents(vd_part, fold_part, file_part, name_part)
-    stream.seek(toc_offset)
-    toc.pack(stream, version)
+        end = stream.tell()
+        # Writeback proper TOC
+        toc = ArchiveTableOfContents(vd_part, fold_part, file_part, name_part)
+        stream.seek(toc_offset)
+        toc.pack(stream, version)
 
-    stream.seek(end)
-    return toc_offset, end - toc_offset
+        stream.seek(end)
+        return toc_offset, end - toc_offset
 
 
-def write_archive(stream: BinaryIO, archive: Archive, version: Version, auto_compress: bool = True,
+def write_archive(stream: BinaryIO, archive: Archive, auto_compress: bool = True,
                   recalculate_totals: bool = True) -> int:
+    version = archive.info.header.version
+
     if version not in [SgaVersion.Dow, SgaVersion.Dow2, SgaVersion.Dow3]:
         raise NotImplementedError(version)
 
     start = stream.tell()
     # PRIMARY HEADER
-    ARCHIVE_MAGIC.write_magic_word(stream)
-    version.pack_32(stream)
-    if version in [SgaVersion.Dow, SgaVersion.Dow2]:
-        # MD5 Hash that IDK how to write
-        stream.write(bytes([0x00] * 16))
-        stream.write(archive.info.header.name.encode("utf-16-le"))
-        # MD5 Hash that IDK how to write
-        stream.write(bytes([0x00] * 16))
-    elif version == SgaVersion.Dow3:
-        stream.write(archive.info.header.name.encode("utf-16-le"))
+    archive.info.header.pack(stream)
 
     # SUB HEADER SETUP
     #   We need to do a write-back once we know the offsets, sizes, what have you

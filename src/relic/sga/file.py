@@ -132,6 +132,9 @@ class File:
     _parent_folder: Optional['Folder'] = None
     _parent_drive: Optional['VirtualDrive'] = None
 
+    def __hash__(self):
+        return id(self)
+
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader,
                name_lookup: Dict[int, str]) -> 'File':

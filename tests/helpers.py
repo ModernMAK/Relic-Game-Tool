@@ -15,7 +15,7 @@ def _find_tests_root_folder() -> str:
 
 def get_testdata_root_folder() -> str:
     tests_root = _find_tests_root_folder()
-    return abspath(join(tests_root, "..", "examples"))
+    return abspath(join(tests_root, "..", "sample_data"))
 
 
 def get_testdata_path(relative_path: str):

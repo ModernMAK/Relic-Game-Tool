@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from os.path import join
 from typing import List, BinaryIO
 from relic.sga.archive_header import ArchiveInfo
 from relic.sga.file import File, FileHeader
@@ -22,7 +23,7 @@ class SparseArchive:
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo) -> 'SparseArchive':
         version = archive_info.header.version
-        desc_info = archive_info.table_of_contents.descriptions_info
+        desc_info = archive_info.table_of_contents.drive_info
         stream.seek(desc_info.offset_absolute, 0)
         descriptions = [VirtualDriveHeader.unpack(stream, version) for _ in range(desc_info.count)]
 
@@ -77,3 +78,25 @@ class Archive:
         for drive in self.drives:
             for root, folders, files in drive.walk(specify_drive):
                 yield root, folders, files
+
+    def get_from_path(self, *parts: str):
+        if len(parts) > 1:
+            if parts[0][-1] == ":":  # If the first part is a drive
+                full_path = parts[0] + join(*parts[1:])
+            else:
+                full_path = join(*parts)
+        else:
+            full_path = parts[0]
+        drive_split = full_path.split(":", 1)
+
+        if len(drive_split) > 1:
+            drive_path, path_to_file = drive_split
+            for drive in self.drives:
+                if drive.path == drive_path:
+                    return drive.get_from_path(path_to_file)
+        else:
+            path_to_file = drive_split[0]
+            for drive in self.drives:
+                result = drive.get_from_path(path_to_file)
+                if result:
+                    return result
