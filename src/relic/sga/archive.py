@@ -73,7 +73,7 @@ class Archive:
     def repack(cls, stream: BinaryIO, write_magic: bool = True):
         raise NotImplementedError
 
-    def walk(self, specify_drive: bool = True) -> ArchiveWalkResult:
+    def walk(self, specify_drive: bool = False) -> ArchiveWalkResult:
         for drive in self.drives:
             for root, folders, files in drive.walk(specify_drive):
                 yield root, folders, files

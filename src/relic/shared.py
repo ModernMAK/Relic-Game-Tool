@@ -64,6 +64,14 @@ class Version:
     def unpack_64(cls, stream: BinaryIO):
         return Version(*unpack_from_stream(cls.__64, stream))
 
+    def pack_32(self, stream: BinaryIO) -> int:
+        args = self.minor, self.minor
+        return pack_into_stream(self.__32, stream, *args)
+
+    def pack_64(self, stream: BinaryIO) -> int:
+        args = self.minor, self.minor
+        return pack_into_stream(self.__64, stream, *args)
+
 
 class MagicUtil:
     @classmethod

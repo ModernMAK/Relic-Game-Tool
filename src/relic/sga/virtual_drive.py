@@ -93,6 +93,7 @@ class VirtualDrive(AbstractDirectory):
 
     def walk(self, specify_drive: bool = True) -> ArchiveWalkResult:  # Specify name for
         for root, folders, files in self._walk():
-            return f"{self.path}:{root}" if specify_drive else root, folders, files
+            true_root = f"{self.path}:{root}" if specify_drive else root
+            yield true_root, folders, files
 
     # def build_header(self, ):

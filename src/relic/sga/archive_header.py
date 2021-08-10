@@ -4,6 +4,7 @@ from typing import BinaryIO, Optional
 
 from relic.sga.shared import ARCHIVE_MAGIC, Version, FilenameOffsetInfo, OffsetInfo, SgaVersion
 from relic.shared import unpack_from_stream
+from relic.util.struct_util import pack_into_stream
 
 
 @dataclass
@@ -54,8 +55,7 @@ class ArchiveHeader:
 
 
 @dataclass
-class ArchiveTableOfContents:  # 24 bytes
-    # Knowing my luck this is also subject to change
+class ArchiveTableOfContents:
     descriptions_info: OffsetInfo
     folders_info: OffsetInfo
     files_info: OffsetInfo
@@ -70,6 +70,19 @@ class ArchiveTableOfContents:  # 24 bytes
         filenames_info = FilenameOffsetInfo.unpack(stream, toc_offset, version)
         return ArchiveTableOfContents(descriptions_info, folders_info, files_info, filenames_info)
 
+    @classmethod
+    def get_size(cls, version: Version) -> int:
+        _sizes = {SgaVersion.Dow: 24, SgaVersion.Dow2: 24, SgaVersion.Dow3: 32}
+        return _sizes[version]
+
+    def pack(self, stream: BinaryIO, version: Version) -> int:
+        written = 0
+        written += self.descriptions_info.pack(stream, version)
+        written += self.folders_info.pack(stream, version)
+        written += self.files_info.pack(stream, version)
+        written += self.filenames_info.pack(stream, version)
+        return written
+
 
 # Alias
 ArchiveToC = ArchiveTableOfContents
@@ -79,7 +92,7 @@ ArchiveToC = ArchiveTableOfContents
 class ArchiveSubHeader:
     __v2_LAYOUT = Struct("< 2L")
     __v5_LAYOUT = Struct("< 6L")
-    __v9_LAYOUT = Struct("< Q L Q 4L 256s")
+    __v9_LAYOUT = Struct("< Q L Q 3L 256s")
     # V2.0 2L (8)
     #   Relative Offset (TOC SIZE!!!)
     #       While reading my notes, I realaized that 'Relative Offset' would be the size of the TOC Header + TOC Data
@@ -119,8 +132,17 @@ class ArchiveSubHeader:
     unk_v9_a: Optional[int] = None
     unk_v9_zero: Optional[int] = None
     unk_v9_one: Optional[int] = None
-    unk_v9_160_bytes: Optional[bytes] = None
-    unk_v9_data_size: Optional[int] = None
+    unk_v9_256_bytes: Optional[bytes] = None
+    data_size: Optional[int] = None
+
+    @classmethod
+    def default(cls, version: Version) -> 'ArchiveSubHeader':
+        if version == SgaVersion.Dow:
+            return ArchiveSubHeader(0, 0, 0)
+        elif version == SgaVersion.Dow2:
+            return ArchiveSubHeader(0, 0, 0, 1, 0, 0)
+        elif version == SgaVersion.Dow3:
+            return ArchiveSubHeader(0, 0, 0, None, None, None, 0, 0, 1, bytes([0x00] * 256), 0)
 
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version = SgaVersion.Dow) -> 'ArchiveSubHeader':
@@ -147,16 +169,28 @@ class ArchiveSubHeader:
 
             return ArchiveSubHeader(
                 toc_size, data_offset, toc_offset,
-                unk_v9_zero=unk_zero_c, unk_v9_one=unk_one_d, unk_v9_a=unk_e, unk_v9_160_bytes=unk_160)
+                unk_v9_zero=unk_zero_c, unk_v9_one=unk_one_d, unk_v9_a=unk_e, unk_v9_256_bytes=unk_160)
         else:
             raise NotImplementedError(version)
-        # args = unpack_from_stream(cls.__DATA_OFFSET_LAYOUT, stream)
-        # archive = DataOffsetInfo(*args)
-        # DONE
-        # if validate and not archive.valid:
-        #     raise Exception("Invalid Data Offset")
 
-        # return archive
+    def pack(self, stream: BinaryIO, version: Version) -> int:
+        if SgaVersion.Dow == version:
+            args = self.toc_size, self.data_offset
+            return pack_into_stream(self.__v2_LAYOUT, stream, *args)
+        elif SgaVersion.Dow2 == version:
+            args = self.toc_size, self.data_offset, self.toc_offset, self.unk_v5_one, self.unk_v5_zero, self.unk_v5_b
+            return pack_into_stream(self.__v5_LAYOUT, stream, *args)
+        elif SgaVersion.Dow3 == version:
+            args = self.toc_offset, self.toc_size, self.data_offset, self.data_size, self.unk_v9_zero,\
+                   self.unk_v9_one, self.unk_v9_a, self.unk_v9_256_bytes
+            return pack_into_stream(self.__v9_LAYOUT, stream, *args)
+        else:
+            raise NotImplementedError(version)
+
+    @classmethod
+    def get_size(cls, version: Version):
+        sizes = {SgaVersion.Dow: cls.__v2_LAYOUT.size, SgaVersion.Dow2: cls.__v5_LAYOUT.size, SgaVersion.Dow3: cls.__v9_LAYOUT.size}
+        return sizes[version]
 
 
 @dataclass
