@@ -10,6 +10,8 @@ def _find_tests_root_folder() -> str:
             raise FileNotFoundError("Could not find test root folder!")
         elif self.lower() in ["tests", "test"]:
             return full
+        else:
+            full = parent
     raise FileNotFoundError("Could not find test root folder! The Process timed out!")
 
 
