@@ -1,0 +1,32 @@
+name: Pytest
+
+on:
+  push:
+    branches:
+      - testing
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.7.x', '3.8.x', '3.9.x' ]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with: 
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+    - name: Test with pytest
+      run: |
+        pytest src -v
+#        pytest src -v > pytest.txt
+#    - name: Upload pytest.txt as artifact
+#      uses: actions/upload-artifact@v2
+#      with:
+#        name: pytest report
+#        path: pytest.txt
