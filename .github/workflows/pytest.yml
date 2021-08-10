@@ -3,7 +3,10 @@ name: Pytest
 on:
   push:
     branches:
-      - testing
+      - main
+  pull_request:
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
