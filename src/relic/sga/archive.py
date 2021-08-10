@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from os.path import join
 from typing import List, BinaryIO
 from relic.sga.archive_header import ArchiveInfo
 from relic.sga.file import File, FileHeader
@@ -10,7 +11,7 @@ from relic.sga.virtual_drive import VirtualDriveHeader, VirtualDrive
 @dataclass
 class SparseArchive:
     info: ArchiveInfo
-    descriptions: List[VirtualDriveHeader]
+    drives: List[VirtualDriveHeader]
     files: List[FileHeader]
     folders: List[FolderHeader]
 
@@ -22,7 +23,7 @@ class SparseArchive:
     @classmethod
     def create(cls, stream: BinaryIO, archive_info: ArchiveInfo) -> 'SparseArchive':
         version = archive_info.header.version
-        desc_info = archive_info.table_of_contents.descriptions_info
+        desc_info = archive_info.table_of_contents.drive_info
         stream.seek(desc_info.offset_absolute, 0)
         descriptions = [VirtualDriveHeader.unpack(stream, version) for _ in range(desc_info.count)]
 
@@ -38,9 +39,9 @@ class SparseArchive:
 
 
 @dataclass
-class Archive(AbstractDirectory):
+class Archive:
     info: ArchiveInfo
-    virtual_drives: List[VirtualDriveHeader]
+    drives: List[VirtualDrive]
 
     # A helper to know the total # of files without performing a full walk
     _total_files: int = 0
@@ -53,7 +54,6 @@ class Archive(AbstractDirectory):
     @classmethod
     def create(cls, stream: BinaryIO, archive: SparseArchive) -> 'Archive':
         info = archive.info
-        desc = archive.descriptions
         name_lookup = info.table_of_contents.filenames_info.get_name_lookup(stream, use_absolute=False)
         folders = [Folder.create(f, name_lookup) for f in archive.folders]
         files = [File.create(stream, info, f, name_lookup) for f in archive.files]
@@ -61,17 +61,42 @@ class Archive(AbstractDirectory):
             f.load_folders(folders)
             f.load_files(files)
 
-        total_files = len(files)
-        # In is expensive for large lists, so we use a 'flag' instead
-        #   The 'flag' is actually a reference to the parent; not a bool
-        folders = [f for f in folders if not f._parent]
-        files = [f for f in files if not f._parent]
+        drives = [VirtualDrive.create(d) for d in archive.drives]
+        for d in drives:
+            d.load_folders(folders)
+            d.load_files(files)
 
-        return Archive(folders, files, info, desc, total_files)
+        total_files = len(files)
+
+        return Archive(info, drives, total_files)
 
     @classmethod
     def repack(cls, stream: BinaryIO, write_magic: bool = True):
         raise NotImplementedError
 
-    def walk(self) -> ArchiveWalkResult:
-        return self._walk("")
+    def walk(self, specify_drive: bool = False) -> ArchiveWalkResult:
+        for drive in self.drives:
+            for root, folders, files in drive.walk(specify_drive):
+                yield root, folders, files
+
+    def get_from_path(self, *parts: str):
+        if len(parts) > 1:
+            if parts[0][-1] == ":":  # If the first part is a drive
+                full_path = parts[0] + join(*parts[1:])
+            else:
+                full_path = join(*parts)
+        else:
+            full_path = parts[0]
+        drive_split = full_path.split(":", 1)
+
+        if len(drive_split) > 1:
+            drive_path, path_to_file = drive_split
+            for drive in self.drives:
+                if drive.path == drive_path:
+                    return drive.get_from_path(path_to_file)
+        else:
+            path_to_file = drive_split[0]
+            for drive in self.drives:
+                result = drive.get_from_path(path_to_file)
+                if result:
+                    return result

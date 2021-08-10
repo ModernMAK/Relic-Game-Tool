@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from os.path import join
 from struct import Struct
-from typing import BinaryIO, List
+from typing import BinaryIO, List, Optional
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.sga.folder import Folder
@@ -56,8 +57,9 @@ class VirtualDriveHeader:
             layout = self.__LAYOUT[version]
         else:
             raise NotImplementedError(version)
-        args = self.path, self.name, self.subfolder_range.start, self.subfolder_range.end, \
-            self.file_range.start, self.file_range.end, self.unk_a
+        args = self.path.encode("ascii"), self.name.encode(
+            "ascii"), self.subfolder_range.start, self.subfolder_range.end, \
+               self.file_range.start, self.file_range.end, self.unk_a
         return pack_into_stream(layout, stream, *args)
 
 
@@ -70,24 +72,31 @@ class VirtualDrive(AbstractDirectory):
     @classmethod
     def create(cls, header: VirtualDriveHeader):
         path, name = header.path, header.name
-        folders: List[Folder] = [None] * header.subfolder_range.size
-        files: List[File] = [None] * header.file_range.size
-        return VirtualDrive(folders, files, path, name, header)
+        return VirtualDrive([], [], None, None, path, name, header)
 
     def load_folders(self, folders: List['Folder']):
         if self._info.subfolder_range.start < len(folders):
             for i in self._info.subfolder_range:
-                i_0 = i - self._info.subfolder_range.start
-                self.folders[i_0] = folders[i]
+                if not folders[i]._parent_folder:
+                    f = folders[i]
+                    f._parent_drive = self
+                    self.folders.append(f)
 
     def load_files(self, files: List['File']):
         if self._info.file_range.start < len(files):
             for i in self._info.file_range:
-                i_0 = i - self._info.file_range.start
-                self.files[i_0] = files[i]
+                if not files[i]._parent_folder:
+                    f = files[i]
+                    f._parent_drive = self
+                    self.folders.append(f)
 
-    def walk(self) -> ArchiveWalkResult:  # Specify name for
+    def walk(self, specify_drive: bool = True) -> ArchiveWalkResult:  # Specify name for
         for root, folders, files in self._walk():
-            return f"{self.path}:{root}", folders, files
+            if root:
+                true_root = f"{self.path}:{root}" if specify_drive else root
+            else:
+                true_root = f"{self.path}:" if specify_drive else None
+
+            yield true_root, folders, files
 
     # def build_header(self, ):

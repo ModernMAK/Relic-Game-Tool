@@ -70,7 +70,7 @@ def filter_archive_files_by_extension(walk: Iterable[ArchiveWalkResult], whiteli
     blacklist = fix_extension_list(blacklist)
     for root, folders, files in walk:
         filtered_files: Iterable[File] = \
-            (file for file in files if filter_path_by_extension(file.material_name, whitelist, blacklist))
+            (file for file in files if filter_path_by_extension(file.name, whitelist, blacklist))
         yield root, folders, filtered_files
 
 

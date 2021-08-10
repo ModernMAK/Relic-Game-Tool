@@ -12,8 +12,10 @@ from relic.shared import fix_extension_list, filter_path_by_extension, KW_LIST, 
 
 
 # Compression flag is either 0 (Decompressed) or 16/32 which are both compressed
-#   idk the difference, both work fine via zlib
-#       Should clarify; this flag (if it is a flag) doesn't affect ZLib; but zlib handles both the 16-flag case and the 32-flag case without issue
+# Aside from 0; these appear to be the Window-Sizes for the Zlib Compression (In KibiBytes)
+from relic.util.struct_util import pack_into_stream
+
+
 class FileCompressionFlag(Enum):
     Decompressed = 0
 
@@ -67,14 +69,14 @@ class FileHeader:
             return FileHeader(name_off, data_off, decomp_size, comp_size, unk_v5_a=unk_a, unk_v5_b=unk_b)
         elif version == SgaVersion.Dow3:
             name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e = unpack_from_stream(
-                cls.__v9_LAYOUT,
-                stream)
+                cls.__v9_LAYOUT, stream)
             # assert unk_a == 0, (unk_a, 0)
             # assert unk_b == 0, (unk_b, 0)
 
             # UNK_D is a new compression flag?!
             # if comp_size != decomp_size:
             #     assert unk_d in [256,512], ((comp_size, decomp_size), (unk_d, [256,512]), (name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e))
+            # Pulling stuff outta my ass; but dividing them by the max block size gets you 7, 6 repsectively
 
             # Name, File, Compressed, Decompressed, ???, ???
             return FileHeader(name_off, data_off, decomp_size, comp_size,
@@ -82,6 +84,28 @@ class FileHeader:
                               unk_v9_c=unk_c, unk_v9_d=unk_d, unk_v9_e=unk_e)
         else:
             raise NotImplementedError(version)
+
+    def pack(self, stream: BinaryIO, version: Version) -> int:
+        versioning = {
+            SgaVersion.Dow: self.__v2_LAYOUT,
+            SgaVersion.Dow2: self.__v5_LAYOUT,
+            SgaVersion.Dow3: self.__v9_LAYOUT
+        }
+
+        if SgaVersion.Dow == version:
+            args = self.name_offset, self.compression_flag.value, self.data_offset, self.decompressed_size, \
+                   self.compressed_size
+        elif version == SgaVersion.Dow2:
+            args = self.name_offset, self.data_offset, self.compressed_size, self.decompressed_size,\
+                   self.unk_v5_a, self.unk_v5_b
+        elif version == SgaVersion.Dow3:
+            args = self.name_offset, self.unk_v9_a, self.data_offset, self.unk_v9_b, self.compressed_size,\
+                   self.decompressed_size, self.unk_v9_c, self.unk_v9_d, self.unk_v9_e
+        else:
+            raise NotImplementedError(version)
+
+        layout = versioning[version]
+        return pack_into_stream(layout, stream, *args)
 
     def read_name_from_lookup(self, lookup: Dict[int, str], info: Optional[ArchiveInfo] = None) -> str:
         # If info is provided; use absolute values
@@ -105,10 +129,15 @@ class File:
     name: str
     data: bytes
     _decompressed: bool = False
-    _parent: Optional['Folder'] = None
+    _parent_folder: Optional['Folder'] = None
+    _parent_drive: Optional['VirtualDrive'] = None
+
+    def __hash__(self):
+        return id(self)
 
     @classmethod
-    def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader, name_lookup: Dict[int, str]) -> 'File':
+    def create(cls, stream: BinaryIO, archive_info: ArchiveInfo, info: FileHeader,
+               name_lookup: Dict[int, str]) -> 'File':
         name = info.read_name_from_lookup(name_lookup)
         data = info.read_data(stream, archive_info.sub_header)
         _decompressed = not info.compressed
@@ -118,6 +147,11 @@ class File:
         if self._decompressed or not self.header.compressed:
             return self.data
         else:
+            # zlib_header = Struct("2B").unpack(self.data[:2])
+            # full_zlib_header = (zlib_header[0] & 0xF0) >> 4, zlib_header[0] & 0xF, \
+            #                    (zlib_header[1] & 0b11000000) >> 6, (zlib_header[1] >> 5) & 0b1, zlib_header[1] & 0b11111
+            # convert = {7: 32, 6: 16}
+            # assert convert[full_zlib_header[0]] == self.header.compression_flag.value
             return zlib.decompress(self.data)
 
     def decompress(self):
