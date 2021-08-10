@@ -21,9 +21,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest
+      
     - name: Test with pytest
       run: |
-        pytest tests -v
+        cd src
+        python -m pytest ..\tests -v
 #        pytest src -v > pytest.txt
 #    - name: Upload pytest.txt as artifact
 #      uses: actions/upload-artifact@v2
