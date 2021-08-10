@@ -10,7 +10,7 @@ class RshChunky(AbstractRelicChunky):
     shrf: ShrfChunk
 
     @classmethod
-    def create(cls, chunky: RelicChunky) -> 'RshChunky':
+    def convert(cls, chunky: RelicChunky) -> 'RshChunky':
         shrf_folder = chunky.get_chunk(id="SHRF", recursive=True)
         shrf = ShrfChunk.create(shrf_folder)
         return RshChunky(chunky.chunks, chunky.header, shrf)

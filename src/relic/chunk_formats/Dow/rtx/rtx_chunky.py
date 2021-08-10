@@ -10,7 +10,7 @@ class RtxChunky(AbstractRelicChunky):
     txtr: TxtrChunk
 
     @classmethod
-    def create(cls, chunky: RelicChunky) -> 'RtxChunky':
+    def convert(cls, chunky: RelicChunky) -> 'RtxChunky':
         txtr_folder = chunky.get_chunk(id="TXTR")
         txtr = TxtrChunk.create(txtr_folder)
         return RtxChunky(chunky.chunks, chunky.header, txtr)

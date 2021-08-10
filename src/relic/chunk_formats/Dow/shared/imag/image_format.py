@@ -8,24 +8,31 @@ class ImageFormat(Enum):
     DXT3 = 10
     DXT5 = 11
 
-    _ignore_ = ['_extensions', '_dds', '_tga']
-    _extensions = {TGA: ".tga", DXT1: ".dds", DXT3: ".dds", DXT5: ".dds"}
-    _fourCC = {DXT1: "DXT1", DXT3: "DXT3", DXT5: "DXT5"}  # Decouples the enum name from logic
-    _dds = [DXT1, DXT3, DXT5]
-    _tga = [TGA]
-
     @property
     def extension(self) -> str:
-        return self._extensions[self.value]
+        _extensions = {
+            ImageFormat.TGA: ".tga",
+            ImageFormat.DXT1: ".dds",
+            ImageFormat.DXT3: ".dds",
+            ImageFormat.DXT5: ".dds"
+        }
+        return _extensions[self.value]
 
     @property
     def fourCC(self) -> str:
-        return self._fourCC[self.value]
+        _fourCC = {
+            ImageFormat.DXT1: "DXT1",
+            ImageFormat.DXT3: "DXT3",
+            ImageFormat.DXT5: "DXT5"
+        }
+        return _fourCC[self.value]
 
     @property
     def is_dxt(self) -> bool:
-        return self.value in self._dds
+        _dds = [ImageFormat.DXT1, ImageFormat.DXT3, ImageFormat.DXT5]
+        return self.value in _dds
 
     @property
     def is_tga(self) -> bool:
-        return self.value in self._tga
+        _tga = [ImageFormat.TGA]
+        return self.value in _tga

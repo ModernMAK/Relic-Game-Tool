@@ -13,7 +13,7 @@ class WhmChunky(AbstractRelicChunky):
     fbif: Optional[FbifChunk] = None
 
     @classmethod
-    def create(cls, chunky: RelicChunky) -> 'WhmChunky':
+    def convert(cls, chunky: RelicChunky) -> 'WhmChunky':
         rsgm = RsgmChunk.convert(chunky.get_chunk(id="RSGM", recursive=False))
         fbif = FbifChunk.convert(chunky.get_chunk(id="FBIF", recursive=False))
         # sshr = [SshrChunk.convert(c) for c in chunky.get_chunks(id='SSHR')]

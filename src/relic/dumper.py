@@ -385,5 +385,11 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 
 if __name__ == "__main__":
-    quick_dump(r"D:\Dumps\DOW_III\full_dump", texture_root=r"D:\Dumps\DOW_III\full_dump", texture_ext=".png",
-               force_valid=True, include_meta=False, series=DowIIIGame)
+    path_lookup = {
+        DowIIIGame:r"D:\Dumps\DOW_III\full_dump",
+        DowIIGame:r"D:\Dumps\DOW_II\full_dump",
+        DowGame:r"D:\Dumps\DOW_I\full_dump"
+    }
+    game = DowGame
+    path = path_lookup[game]
+    quick_dump(path, texture_root=path, texture_ext=".png", force_valid=True, include_meta=False, series=game)
