@@ -1,6 +1,6 @@
 from io import BytesIO
 from relic.sga import Archive, writer, File, Folder
-from write_samples import build_sample_dow1_archive, build_sample_dow3_archive, build_sample_dow2_archive
+from write_sga_samples import build_sample_dow1_archive, build_sample_dow3_archive, build_sample_dow2_archive
 
 
 def assert_archives(left: Archive, right: Archive):
@@ -51,14 +51,15 @@ def run_test(archive: Archive):
         assert_archives(archive, gen_archive)
 
 
-
 def test_archive_DowI():
     archive = build_sample_dow1_archive()
     run_test(archive)
 
+
 def test_archive_Dow2():
     archive = build_sample_dow2_archive()
     run_test(archive)
+
 
 def test_archive_Dow3():
     archive = build_sample_dow3_archive()

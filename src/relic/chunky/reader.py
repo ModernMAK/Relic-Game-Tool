@@ -21,3 +21,10 @@ def read_all_chunks(stream: BinaryIO, chunky_version: Version) -> List[AbstractC
             raise Exception("Header isn't folder or data! This should have been caught earlier!")
         chunks.append(c)
     return chunks
+
+
+def write_all_chunks(stream: BinaryIO, chunks: List[AbstractChunk], chunky_version: Version) -> int:
+    written = 0
+    for chunk in chunks:
+        written += chunk.pack(stream, chunky_version)
+    return written

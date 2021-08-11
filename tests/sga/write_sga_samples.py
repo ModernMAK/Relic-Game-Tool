@@ -6,7 +6,7 @@ from relic.sga import Archive, ArchiveInfo, VirtualDrive, File, FileHeader, Fold
 from relic.sga.file import FileCompressionFlag
 from relic.sga.shared import SgaVersion
 import zlib
-from helpers import get_testdata_root_folder
+from tests.helpers import get_testdata_root_folder, lorem_ipsum
 from relic.sga.writer import write_archive
 
 
@@ -32,13 +32,7 @@ def build_sample_dow1_archive():
     header = ArchiveHeader(SgaVersion.Dow.value, "DowI Test Data", bytes([0x00] * 16), bytes([0x00] * 16))
 
     info = ArchiveInfo(header, None, None)
-    raw_content = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." \
-                  " Malesuada fames ac turpis egestas. Accumsan lacus vel facilisis volutpat est velit." \
-                  " Turpis egestas pretium aenean pharetra magna ac placerat vestibulum lectus. Tellus cras adipiscing enim eu turpis egestas." \
-                  " Pellentesque adipiscing commodo elit at imperdiet dui accumsan sit. Massa enim nec dui nunc mattis." \
-                  " Gravida in fermentum et sollicitudin ac orci phasellus egestas." \
-                  " Eu volutpat odio facilisis mauris sit amet massa vitae. Diam quis enim lobortis scelerisque fermentum dui faucibus.".encode(
-        "ascii")
+    raw_content = lorem_ipsum.encode("ascii")
     comp_16_content = compress16(raw_content)
     comp_32_content = compress32(raw_content)
 
@@ -59,13 +53,7 @@ def build_sample_dow2_archive():
     header = ArchiveHeader(SgaVersion.Dow2.value, "DowII Test Data", bytes([0x00] * 16), bytes([0x00] * 16))
 
     info = ArchiveInfo(header, None, None)
-    raw_content = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." \
-                  " Malesuada fames ac turpis egestas. Accumsan lacus vel facilisis volutpat est velit." \
-                  " Turpis egestas pretium aenean pharetra magna ac placerat vestibulum lectus. Tellus cras adipiscing enim eu turpis egestas." \
-                  " Pellentesque adipiscing commodo elit at imperdiet dui accumsan sit. Massa enim nec dui nunc mattis." \
-                  " Gravida in fermentum et sollicitudin ac orci phasellus egestas." \
-                  " Eu volutpat odio facilisis mauris sit amet massa vitae. Diam quis enim lobortis scelerisque fermentum dui faucibus.".encode(
-        "ascii")
+    raw_content = lorem_ipsum.encode("ascii")
     comp_16_content = compress16(raw_content)
     comp_32_content = compress32(raw_content)
 
@@ -85,13 +73,7 @@ def build_sample_dow3_archive():
     header = ArchiveHeader(SgaVersion.Dow3.value, "DowIII Test Data")
 
     info = ArchiveInfo(header, None, None)
-    raw_content = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." \
-                  " Malesuada fames ac turpis egestas. Accumsan lacus vel facilisis volutpat est velit." \
-                  " Turpis egestas pretium aenean pharetra magna ac placerat vestibulum lectus. Tellus cras adipiscing enim eu turpis egestas." \
-                  " Pellentesque adipiscing commodo elit at imperdiet dui accumsan sit. Massa enim nec dui nunc mattis." \
-                  " Gravida in fermentum et sollicitudin ac orci phasellus egestas." \
-                  " Eu volutpat odio facilisis mauris sit amet massa vitae. Diam quis enim lobortis scelerisque fermentum dui faucibus.".encode(
-        "ascii")
+    raw_content = lorem_ipsum.encode("ascii")
     comp_16_content = compress16(raw_content)
     comp_32_content = compress32(raw_content)
 

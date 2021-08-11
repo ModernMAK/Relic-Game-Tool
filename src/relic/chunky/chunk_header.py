@@ -5,6 +5,7 @@ from typing import BinaryIO, Optional, List
 
 from relic.chunky.version import ChunkyVersion
 from relic.shared import unpack_from_stream, Version
+from relic.util.struct_util import pack_into_stream
 
 _data_chunk_magic_word = "DATA"
 _folder_chunk_magic_word = "FOLD"
@@ -30,6 +31,13 @@ class ChunkHeader:
     name: str
     unk_v3_1: Optional[List[int]] = None
 
+    def equal(self, other: 'ChunkHeader', chunky_version: Version):
+        if chunky_version == ChunkyVersion.v3_1:
+            for i in range(len(self.unk_v3_1)):
+                if self.unk_v3_1[i] != other.unk_v3_1[i]:
+                    return False
+        return self.type == other.type and self.id == other.id and self.version == other.version and self.size == other.size and self.name == other.name
+
     @classmethod
     def unpack(cls, stream: BinaryIO, chunky_version: Version) -> 'ChunkHeader':
         args = unpack_from_stream(_chunk_header_layout, stream)
@@ -54,3 +62,16 @@ class ChunkHeader:
 
         header = ChunkHeader(type, id, version, size, name, unks_v3)
         return header
+
+    def pack(self, stream: BinaryIO, chunky_version: Version) -> int:
+        args = self.type.value.encode("ascii"), self.id.encode("ascii"), self.version, self.size, len(self.name)
+        written = pack_into_stream(_chunk_header_layout, stream, *args)
+        written += stream.write(self.name.encode("ascii"))
+        if chunky_version == ChunkyVersion.v3_1:
+            written += pack_into_stream(_v3_1_unks, stream, self.unk_v3_1)
+        return written
+
+    def copy(self) -> 'ChunkHeader':
+        """Provided as a safe method of modifying Chunk Headers for packing."""
+        unks_v3_1_copy = [v for v in self.unk_v3_1] if self.unk_v3_1 else None
+        return ChunkHeader(self.type, self.id, self.version, self.size, self.name, unks_v3_1_copy)
