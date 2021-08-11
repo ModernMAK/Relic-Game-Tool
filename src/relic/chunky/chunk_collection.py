@@ -7,14 +7,14 @@ from relic.chunky.abstract_chunk import AbstractChunk
 from relic.chunky.chunk_header import ChunkType
 
 # Path / Folders / Data
-ChunkWalkResult = Tuple[str, List['ChunkCollection'], List[AbstractChunk]]
+ChunkWalkResult = Tuple[str, List['Folder'], List['File']]
 
 
 def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool = True, unique: bool = True) -> Iterable[
     ChunkWalkResult]:
     path = path or ""
-    folders: List[ChunkCollection] = []
-    data: List[AbstractChunk] = []
+    folders: List['FolderChunk'] = []
+    data: List['DataChunk'] = []
     for chunk in chunks:
         if chunk.header.type == ChunkType.Data:
             data.append(chunk)

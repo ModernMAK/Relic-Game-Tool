@@ -16,5 +16,14 @@ class RelicChunky(AbstractRelicChunky):
         if read_magic:
             RelicChunkyMagic.assert_magic_word(stream)
         header = RelicChunkyHeader.unpack(stream)
-        chunks = read_all_chunks(stream,header.version)
+        chunks = read_all_chunks(stream, header.version)
         return RelicChunky(chunks, header)
+
+    def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
+        from relic.chunky.reader import write_all_chunks
+        written = 0
+        if write_magic:
+            written += RelicChunkyMagic.write_magic_word(stream)
+        written += self.header.pack(stream)
+        written += write_all_chunks(stream, self.chunks, self.header.version)
+        return written

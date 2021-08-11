@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from os.path import join
 from typing import List, BinaryIO
+
 from relic.sga.archive_header import ArchiveInfo
 from relic.sga.file import File, FileHeader
-from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
+from relic.sga.file_collection import ArchiveWalkResult
 from relic.sga.folder import Folder, FolderHeader
 from relic.sga.virtual_drive import VirtualDriveHeader, VirtualDrive
 

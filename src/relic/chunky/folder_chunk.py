@@ -19,3 +19,19 @@ class FolderChunk(AbstractChunk, ChunkCollection):
         with BytesIO(data) as window:
             chunks = read_all_chunks(window, chunky_version)
         return FolderChunk(chunks, header)
+
+    def pack(self, stream: BinaryIO, chunky_version: Version) -> int:
+        from relic.chunky.reader import write_all_chunks
+        start = stream.tell()  # We need to do a write-back
+        header = self.header.copy()
+
+        header.pack(stream, chunky_version)
+        header.size = write_all_chunks(stream, self.chunks, chunky_version)
+
+        end = stream.tell()
+
+        stream.seek(start)  # Write-back
+        header.pack(stream, chunky_version)
+
+        stream.seek(end)
+        return end - start

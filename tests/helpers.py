@@ -24,3 +24,10 @@ def get_testdata_path(relative_path: str):
     if relative_path[0] in ["\\", "/"]:
         relative_path = relative_path[1:]
     return join(get_testdata_root_folder(), relative_path)
+
+lorem_ipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." \
+                  " Malesuada fames ac turpis egestas. Accumsan lacus vel facilisis volutpat est velit." \
+                  " Turpis egestas pretium aenean pharetra magna ac placerat vestibulum lectus. Tellus cras adipiscing enim eu turpis egestas." \
+                  " Pellentesque adipiscing commodo elit at imperdiet dui accumsan sit. Massa enim nec dui nunc mattis." \
+                  " Gravida in fermentum et sollicitudin ac orci phasellus egestas." \
+                  " Eu volutpat odio facilisis mauris sit amet massa vitae. Diam quis enim lobortis scelerisque fermentum dui faucibus."
