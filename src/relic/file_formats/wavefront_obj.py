@@ -8,13 +8,23 @@ class ObjWriter:
         self._stream = stream
 
     def __write_index(self, code: str, *indexes: int, offset: int = 0, zero_based: bool = False,
-                      flip_winding: bool = False):
+                      flip_winding: bool = False, normal=True, uv=True):
         if flip_winding:
             j = len(indexes)
             indexes = [indexes[j - i - 1] for i in range(j)]
         indexes = [i + offset + (1 if zero_based else 0) for i in indexes]
-        part = "%i/%i/%i"
-        parts = [part % (i, i, i) for i in indexes]
+
+        repeat = 1 + (1 if normal else 0) + (1 if uv else 0)
+        if normal and uv:
+            part = "{}/{}/{}"
+        elif normal:
+            part = "{}/{}"
+        elif uv:
+            part = "{}//{}"
+        else:
+            part = "{}"
+
+        parts = [part.format(*[i for _ in range(repeat)]) for i in indexes]
         line = code + " " + " ".join(parts) + "\n"
         return self._stream.write(line)
 
@@ -40,14 +50,18 @@ class ObjWriter:
         return self._stream.write(line)
 
     # Index Info
-    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding: bool = False):
-        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based, flip_winding=flip_winding)
+    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding: bool = False,
+                         normal: bool = True, uv: bool = True):
+        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based, flip_winding=flip_winding,
+                                  normal=normal, uv=uv)
 
-    def write_index_line(self, *indexes: int, offset: int = 0, zero_based: bool = False):
-        return self.__write_index("l", *indexes, offset=offset, zero_based=zero_based)
+    def write_index_line(self, *indexes: int, offset: int = 0, zero_based: bool = False, normal: bool = True,
+                         uv: bool = True):
+        return self.__write_index("l", *indexes, offset=offset, zero_based=zero_based, normal=normal, uv=uv)
 
-    def write_index_point(self, *indexes: int, offset: int = 0, zero_based: bool = False):
-        return self.__write_index("p", *indexes, offset=offset, zero_based=zero_based)
+    def write_index_point(self, *indexes: int, offset: int = 0, zero_based: bool = False, normal: bool = True,
+                          uv: bool = True):
+        return self.__write_index("p", *indexes, offset=offset, zero_based=zero_based, normal=normal, uv=uv)
 
     # Structure Info
     def write_group_name(self, name: str):
@@ -197,7 +211,7 @@ class MtlWriter:
 
     # Helper to write defaults
     # Can be appended with textures later
-    def write_default_texture(self, name: str, transparent:bool=False) -> int:
+    def write_default_texture(self, name: str, transparent: bool = False) -> int:
         written = 0
         WHITE = (1, 1, 1)
         BLACK = (0, 0, 0)

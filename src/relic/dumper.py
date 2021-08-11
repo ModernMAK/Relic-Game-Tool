@@ -13,7 +13,7 @@ from relic.chunk_formats.Dow.whm.skel_chunk import Skeleton
 from relic.chunk_formats.Dow.whm.writer import write_mtllib_to_obj, write_msgr_to_obj, write_msgr_to_mtl, \
     InvalidMeshBufferError
 from relic.chunk_formats.Dow.wtp import create_mask_image, WtpChunky
-from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic
+from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic, FolderChunk
 from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame, DowIIIGame
 
 from relic.sga import Archive, File
@@ -222,8 +222,20 @@ def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True,
             json_text = json.dumps(chunky.header, indent=4, cls=EnhancedJSONEncoder)
             meta.write(json_text)
 
-    for sub_root, _, chunks in chunky.walk_chunks():
+    for sub_root, folders, chunks in chunky.walk_chunks():
         full_root = join(output_path, sub_root)
+        if include_meta:
+            for i, folder in enumerate(folders):
+                folder: FolderChunk
+
+                full_path = join(full_root, f"{folder.header.id}-{i+1}")
+                try:
+                    makedirs(dirname(full_path))
+                except FileExistsError:
+                    pass
+                with open(full_path + ".meta", "w") as handle:
+                    json_text = json.dumps(folder.header, indent=4, cls=EnhancedJSONEncoder)
+                    handle.write(json_text)
 
         for i, chunk in enumerate(chunks):
             chunk: DataChunk

@@ -2,7 +2,7 @@ from enum import Enum
 from os.path import split, splitext, join
 from typing import TextIO, Iterable, List, Tuple
 
-from relic.chunk_formats.Dow2.model.model_chunky import MtrlChunk, ModelChunky
+from relic.chunk_formats.Dow3.rgm.rgm_chunky import MtrlChunk, RgmChunky
 from relic.chunk_formats.Shared.mesh_chunk import TrimDataChunk
 from relic.chunk_formats.Shared.mtrl_chunk import VarChunk, MaterialVarType
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
@@ -29,16 +29,21 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
 
     stream.write("\n# Object\n")
     # I couldn't find a good name for the sub-parts, so i make do with the material name (stripping the excess relic.blah.blah)
-    _, name = name or chunk.material_name.rsplit(".", maxsplit=1)
+    name = name or chunk.material_name
     # if name:
     writer.write_object_name(name)
 
-    stream.write("\t# Vertexes\n")
+    stream.write(f"\t# Vertexes ({len(chunk.vertexes)})\n")
     for v in chunk.vertexes:
         stream.write("\t")
         writer.write_vertex_position(*v.position)
-        stream.write("\t")
-        writer.write_vertex_normal(*v.normal)
+        if v.normal:
+            stream.write("\t")
+            writer.write_vertex_normal(*v.normal)
+        else:
+            stream.write("\t")
+            writer.write_vertex_normal(0, 0, 0)
+
         stream.write("\t")
         writer.write_vertex_uv(*v.uv)
         stream.write("\n")
@@ -46,13 +51,14 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     stream.write("# Material\n")
     writer.write_use_material(chunk.material_name)
 
-    stream.write("\t# Indexes\n")
+    # has_normals = chunk.vertexes[0].normal is not None
+    stream.write(f"\t# Indexes ({int(len(chunk.indexes) // 3)})\n")
     for index in range(int(len(chunk.indexes) // 3)):
         stream.write("\t")
         tri = chunk.indexes[3 * index], chunk.indexes[3 * index + 1], chunk.indexes[3 * index + 2]
-        writer.write_index_face(*tri, offset=v_offset, zero_based=True)
+        writer.write_index_face(*tri, offset=v_offset, zero_based=True)#, normal=has_normals)
 
-    return v_offset + len(chunk.vertexes)
+    return len(chunk.vertexes)
 
 
 def write_mtllib_to_obj(stream: TextIO, mtl_path: str):
@@ -60,25 +66,36 @@ def write_mtllib_to_obj(stream: TextIO, mtl_path: str):
     matlib_writer.write_material_library(mtl_path)
 
 
-def write_model_to_obj(stream: TextIO, chunk: ModelChunky) -> int:
+def write_rgm_to_obj(stream: TextIO, chunk: RgmChunky) -> int:
     v_offset = 0
-    for i, mesh in enumerate(chunk.modl.mesh.mgrp.mesh.imdg.mesh.imod.meshs):
+    for i, mesh in enumerate(chunk.modl.mesh.mgrp.meshes):
         v_offset += write_trim_data_to_obj(stream, mesh.trim.data, v_offset=v_offset)
 
     return v_offset
 
 
+def write_rgm_mesh_to_obj(stream: TextIO, chunk: RgmChunky, index: int, offset: int = 0) -> int:
+    mesh = chunk.modl.mesh.mgrp.meshes[index]
+    # for i, mesh in enumerate(chunk.modl.mesh.mgrp.meshes):
+    return write_trim_data_to_obj(stream, mesh.trim.data, v_offset=offset)
+
+
+# This is different from DOW II
+#   Dow II knew what capitilisation was, Dow III does not
+#       (these are all lower case, DowII used Pascal Case)
 class TextureType(Enum):
-    Team = "teamTex"
-    Dirt = "dirtTex"
-    BadgeSecondary = "badge2Tex"
-    BadgePrimary = "badge1Tex"
-    Normal = "normalMap"
-    Diffuse = "diffuseTex"
-    Emissive = "emissiveTex"
-    Specular = "specularTex"
-    Occlusion = "occlusionTex"
-    Gloss = "glossTex"
+    Alpha = "alphatex"
+    # Team = "teamTex"
+    # Dirt = "dirtTex"
+    # BadgeSecondary = "badge2Tex"
+    # BadgePrimary = "badge1Tex"
+    Normal = "normalmap"
+    Diffuse = "diffusetex"
+    # Emissive = "emissiveTex"
+    Specular = "speculartex"
+    # Occlusion = "occlusionTex"
+    Gloss = "glosstex"
+    Pattern = "patterntex"
 
     # Prob shouldn't do this; not as obvious as the Version Enum's
     #   This performs a VALUE comparison against the enum
@@ -92,7 +109,7 @@ class TextureType(Enum):
         return not self == other
 
 
-def fetch_textures_from_dow2_unit(chunks: List[VarChunk]) -> Iterable[Tuple[TextureType, str]]:
+def fetch_textures_from_dow3_unit(chunks: List[VarChunk]) -> Iterable[Tuple[TextureType, str]]:
     for chunk in chunks:
         if chunk.var_type != MaterialVarType.Texture:
             continue
@@ -102,11 +119,11 @@ def fetch_textures_from_dow2_unit(chunks: List[VarChunk]) -> Iterable[Tuple[Text
 
 
 class SupportedShaders(Enum):
-    Dow2_Unit = "dow2_unit"
+    Dow3_Unit_Final = "dow3_unit_final"
 
     # This is somehow different from the other? Maybe UV Offset actually matters for this one?
     #   Cherry on top; this seems to only be used by classes using
-    Dow2_Unit_2Uv = "dow2_unit_2uv"
+    # Dow2_Unit_2Uv = "dow2_unit_2uv"
 
     # Prob shouldn't do this; not as obvious as the Version Enum's
     #   This performs a VALUE comparison against the enum
@@ -121,8 +138,8 @@ class SupportedShaders(Enum):
 
 
 def fetch_textures_from_mtrl(chunk: MtrlChunk) -> Iterable[Tuple[TextureType, str]]:
-    if chunk.info.shader_name in [SupportedShaders.Dow2_Unit, SupportedShaders.Dow2_Unit_2Uv]:
-        return fetch_textures_from_dow2_unit(chunk.vars)
+    if chunk.info.shader_name in [SupportedShaders.Dow3_Unit_Final]:  # , SupportedShaders.Dow2_Unit_2Uv]:
+        return fetch_textures_from_dow3_unit(chunk.vars)
     else:
         raise NotImplementedError(chunk.info.shader_name)
 
@@ -140,46 +157,49 @@ def write_mtrl_to_mtl(stream: TextIO, chunk: MtrlChunk, texture_root: str = None
             d, b = split(full_texture)
             full_texture = join(d, b.replace(" ", "_"))
         # Unsupported
-        if tex_type == TextureType.Team:
-            mtl_writer.write_unsupported_texture(full_texture, "Team")
-        elif tex_type == TextureType.Dirt:
-            mtl_writer.write_unsupported_texture(full_texture, "Dirt")
-        elif tex_type == TextureType.BadgePrimary:
-            mtl_writer.write_unsupported_texture(full_texture, "Badge 1")
-        elif tex_type == TextureType.BadgeSecondary:
-            mtl_writer.write_unsupported_texture(full_texture, "Badge 2")
-        elif tex_type == TextureType.Emissive:
-            mtl_writer.write_texture_emissive(full_texture)
-        elif tex_type == TextureType.Occlusion:
-            mtl_writer.write_unsupported_texture(full_texture, "Occlusion")
-        elif tex_type == TextureType.Gloss:
+        # if tex_type == TextureType.Team:
+        #     mtl_writer.write_unsupported_texture(full_texture, "Team")
+        # elif tex_type == TextureType.Dirt:
+        #     mtl_writer.write_unsupported_texture(full_texture, "Dirt")
+        # elif tex_type == TextureType.BadgePrimary:
+        #     mtl_writer.write_unsupported_texture(full_texture, "Badge 1")
+        # elif tex_type == TextureType.BadgeSecondary:
+        #     mtl_writer.write_unsupported_texture(full_texture, "Badge 2")
+        # elif tex_type == TextureType.Emissive:
+        #     mtl_writer.write_texture_emissive(full_texture)
+        # elif tex_type == TextureType.Occlusion:
+        #     mtl_writer.write_unsupported_texture(full_texture, "Occlusion")
+        if tex_type == TextureType.Gloss:
             mtl_writer.write_unsupported_texture(full_texture, "Gloss")
+        elif tex_type == TextureType.Pattern:
+            mtl_writer.write_unsupported_texture(full_texture, "Pattern")
         # Supported
+        elif tex_type == TextureType.Alpha:
+            mtl_writer.write_texture_alpha(full_texture)
         elif tex_type == TextureType.Diffuse:
             mtl_writer.write_texture_diffuse(full_texture)
-            mtl_writer.write_texture_alpha(full_texture)
         elif tex_type == TextureType.Normal:
             mtl_writer.write_texture_normal(full_texture)
         elif tex_type == TextureType.Specular:
             mtl_writer.write_texture_specular(full_texture)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(tex_type)
     return stream.tell() - start
 
 
-def write_model_to_mtl(stream: TextIO, chunk: ModelChunky, texture_root: str, texture_ext: str) -> int:
+def write_rgm_to_mtl(stream: TextIO, chunk: RgmChunky, texture_root: str, texture_ext: str) -> int:
     written = 0
     for mtrl in chunk.modl.mtrls:
         written += write_mtrl_to_mtl(stream, mtrl, texture_root, texture_ext)
     return written
 
 
-def dump_model_as_obj(chunk: ModelChunky, mtl_path: str, obj_stream: TextIO, mtl_stream: TextIO, texture_root: str,
-                      texture_ext: str):
+def dump_rgm_as_obj(chunk: RgmChunky, mtl_path: str, obj_stream: TextIO, mtl_stream: TextIO, texture_root: str,
+                    texture_ext: str):
     write_mtllib_to_obj(obj_stream, mtl_path)
-    write_model_to_obj(obj_stream, chunk)
+    write_rgm_to_obj(obj_stream, chunk)
 
-    write_model_to_mtl(mtl_stream, chunk, texture_root, texture_ext)
+    write_rgm_to_mtl(mtl_stream, chunk, texture_root, texture_ext)
 
 # def write_obj_mtl(dest: str, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None):
 #     with open(dest, "w") as obj_handle:
