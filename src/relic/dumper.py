@@ -91,14 +91,14 @@ def unpack_stream(stream: BinaryIO, chunk_format: ChunkyFormat) -> AbstractRelic
 
 def create(chunky: RelicChunky, chunk_format: ChunkyFormat) -> AbstractRelicChunky:
     if chunk_format == ChunkyFormat.RTX:
-        return RtxChunky.convert(chunky)
+        return RtxChunky.create(chunky)
     elif chunk_format == ChunkyFormat.FDA:
         return FdaChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.RSH:
-        return RshChunky.convert(chunky)
+        return RshChunky.create(chunky)
     elif chunk_format == ChunkyFormat.WHM:
         try:
-            return WhmChunky.convert(chunky)
+            return WhmChunky.create(chunky)
         except (UnimplementedMslcBlockFormat, UnicodeDecodeError, struct.error) as e:
             return chunky
     elif chunk_format == ChunkyFormat.WTP:

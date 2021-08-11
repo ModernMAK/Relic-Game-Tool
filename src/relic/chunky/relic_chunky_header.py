@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from struct import Struct
-from typing import BinaryIO, Optional
+from typing import BinaryIO, Optional, List
 
 from relic.chunky.version import ChunkyVersion
 from relic.shared import Version
-from relic.util.struct_util import unpack_from_stream
+from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 RELIC_CHUNKY_HEADER_LAYOUT = Struct("< 4s L L")
 
@@ -15,7 +15,7 @@ V3_1_LAYOUT = Struct("< L L L")
 class RelicChunkyHeader:
     type_br: str
     version: Version
-    three_point_one_args: Optional[int] = None
+    three_point_one_args: Optional[List[int]] = None
 
     @classmethod
     def unpack(cls, stream: BinaryIO):
@@ -35,7 +35,39 @@ class RelicChunkyHeader:
 
         return RelicChunkyHeader(type_br, version, v3_args)
 
+    def pack(self, stream: BinaryIO) -> int:
+        written = 0
+        args = self.type_br.encode("ascii"), self.version.major, self.version.minor
+        written += pack_into_stream(RELIC_CHUNKY_HEADER_LAYOUT, stream, *args)
+        if self.version == ChunkyVersion.v3_1:
+            v3_args = self.three_point_one_args
+            written += pack_into_stream(V3_1_LAYOUT, stream, *v3_args)
+        return written
+
     @classmethod
     def default(cls, version: Version = None) -> 'RelicChunkyHeader':
         version = version or Version(1, 1)
         return RelicChunkyHeader("\r\n\x1a\0", version)
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        elif other is None:
+            return False
+        elif isinstance(other, RelicChunkyHeader):
+            if self.version != other.version:
+                return False
+            if self.version == ChunkyVersion.v3_1:
+                for l, r in zip(self.three_point_one_args, other.three_point_one_args):
+                    if l != r:
+                        return False
+            return self.type_br == other.type_br
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def copy(self) -> 'RelicChunkyHeader':
+        v3_1_args = [v for v in self.three_point_one_args] if self.three_point_one_args else None
+        return RelicChunkyHeader(self.type_br, self.version, v3_1_args)
