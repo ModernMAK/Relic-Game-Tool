@@ -17,9 +17,9 @@ def wait():
 # parser = argparse.ArgumentParser("Convert's a Relic Chunky to a collection of files.")
 
 if __name__ == "__main__":
-    path = r"D:\Dumps\DOW_III\full_dump\art\armies\astra_militarum\troops\cadian\armour\varlock_guard_damage_common\varlock_guard_damage_common.rgm"
+    # path = r"D:\Dumps\DOW_III\full_dump\art\armies\astra_militarum\troops\cadian\armour\varlock_guard_damage_common\varlock_guard_damage_common.rgm"
     # sys.argv = ["", r"D:\Dumps\DOW_II\full_dump\art\race_ig\troops_wargear\armour\cadian_armour_camo_1\cadian_armour_camo_1.model"]
-    sys.argv = ["", path]
+    # sys.argv = ["", path]
     # Potentially Drag-N-Drop
     if len(sys.argv) == 2:
         try:
