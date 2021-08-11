@@ -13,8 +13,8 @@ ChunkWalkResult = Tuple[str, List['Folder'], List['File']]
 def walk_chunks(chunks: List[AbstractChunk], path: str = None, recursive: bool = True, unique: bool = True) -> Iterable[
     ChunkWalkResult]:
     path = path or ""
-    folders: List['Folder'] = []
-    data: List['File'] = []
+    folders: List['FolderChunk'] = []
+    data: List['DataChunk'] = []
     for chunk in chunks:
         if chunk.header.type == ChunkType.Data:
             data.append(chunk)
