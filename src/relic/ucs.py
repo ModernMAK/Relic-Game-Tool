@@ -3,8 +3,7 @@ import re
 from os.path import join, splitext, split
 from typing import TextIO, Dict, Optional, Iterable
 
-from relic.shared import filter_walk_by_extension, collapse_walk_on_files, \
-    filter_path_by_keyword
+from relic.shared import filter_walk_by_extension, collapse_walk_on_files, filter_path_by_keyword
 
 
 def read_ucs_file(input_filename: str) -> Dict[int, str]:
@@ -14,21 +13,33 @@ def read_ucs_file(input_filename: str) -> Dict[int, str]:
 
 def read_ucs(stream: TextIO) -> Dict[int, str]:
     lookup = {}
+    prev_num: int = None
     for line in stream.readlines():
         safe_line = line.lstrip()
         parts = safe_line.split(maxsplit=1)
+
         if len(parts) == 0:
             continue
+        assert len(parts) <= 2
 
         num_str = parts[0]
-        line_str = parts[1] if len(parts) >= 2 else "No Localisation"
+        line_str = parts[1] if len(parts) >= 2 else None
+
+        if line_str:
+            line_str = line_str.rstrip("\n")
 
         try:
             num = int(num_str)
         except ValueError:
-            continue
-        line_str = line_str.rstrip("\n")
+            num = prev_num
+            prev_str = lookup[num]
+            if prev_str is not None and line_str is not None:
+                line_str = lookup[num] + line_str
+            else:  # at least one is None, try to use null coalescence to get a non-None
+                line_str = prev_str or line_str
+
         lookup[num] = line_str
+        prev_num = num
     return lookup
 
 
@@ -37,12 +48,10 @@ def lang_code_to_name(lang_code: str) -> Optional[str]:
     lang_code = lang_code.lower()
     lookup = {
         "en": "English",
-        # I could do what I did for EG and change language for get the Locale folders for each; but I wont.
+        # I could do what I did for EG and change language for get the Locale folders for each; but I won't.
         #   If somebody ever uses this; add it here
     }
     return lookup.get(lang_code)
-
-
 
 
 def walk_ucs(folder: str, lang_code: str = None) -> Iterable[str]:
@@ -57,8 +66,8 @@ def walk_ucs(folder: str, lang_code: str = None) -> Iterable[str]:
     if lang_code:
         lang_name = lang_code_to_name(lang_code)
         if lang_name:
-            walk = (file for file in walk if filter_path_by_keyword(file, whitelist=["Locale"])) # Only files that have Locale
-            walk = (file for file in walk if filter_path_by_keyword(file, whitelist=[lang_name])) # From there, only files of the given language
+            walk = (file for file in walk if filter_path_by_keyword(file, whitelist=["Locale"]))  # Only files that have Locale
+            walk = (file for file in walk if filter_path_by_keyword(file, whitelist=[lang_name]))  # From there, only files of the given language
 
     return walk
 
@@ -76,6 +85,7 @@ def build_locale_environment(folder: str, lang_code: str = "en") -> Dict[int, st
 
 __safe_regex = re.compile(r"[^A-Za-z0-9_\- .]")
 _default_replacement = ""
+
 
 def _file_safe_string(word: str, replace: str = None) -> str:
     replace = replace or _default_replacement
@@ -105,7 +115,7 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
     #   By trimming it to at most
     MAX_LEN = 64
     MAX_TRIM = 8
-    chars = ".!?"#;:," # ORDERED SPECIFICALLY FOR THIS
+    chars = ".!?"  # ;:," # ORDERED SPECIFICALLY FOR THIS
     for c in chars:
         if len(replacement) > MAX_LEN:
             replacement = replacement.split(c, 1)[0] + c
@@ -114,8 +124,8 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
     # Some brute forcing
     if len(replacement) > MAX_LEN:
         for i in range(MAX_TRIM):
-            if replacement[MAX_LEN-i-1] == " ":
-                replacement = replacement[:MAX_LEN-i] + "..."
+            if replacement[MAX_LEN - i - 1] == " ":
+                replacement = replacement[:MAX_LEN - i] + "..."
     if len(replacement) > MAX_LEN:
         replacement = replacement[:MAX_LEN] + "..."
 
