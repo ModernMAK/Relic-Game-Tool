@@ -9,8 +9,9 @@ from relic.shared import get_stream_size, Version
 
 def read_all_chunks(stream: BinaryIO, chunky_version: Version) -> List[AbstractChunk]:
     chunks: List[AbstractChunk] = []
-    terminal = get_stream_size(stream)
 
+
+    terminal = get_stream_size(stream)
     while stream.tell() < terminal:
         header = ChunkHeader.unpack(stream, chunky_version)
         if header.type == ChunkType.Folder:

@@ -7,6 +7,7 @@ from os.path import splitext, join
 from typing import Tuple, List, BinaryIO, Iterable, Optional, Union, Callable
 from archive_tools.structx import Struct
 
+
 class VersionEnum(Enum):
 
     def __eq__(self, other):
@@ -68,6 +69,9 @@ class Version:
     def pack_64(self, stream: BinaryIO) -> int:
         args = self.minor, self.minor
         return self.__64.pack_stream(stream, *args)
+
+
+VersionLike = Union[Version, VersionEnum]
 
 
 class MagicUtil:

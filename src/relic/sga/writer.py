@@ -69,7 +69,7 @@ def write_names(stream: BinaryIO, archive: Archive) -> Tuple[int, int, int, Dict
         encoded = terminated_name.encode("ascii")
         return stream.write(encoded)
 
-    # This will not re-use repeated names; we could change it but I wont since my brain is overoptimizing this
+    # This will not re-use repeated names; we could change it, but I won't since my brain is over-optimizing this
     #   By allowing names to repeat, we avoid perform hash checks in a dictionary (or equality comparisons in a list)
     for drive in archive.drives:
         for _, folders, files in drive.walk():
@@ -301,7 +301,7 @@ def write_archive(stream: BinaryIO, archive: Archive, auto_compress: bool = True
             subheader = ArchiveSubHeader(toc_size, data_offset, toc_offset, None, None, None, 0, 0, 1,
                                          bytes([0x00] * 256), data_size)
         else:
-            raise NotImplementedError(version)  # Incase i add to the list in the above if and forget to add it here
+            raise NotImplementedError(version)  # In case I add to the list in the above if and forget to add it here
 
     end = stream.tell()
     stream.seek(subheader_offset)

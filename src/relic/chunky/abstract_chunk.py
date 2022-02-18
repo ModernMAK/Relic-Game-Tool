@@ -10,8 +10,11 @@ class AbstractChunk:
     """A base class for all chunks."""
     header: ChunkHeader
 
+
+@dataclass
+class UnpackableChunk(AbstractChunk):
     @classmethod
-    def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'AbstractChunk':
+    def unpack(cls, stream: BinaryIO, header: ChunkHeader) -> 'UnpackableChunk':
         """Unpacks the chunk from the stream, using the chunk header provided."""
         raise NotImplementedError
 

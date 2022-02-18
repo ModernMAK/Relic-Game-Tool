@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from io import BytesIO
-from math import sqrt
 from struct import Struct
 from typing import List, Tuple, Optional
 

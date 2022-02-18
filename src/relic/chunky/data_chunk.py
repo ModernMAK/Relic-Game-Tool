@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import BinaryIO
 
-from relic.chunky.abstract_chunk import AbstractChunk
+from relic.chunky.abstract_chunk import UnpackableChunk
 from relic.chunky.chunk_header import ChunkHeader
 from relic.shared import Version
 
 
 @dataclass
-class DataChunk(AbstractChunk):
+class DataChunk(UnpackableChunk):
     data: bytes
 
     @classmethod

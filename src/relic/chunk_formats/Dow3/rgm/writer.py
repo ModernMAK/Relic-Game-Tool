@@ -28,7 +28,7 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     writer = ObjWriter(stream)
 
     stream.write("\n# Object\n")
-    # I couldn't find a good name for the sub-parts, so i make do with the material name (stripping the excess relic.blah.blah)
+    # I couldn't find a good name for the sub-parts, so I make do with the material name (stripping the excess relic.blah.blah)
     name = name or chunk.material_name
     # if name:
     writer.write_object_name(name)
@@ -80,8 +80,8 @@ def write_rgm_mesh_to_obj(stream: TextIO, chunk: RgmChunky, index: int, offset: 
     return write_trim_data_to_obj(stream, mesh.trim.data, v_offset=offset)
 
 
-# This is different from DOW II
-#   Dow II knew what capitilisation was, Dow III does not
+# This is different from DOW II;
+#   Dow II knew what capitalisation was, Dow III does not
 #       (these are all lower case, DowII used Pascal Case)
 class TextureType(Enum):
     Alpha = "alphatex"

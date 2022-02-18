@@ -1,23 +1,24 @@
 from dataclasses import dataclass
-from io import BytesIO
 from typing import BinaryIO
 
-from relic.chunky.abstract_chunk import AbstractChunk
+from archive_tools.structio import BinaryWindow, end_of_stream
+
+from relic.chunky.abstract_chunk import UnpackableChunk
 from relic.chunky.chunk_collection import ChunkCollection
 from relic.chunky.chunk_header import ChunkHeader
 from relic.shared import Version
 
 
 @dataclass
-class FolderChunk(AbstractChunk, ChunkCollection):
+class FolderChunk(UnpackableChunk, ChunkCollection):
 
     @classmethod
     def unpack(cls, stream: BinaryIO, header: ChunkHeader, chunky_version: Version) -> 'FolderChunk':
         from relic.chunky.reader import read_all_chunks  # Causes cylic dependency, must be included inside unpack
-        data = stream.read(header.size)
-        assert len(data) == header.size
-        with BytesIO(data) as window:
+
+        with BinaryWindow.slice(stream, header.size).as_parsing_window() as window:
             chunks = read_all_chunks(window, chunky_version)
+            assert end_of_stream(window)
         return FolderChunk(chunks, header)
 
     def pack(self, stream: BinaryIO, chunky_version: Version) -> int:

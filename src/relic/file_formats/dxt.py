@@ -19,8 +19,8 @@ _dwF_DEPTH = 0x00800000
 _dwF_PITCH = 0x00000008
 _dwF_LINEAR = 0x00080000
 _ddsF_FOURCC = 0x00000004
-# Im under the assumption that I can specify mipmap and then set count to 0
-# I COULD altenratively flag when mips aren't present and then make a different constant
+# I'm under the assumption that I can specify mipmap and then set count to 0
+# I COULD alternatively flag when mips aren't present and then make a different constant
 # According to 'http://doc.51windows.net/directx9_sdk/graphics/reference/DDSFileReference/ddsfileformat.htm#surface_format_header'
 #   Linearsize is the size of the bytes for main image, assuming main image is the data segment,
 _DOW_DXT_FLAGS = _DEFAULT_FLAGS | _dwF_MIPMAP | _dwF_LINEAR
@@ -62,7 +62,7 @@ def get_full_dxt_header(format: str, width: int, height: int, size: int, mips: i
 # http://www.paulbourke.net/dataformats/tga/
 _TGA_HEADER = struct.Struct("< b b b h h b h h h h b b")
 
-# OH BOY
+# OH, BOY
 _TGA_16_0 = 0x0
 _TGA_16_1 = 0x1
 _TGA_32 = 0x8
@@ -76,8 +76,8 @@ _EvenOddInterlave = 0x01 << 6
 _FourWay = 0x10 << 6
 _ILLEGAL = 0x11 << 6
 
-# I dont fully understand non-interleaved, but nothing broke when it was set
-#   I'd imagine that RGB(A) would be interleaved as such, but maybe not, idk
+# I don't fully understand non-interleaved, but nothing broke when it was set
+#   I'd imagine that RGB(A) would be interleaved as such, but maybe not, IDK
 _DOW_FORMAT = _TGA_32 | _SCREEN_ORGIN_LOWER | _NONINTERLAVED
 
 # SEE TGA spec linked 'http://www.paulbourke.net/dataformats/tga/'

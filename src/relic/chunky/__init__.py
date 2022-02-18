@@ -5,8 +5,7 @@ from relic.chunky.chunk_header import ChunkHeader, ChunkType
 from relic.chunky.data_chunk import DataChunk
 from relic.chunky.folder_chunk import FolderChunk
 from relic.chunky.magic import RelicChunkyMagic
-from relic.chunky.relic_chunky import RelicChunky
-from relic.chunky.relic_chunky_header import RelicChunkyHeader
+from relic.chunky.relic_chunky import RelicChunky, RelicChunkyHeader
 
 
 __all__ = [
@@ -22,6 +21,6 @@ __all__ = [
     "AbstractRelicChunky",
     "RelicChunkyMagic",
 
-    # Probably should move to this namespace, but i wont for now
+    # Probably should move to this namespace, but I won't for now
     "reader"
 ]

@@ -3,7 +3,9 @@ import struct
 from enum import Enum, auto
 from os import makedirs
 from os.path import splitext, dirname, join, split
+from pathlib import Path
 from typing import BinaryIO, Optional, Iterable, Tuple, Dict
+
 from relic.chunk_formats.Dow.fda import FdaConverter, FdaChunky
 from relic.chunk_formats.Dow.rsh import RshChunky
 from relic.chunk_formats.Dow.rtx import RtxChunky
@@ -15,9 +17,8 @@ from relic.chunk_formats.Dow.whm.writer import write_mtllib_to_obj, write_msgr_t
 from relic.chunk_formats.Dow.wtp import create_mask_image, WtpChunky
 from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic, FolderChunk
 from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame, DowIIIGame
-
 from relic.sga import Archive, File
-from relic.sga.dumper import __get_bar_spinner, __safe_makedirs, write_file_as_binary, walk_archive_paths, \
+from relic.sga.dumper import __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
 from relic.shared import KW_LIST, EnhancedJSONEncoder
 from relic.ucs import build_locale_environment, get_lang_string_for_file
@@ -91,14 +92,14 @@ def unpack_stream(stream: BinaryIO, chunk_format: ChunkyFormat) -> AbstractRelic
 
 def create(chunky: RelicChunky, chunk_format: ChunkyFormat) -> AbstractRelicChunky:
     if chunk_format == ChunkyFormat.RTX:
-        return RtxChunky.create(chunky)
+        return RtxChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.FDA:
         return FdaChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.RSH:
-        return RshChunky.create(chunky)
+        return RshChunky.convert(chunky)
     elif chunk_format == ChunkyFormat.WHM:
         try:
-            return WhmChunky.create(chunky)
+            return WhmChunky.convert(chunky)
         except (UnimplementedMslcBlockFormat, UnicodeDecodeError, struct.error) as e:
             return chunky
     elif chunk_format == ChunkyFormat.WTP:
@@ -146,7 +147,7 @@ def dump_rsh(rsh: RshChunky, output_path: str, replace_ext: bool = True, format:
     if force_valid:
         d, b = split(output_path)
         output_path = join(d, b.replace(" ", "_"))
-    # Theres more to dump here, but for now, we only dump the Image
+    # There's more to dump here, but for now, we only dump the Image
     with open(output_path, "wb") as handle:
         ImagConverter.Imag2Stream(rsh.shrf.texture.imag, handle, format)
 
@@ -228,7 +229,7 @@ def dump_chunky(chunky: RelicChunky, output_path: str, replace_ext: bool = True,
             for i, folder in enumerate(folders):
                 folder: FolderChunk
 
-                full_path = join(full_root, f"{folder.header.id}-{i+1}")
+                full_path = join(full_root, f"{folder.header.id}-{i + 1}")
                 try:
                     makedirs(dirname(full_path))
                 except FileExistsError:
@@ -274,7 +275,7 @@ def dump_rtx(chunky: RtxChunky, output_path: str, replace_ext: bool = True, form
     if force_valid:
         d, b = split(output_path)
         output_path = join(d, b.replace(" ", "_"))
-    # Theres more to dump here, but for now, we only dump the Image
+    # There's more to dump here, but for now, we only dump the Image
     with open(output_path, "wb") as handle:
         ImagConverter.Imag2Stream(chunky.txtr.imag, handle, format)
 
@@ -308,8 +309,12 @@ def dump(chunky: AbstractRelicChunky, output_path: str, replace_ext: bool = True
 def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dump_non_chunkies: bool = True,
                        dump_unsupported_chunkies: bool = True, dump_default_as_file: bool = True, **kwargs):
     for directory, file in walk:
-        out_path = join(out_directory, directory, file.name)
-        file.decompress()  # May be a bug; files aren't being decompressed somewhere? This has led to fewer errors
+        if directory:
+            out_path = join(out_directory, directory, file.name)
+        else:
+            out_path = join(out_directory, file.name)
+
+        file.decompress()  # This may be a bug; files aren't being decompressed somewhere? This has led to fewer errors
         try:
             chunky = unpack_archive_file(file)
 
@@ -336,7 +341,11 @@ def dump_archive_files(walk: Iterable[Tuple[str, File]], out_directory: str, dum
 def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = None,
                ext_blacklist: KW_LIST = None, lang_code: Optional[str] = "en", series: Enum = DowGame, **kwargs):
     # HACK to do some pretty printing
-    input_folder = input_folder or filter_latest_dow_game(get_dow_root_directories(), series=series)[1]
+    if not input_folder:
+        r = filter_latest_dow_game(get_dow_root_directories(), series=series)
+        if r is not None:
+            input_folder = r[1]
+
     if not input_folder:
         print(f"No input specifed OR could not find a suitable installation for '{series}'")
         return
@@ -349,33 +358,32 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
         for path in w:
             print(path)
             yield path
-            # We can't erase once we new line, so we just print the file; not whether its dumping or being dumped
+            # We can't erase once we new-line, so we just print the file; not whether its dumping or being dumped
 
     current_file = 1
     file_count = 0
 
-    # This doesnt print but is required to setup current_file and file_count
+    # This doesn't print but is required to set up current_file and file_count
     def print_walk_archive(w: Iterable[Archive]) -> Iterable[Archive]:
         nonlocal current_file
         nonlocal file_count
         for archive in w:
             current_file = 1
             file_count = archive._total_files
-            # print("\t", "Files:\t", archive.total_files)
             yield archive
-            # print("\r", end="")  # Erase Archive count
 
     def print_walk_archive_files(w: Iterable[Tuple[str, File]]) -> Iterable[Tuple[str, File]]:
         nonlocal current_file
         nonlocal file_count
-        spinner = __get_bar_spinner()
         for p, f in w:
-            fp = join(p, f.name)
-            print(f"\t({next(spinner)}) Dumping File [ {current_file} / {file_count} (MAX) ] '{fp}'", end="")
+            if p:
+                fp = join(p, f.name)
+            else:
+                fp = p
+
+            print(f"\tDumping File [ {current_file} / {file_count} (MAX) ] '{fp}'")  # We do console spam so that logs can SEE what happened
             current_file += 1
             yield p, f
-            print("\r", end="")
-        print("\r", end="\n")  # Erase 'Dumping'
 
     walk = walk_archive_paths(input_folder)  # , whitelist="Speech")
     # I was trying to speed things up on my speech debugging, I will add whitelist/blacklist for keywords, the current funciton seems to be bugged
@@ -397,11 +405,18 @@ def quick_dump(out_dir: str, input_folder: str = None, ext_whitelist: KW_LIST = 
 
 
 if __name__ == "__main__":
+    # A comprpomise between an automatic location and NOT the local directory
+    #   PyCharm will hang trying to reload the files (just to update the hierarchy, not update references)
+    #       To avoid that, we DO NOT use a local directory, but an external directory
+    #           TODO add a persistent_data path to archive tools
+    Root = Path(r"~\Appdata\Local\ModernMAK\ArchiveTools\Dumps\Relic-SGA").expanduser()
     path_lookup = {
-        DowIIIGame:r"D:\Dumps\DOW_III\full_dump",
-        DowIIGame:r"D:\Dumps\DOW_II\full_dump",
-        DowGame:r"D:\Dumps\DOW_I\full_dump"
+        DowIIIGame: Root / r"DOW_III\full_dump",
+        DowIIGame: Root / r"Dumps\DOW_II\full_dump",
+        DowGame: Root / r"Dumps\DOW_I\full_dump"
     }
     game = DowGame
     path = path_lookup[game]
+    print(f"Dumping game '{game}' to '{path}'\n")
     quick_dump(path, texture_root=path, texture_ext=".png", force_valid=True, include_meta=False, series=game)
+    print(f"\nDumped game '{game}' to '{path}'")

@@ -1,17 +1,88 @@
 import math
 import os
 import subprocess
+from dataclasses import dataclass
 from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO
 
-from relic.chunk_formats.Dow.fda.data_chunk import FdaDataChunk
-from relic.chunk_formats.Dow.fda.fda_chunky import FdaChunky, FdaChunk
-from relic.chunk_formats.Dow.fda.info_chunk import FdaInfoChunk
+from archive_tools.structx import Struct
+
 from relic.chunk_formats.Dow.shared.fbif_chunk import FbifChunk
+from relic.chunky import DataChunk
+from relic.chunky import RelicChunky, FolderChunk
 from relic.chunky import RelicChunkyHeader
+from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
 from relic.config import aifc_decoder_path, aifc_encoder_path
 from relic.file_formats import aiff
+
+
+@dataclass
+class FdaInfoChunk:
+    LAYOUT = Struct("< 7L")
+
+    channels: int
+    sample_size: int
+    block_bitrate: int
+    sample_rate: int
+    begin_loop: int
+    end_loop: int
+    start_offset: int
+
+    @classmethod
+    def convert(cls, chunk: DataChunk) -> 'FdaInfoChunk':
+        args = cls.LAYOUT.unpack(chunk.data)
+        return FdaInfoChunk(*args)
+
+
+@dataclass
+class FdaDataChunk:
+    LAYOUT = Struct("< L")
+    size: int
+    data: bytes
+
+    @classmethod
+    def convert(cls, chunk: DataChunk) -> 'FdaDataChunk':
+        size = cls.LAYOUT.unpack(chunk.data[:4])[0]
+        data = chunk.data[4:]
+        # TODO see if this is a len-encoded situtation
+        # assert len(data) == size
+        return FdaDataChunk(size, data)
+
+
+@dataclass
+class FdaChunk:
+    info: FdaInfoChunk
+    data: FdaDataChunk
+
+    @classmethod
+    def convert(cls, chunk: FolderChunk) -> 'FdaChunk':
+        # We fetch 'FDA ' and get the Info/Data block from FDA
+        info = chunk.get_chunk(id="INFO", recursive=False)
+        data = chunk.get_chunk(id="DATA", recursive=False)
+
+        # parse the blocks
+        fda_info = FdaInfoChunk.convert(info)
+        fda_data = FdaDataChunk.convert(data)
+
+        return FdaChunk(fda_info, fda_data)  # chunky.chunks, header, fda_info, fda_data)
+
+
+@dataclass
+class FdaChunky(AbstractRelicChunky):
+    fbif: FbifChunk
+    fda: FdaChunk
+
+    @classmethod
+    def convert(cls, chunky: RelicChunky) -> 'FdaChunky':
+        # We ignore burn info ~ FBIF
+        fda_folder: FolderChunk = chunky.get_chunk(id="FDA ", recursive=False)
+        fda = FdaChunk.convert(fda_folder)
+
+        fbif_data: FolderChunk = chunky.get_chunk(id="FBIF", recursive=False)
+        fbif = FbifChunk.convert(fbif_data)
+
+        return FdaChunky(chunky.chunks, chunky.header, fbif, fda)
 
 
 class FdaConverter:
@@ -44,6 +115,7 @@ class FdaConverter:
     @classmethod
     def Aiffr2Fda(cls, stream: BinaryIO) -> FdaChunky:
         buffer = aiff.read_FORM(stream)
+        # noinspection PyTypeChecker
         info = FdaInfoChunk(None, None, None, None, 0, 0xffffffff, 0)
         data = None
         with BytesIO(buffer) as form:
@@ -61,7 +133,7 @@ class FdaConverter:
         return FdaChunky([], RelicChunkyHeader.default(), None, FdaChunk(info, FdaDataChunk(len(data), data)))
 
     # WAV <---> AIFF-C (Relic)
-    # Assuming I do figure out the Relic Compression Algorithm from the .EXE, I wont need the binaries anymore
+    # Assuming I do figure out the Relic Compression Algorithm from the .EXE, I won't need the binaries anymore
     @classmethod
     def Aiffr2Wav(cls, aiffr: BinaryIO, wav: BinaryIO) -> int:
         try:
@@ -117,4 +189,13 @@ class FdaConverter:
         with BytesIO() as aiffr:
             cls.Wav2Aiffr(stream, aiffr)
             aiffr.seek(0)
-            return cls.Aiffr2Fda(aiffr, stream)
+            return cls.Aiffr2Fda(aiffr)
+
+
+__all__ = [
+    FdaConverter.__name__,
+    FdaDataChunk.__name__,
+    FdaChunky.__name__,
+    FdaChunk.__name__,
+    FdaInfoChunk.__name__,
+]

@@ -1,15 +1,17 @@
 import math
-import struct
 from dataclasses import dataclass
 from io import BytesIO
 from typing import BinaryIO, List, Dict, Any
 
-from relic.chunk_formats.Dow.whm.shared import num_layout
+from archive_tools.structx import Struct
+from archive_tools.vstruct import VStruct
+
 from relic.chunky import DataChunk
 from relic.file_formats.matrix_math import Quaternion, Vector3, Matrix, Transform
 from relic.file_formats.mesh_io import Float3, Float4
+
+
 # STOLEN FROM 'https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/'
-from relic.shared import unpack_from_stream
 
 
 def euler_from_quaternion(x, y, z, w):
@@ -81,40 +83,40 @@ class SkelBone:
     pos: Float3
     quaternion: Float4
 
-    _LAYOUT = struct.Struct("< l 3f 4f")
+    LAYOUT = VStruct("v <l3f4f")
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> 'SkelBone':
-        buffer = stream.read(num_layout.size)
-        name_size = num_layout.convert(buffer)[0]
-        name = stream.read(name_size).decode("ascii")
-        parent, px, py, pz, rx, ry, rz, rw = unpack_from_stream(cls._LAYOUT, stream)
+        name, parent, px, py, pz, rx, ry, rz, rw = cls.LAYOUT.unpack_stream(stream)
+        name = name.decode("ascii")
         p = (px, py, pz)
         q = (rx, ry, rz, rw)
-
         return SkelBone(name, parent, p, q)
 
 
 @dataclass
 class SkelChunk:
+    LAYOUT = Struct("<l")
     # This chunk is super easy
     bones: List[SkelBone]
 
     @classmethod
     def convert(cls, chunk: DataChunk) -> 'SkelChunk':
         with BytesIO(chunk.data) as stream:
-            buffer = stream.read(num_layout.size)
-            bone_size = num_layout.convert(buffer)[0]
-            bones = [SkelBone.unpack(stream) for _ in range(bone_size)]
+            bone_count = cls.LAYOUT.unpack_stream(stream)[0]
+            bones = [SkelBone.unpack(stream) for _ in range(bone_count)]
             return SkelChunk(bones)
 
 
 _Euler90_0_0 = Quaternion(0.7071068, 0, 0, 0.7071068)
+
+
 @dataclass
 class Skeleton:
     name: str
     transform: Transform
-    parent_index:int
+    parent_index: int
+
     @classmethod
     def create(cls, chunk: SkelChunk) -> List['Skeleton']:
 
@@ -137,7 +139,7 @@ class Skeleton:
             # else:
             #     pass
             # skel.transform.translation
-            skel.transform.rotation = skel.transform.rotation.normalized()#.Swap(AxisOrder.XZY).normalized()
+            skel.transform.rotation = skel.transform.rotation.normalized()  # .Swap(AxisOrder.XZY).normalized()
             # skel.transform.translation = Vector3(-x, z, y)  # Magically preserves handedness
 
             # r = skel.transform.rotation
@@ -185,7 +187,7 @@ def parse_bone_data(bone_data: List[SkelBone]) -> List[Dict[str, Any]]:
             # WTF is this ?
             # Inverse matrix, multiply by arbitrary and the inverse (while I know order matters, should that still result in the original?)
             #   THEN invert that matrix (to original) and get the quaternion?
-            # Im pretty sure this can be simplified to
+            # I'm pretty sure this can be simplified to
             #   world_rotation = q.as_matrix()
             rotation_matrix = q.as_matrix().inversed()
             world_matrix = Matrix([[1, 0, 0], [0, 0, 1], [0, -1, 0]])

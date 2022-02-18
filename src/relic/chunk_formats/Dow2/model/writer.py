@@ -28,7 +28,7 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     writer = ObjWriter(stream)
 
     stream.write("\n# Object\n")
-    # I couldn't find a good name for the sub-parts, so i make do with the material name (stripping the excess relic.blah.blah)
+    # I couldn't find a good name for the sub-parts, so I make do with the material name (stripping the excess relic.blah.blah)
     _, name = name or chunk.material_name.rsplit(".", maxsplit=1)
     # if name:
     writer.write_object_name(name)

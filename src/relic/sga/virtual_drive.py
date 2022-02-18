@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from archive_tools.structx import Struct
-from typing import BinaryIO, List
+from typing import BinaryIO, List, Dict, ClassVar
 
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
@@ -10,6 +10,7 @@ from relic.sga.shared import ArchiveRange, SgaVersion
 # Looking at a lua script: the path was structured as 'data:path-to-file'
 # Therefore, a 'VirtualDrive' seems more descriptive, RootFolders would also work I suppose
 #   I stuck to V-Drive since this does function differently
+from relic.shared import VersionLike
 
 
 @dataclass
@@ -17,8 +18,8 @@ class VirtualDriveHeader:
     __v2_LAYOUT = Struct("< 64s 64s 5H")
     __v5_LAYOUT = __v2_LAYOUT
     __v9_LAYOUT = Struct("< 64s 64s 5L")
-    __LAYOUT = {SgaVersion.Dow: __v2_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow3: __v9_LAYOUT}
-    # Th path of the drive (used in resolving archive paths)
+    __LAYOUT_MAP: ClassVar[Dict[VersionLike, Struct]] = {SgaVersion.Dow: __v2_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow3: __v9_LAYOUT}
+    # The path of the drive (used in resolving archive paths)
     # E.G. 'data'
     path: str
     # The name of the drive (used in viewing assets?)
@@ -36,9 +37,9 @@ class VirtualDriveHeader:
     unk_a: int  # 0
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, version: SgaVersion) -> 'VirtualDriveHeader':
-        if version in cls.__LAYOUT:
-            args = cls.__LAYOUT[version].unpack_stream(stream)
+    def unpack(cls, stream: BinaryIO, version: VersionLike) -> 'VirtualDriveHeader':
+        if version in cls.__LAYOUT_MAP:
+            args = cls.__LAYOUT_MAP[version].unpack_stream(stream)
         else:
             raise NotImplementedError(version)
 
@@ -49,9 +50,9 @@ class VirtualDriveHeader:
         assert args[6] == args[2], args[2:]
         return VirtualDriveHeader(category, name, subfolder_range, file_range, args[6])
 
-    def pack(self, stream: BinaryIO, version: SgaVersion) -> int:
-        if version in self.__LAYOUT:
-            layout = self.__LAYOUT[version]
+    def pack(self, stream: BinaryIO, version: VersionLike) -> int:
+        if version in self.__LAYOUT_MAP:
+            layout = self.__LAYOUT_MAP[version]
         else:
             raise NotImplementedError(version)
         args = self.path.encode("ascii"), self.name.encode("ascii"), self.subfolder_range.start, self.subfolder_range.end, self.file_range.start, self.file_range.end, self.unk_a

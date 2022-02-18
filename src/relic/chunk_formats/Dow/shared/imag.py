@@ -1,13 +1,96 @@
 import os
 import subprocess
+from dataclasses import dataclass
+from enum import Enum
 from io import BytesIO
 from os.path import dirname, splitext
 from tempfile import NamedTemporaryFile
-from typing import BinaryIO, Dict
+from typing import BinaryIO
 
-from relic.chunk_formats.Dow.shared.imag.imag_chunk import ImagChunk
+from archive_tools.structx import Struct
+
+from relic.chunky import DataChunk, FolderChunk
 from relic.config import texconv_path
 from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
+
+
+class ImageFormat(Enum):
+    TGA = 0
+
+    DXT1 = 8
+    DXT3 = 10
+    DXT5 = 11
+
+    @property
+    def extension(self) -> str:
+        _extensions = {
+            ImageFormat.TGA: ".tga",
+            ImageFormat.DXT1: ".dds",
+            ImageFormat.DXT3: ".dds",
+            ImageFormat.DXT5: ".dds"
+        }
+        return _extensions[self.value]
+
+    @property
+    def fourCC(self) -> str:
+        _fourCC = {
+            ImageFormat.DXT1: "DXT1",
+            ImageFormat.DXT3: "DXT3",
+            ImageFormat.DXT5: "DXT5"
+        }
+        return _fourCC[self.value]
+
+    @property
+    def is_dxt(self) -> bool:
+        _dds = [ImageFormat.DXT1, ImageFormat.DXT3, ImageFormat.DXT5]
+        return self.value in _dds
+
+    @property
+    def is_tga(self) -> bool:
+        _tga = [ImageFormat.TGA]
+        return self.value in _tga
+
+
+@dataclass
+class AttrChunk:
+    LAYOUT = Struct("< 3l")
+    LAYOUT_WITH_MIP = Struct("< 4l")
+
+    img: ImageFormat
+    width: int
+    height: int
+    mips: int
+
+    @classmethod
+    def convert(cls, chunk: DataChunk) -> 'AttrChunk':
+        buffer_size = len(chunk.data)
+        if buffer_size == cls.LAYOUT_WITH_MIP.size:
+            args = cls.LAYOUT_WITH_MIP.unpack(chunk.data)
+            args = (*args, 0)
+        elif buffer_size == cls.LAYOUT.size:
+            args = cls.LAYOUT.unpack(chunk.data)
+        else:
+            raise NotImplementedError
+
+        img = ImageFormat(args[0])
+        args = args[1:]
+        return AttrChunk(img, *args)
+
+
+@dataclass
+class ImagChunk:
+    attr: AttrChunk
+    data: DataChunk
+
+    @classmethod
+    def convert(cls, chunk: FolderChunk) -> 'ImagChunk':
+        attr_chunk = chunk.get_chunk(id="ATTR")
+        data_chunk = chunk.get_chunk(id="DATA")
+
+        attr = AttrChunk.convert(attr_chunk)
+        data = data_chunk
+
+        return ImagChunk(attr, data)
 
 
 # Dumps the raw image, DDS images will be inverted, TGA images will be normal
@@ -34,14 +117,14 @@ class ImagConverter:
                 pass
 
     @classmethod
-    def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str, input_ext: str,
-                  perform_dds_fix: bool = False):  # An option to fix the dds inversion to avoid redoing a temp file
+    def __convert(cls, input_stream: BinaryIO, output_stream: BinaryIO, fmt: str, input_ext: str, perform_dds_fix: bool = False):  # An option to fix the dds inversion to avoid redoing a temp file
         def get_texconv_fmt_ext() -> str:
             lookup = {
                 'png': ".PNG",
             }
             return lookup[fmt.lower()]
 
+        out_name = None
         try:
             with NamedTemporaryFile("wb", suffix=input_ext, delete=False) as in_file:
                 in_file.write(input_stream.read())
@@ -104,3 +187,11 @@ class ImagConverter:
                     cls.__fix_dds(temp, stream)
             else:  # TGA, no fixes
                 cls.Imag2StreamRaw(imag, stream)
+
+
+__all__ = [
+    AttrChunk.__name__,
+    ImagChunk.__name__,
+    ImageFormat.__name__,
+    ImagConverter.__name__
+]

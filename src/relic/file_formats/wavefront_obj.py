@@ -92,7 +92,7 @@ class MtlWriter:
         return self._stream.write(line)
 
     def __write_color(self, code: str, color: Float3) -> int:
-        line = "\t%s %f %f %f\n" % (code, *color)
+        line = "\t%s %f %f %f\n" % (code, color[0], color[1], color[2])
         return self._stream.write(line)
 
     def __write_texture(self, code: str, path: str, prefix: str = "map_") -> int:

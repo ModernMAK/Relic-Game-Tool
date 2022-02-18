@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from enum import Enum
 from io import BytesIO
 from struct import Struct
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 from relic.chunk_formats.Dow.whm import SkelChunk
 from relic.chunk_formats.Shared.mesh_chunk import MeshChunk
@@ -11,8 +10,6 @@ from relic.chunk_formats.Shared.mrks_chunk import MrksChunk
 from relic.chunk_formats.Shared.mtrl_chunk import MtrlChunk
 from relic.chunky import RelicChunky, AbstractRelicChunky, ChunkCollection, DataChunk, FolderChunk
 from relic.util.struct_util import unpack_from_stream
-
-
 
 
 @dataclass

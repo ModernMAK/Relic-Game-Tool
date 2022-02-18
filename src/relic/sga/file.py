@@ -71,7 +71,7 @@ class FileHeader:
             # UNK_D is a new compression flag?!
             # if comp_size != decomp_size:
             #     assert unk_d in [256,512], ((comp_size, decomp_size), (unk_d, [256,512]), (name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e))
-            # Pulling stuff outta my ass; but dividing them by the max block size gets you 7, 6 repsectively
+            # Pulling stuff out of my ass; but dividing them by the max block size gets you 7, 6 repsectively
 
             # Name, File, Compressed, Decompressed, ???, ???
             return FileHeader(name_off, data_off, decomp_size, comp_size,

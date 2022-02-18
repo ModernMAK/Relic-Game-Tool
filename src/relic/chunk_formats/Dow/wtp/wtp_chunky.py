@@ -13,7 +13,7 @@ class WtpChunky(AbstractRelicChunky):
     @classmethod
     def convert(cls, chunky: RelicChunky) -> 'WtpChunky':
         tpat_folder: FolderChunk = chunky.get_chunk(id="TPAT")
-        tpat = TpatChunk.convert(tpat_folder)
+        tpat = TpatChunk.create(tpat_folder)
         return WtpChunky(chunky.chunks, chunky.header, tpat)
 
     @classmethod

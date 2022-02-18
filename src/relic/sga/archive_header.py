@@ -3,6 +3,7 @@ from archive_tools.structx import Struct
 from typing import BinaryIO, Optional
 
 from relic.sga.shared import ARCHIVE_MAGIC, Version, FilenameOffsetInfo, OffsetInfo, SgaVersion
+from relic.shared import VersionLike
 
 
 @dataclass
@@ -13,7 +14,7 @@ class ArchiveHeader:
     __v5_LAYOUT = __v2_LAYOUT
     __v9_LAYOUT = Struct(f"< {__NAME_SIZE}s")
 
-    version: Version
+    version: VersionLike
     name: str
     checksum_a: Optional[bytes] = None
     checksum_b: Optional[bytes] = None
@@ -76,7 +77,7 @@ class ArchiveTableOfContents:
     filenames_info: FilenameOffsetInfo
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, version: Version) -> 'ArchiveTableOfContents':
+    def unpack(cls, stream: BinaryIO, version: VersionLike) -> 'ArchiveTableOfContents':
         toc_offset = stream.tell()
         descriptions_info = OffsetInfo.unpack(stream, toc_offset, version)
         folders_info = OffsetInfo.unpack(stream, toc_offset, version)
@@ -89,7 +90,7 @@ class ArchiveTableOfContents:
         _sizes = {SgaVersion.Dow: 24, SgaVersion.Dow2: 24, SgaVersion.Dow3: 32}
         return _sizes[version]
 
-    def pack(self, stream: BinaryIO, version: Version) -> int:
+    def pack(self, stream: BinaryIO, version: VersionLike) -> int:
         written = 0
         written += self.drive_info.pack(stream, version)
         written += self.folders_info.pack(stream, version)
@@ -150,7 +151,7 @@ class ArchiveSubHeader:
     data_size: Optional[int] = None
 
     # We need to know version to do proper comparisons
-    def equal(self, other: 'ArchiveSubHeader', version: Version) -> bool:
+    def equal(self, other: 'ArchiveSubHeader', version: VersionLike) -> bool:
         if version == SgaVersion.Dow:
             return self.toc_size == other.toc_size and self.data_offset == other.data_offset
         elif version == SgaVersion.Dow2:
@@ -167,7 +168,7 @@ class ArchiveSubHeader:
                    self.data_size == other.data_size
 
     @classmethod
-    def default(cls, version: Version) -> 'ArchiveSubHeader':
+    def default(cls, version: VersionLike) -> 'ArchiveSubHeader':
         if version == SgaVersion.Dow:
             return ArchiveSubHeader(0, 0, 0)
         elif version == SgaVersion.Dow2:
@@ -176,7 +177,7 @@ class ArchiveSubHeader:
             return ArchiveSubHeader(0, 0, 0, None, None, None, 0, 0, 1, bytes([0x00] * 256), 0)
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, version: Version = SgaVersion.Dow) -> 'ArchiveSubHeader':
+    def unpack(cls, stream: BinaryIO, version: VersionLike = SgaVersion.Dow) -> 'ArchiveSubHeader':
         if SgaVersion.Dow == version:
             toc_size, data_off = cls.__v2_LAYOUT.unpack_stream(stream)
             toc_offset = stream.tell()
@@ -204,7 +205,7 @@ class ArchiveSubHeader:
         else:
             raise NotImplementedError(version)
 
-    def pack(self, stream: BinaryIO, version: Version) -> int:
+    def pack(self, stream: BinaryIO, version: VersionLike) -> int:
         if SgaVersion.Dow == version:
             args = self.toc_size, self.data_offset
             return self.__v2_LAYOUT.pack_stream(stream, *args)

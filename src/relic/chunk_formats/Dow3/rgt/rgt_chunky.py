@@ -1,6 +1,5 @@
 # D
 import zlib
-from io import BytesIO
 from math import log
 from os.path import join
 from struct import Struct

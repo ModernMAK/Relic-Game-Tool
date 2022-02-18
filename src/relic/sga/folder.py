@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from archive_tools.structx import Struct
-from typing import BinaryIO, Dict, Optional, List
+from typing import BinaryIO, Dict, Optional, List, ClassVar
 
 from relic.sga.archive_header import ArchiveInfo
 from relic.sga.shared import ArchiveRange, Version, SgaVersion
@@ -13,7 +13,7 @@ class FolderHeader:
     __v2_LAYOUT = Struct("< L 4H")  # 12
     __v5_LAYOUT = __v2_LAYOUT  # 12
     __v9_LAYOUT = Struct("< L 4L")  # 20
-    __LAYOUT = {SgaVersion.Dow: __v2_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow3: __v9_LAYOUT}
+    __LAYOUT: ClassVar[Dict[Version, Struct]] = {SgaVersion.Dow: __v2_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow3: __v9_LAYOUT}
 
     name_offset: int
     subfolder_range: ArchiveRange
@@ -42,7 +42,7 @@ class FolderHeader:
         else:
             raise NotImplementedError(version)
 
-        return layout.pack_stream( stream, *args)
+        return layout.pack_stream(stream, *args)
 
     def read_name_from_lookup(self, lookup: Dict[int, str], info: Optional[ArchiveInfo] = None) -> str:
         # If info is provided; use absolute values

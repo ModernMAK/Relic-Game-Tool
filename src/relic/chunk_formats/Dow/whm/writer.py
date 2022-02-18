@@ -2,8 +2,7 @@ from io import BytesIO
 from os.path import split, splitext, join, basename
 from typing import TextIO, Iterable
 
-from relic.chunk_formats.Dow.whm.msgr_chunk import MsgrChunk
-from relic.chunk_formats.Dow.whm.mslc_chunk import MslcChunk, TextureMsclBlock, VertexMsclBlock, MslcBlockFormat
+from relic.chunk_formats.Dow.whm.whm import MsgrChunk, MslcChunk, TextureMsclBlock, VertexMsclBlock, MslcBlockFormat
 from relic.chunk_formats.Dow.whm.skel_chunk import SkelChunk, Skeleton
 from relic.file_formats.mesh_io import MeshReader, Float3
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
@@ -86,10 +85,10 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
             try:
                 for pos in reader.read_float3(v_count, validate=validate):
                     if axis_fix:
-                        # X axis seems to be inverted? .
-                        #   After fixing the Texture's invertedness (upsidedown), the UV still displays text incorrectly (mirrored), but the texture matches the UV coordinates now.
+                        # X-axis seems to be inverted? .
+                        #   After fixing the Texture's inverted-ness (upsidedown), the UV still displays text incorrectly (mirrored), but the texture matches the UV coordinates now.
                         #   To fix this; I could mirror the UV on the U axis and also perform an HFlip on the texture
-                        #       BUT the baneblade's distinctive demolisher cannon is on the wrong side (Left); As is the forward gun placement on the Leman-Russ,
+                        #       BUT the BaneBlade's distinctive demolisher cannon is on the wrong side (Left); As is the forward gun placement on the Leman-Russ,
                         #            So I think the issue is that the model's X axis is inverted. Reflecting the X axis does solve the issue
                         #       FURTHERMORE; while some Text is incorrect in the textures (E.G. Leman-Russ), other texture's text IS correct after the initial V-Flip (E.G. Baneblade).
                         #            This means I can't practically fix the UV's text being mirrored (in the texture, not the final material), without somehow knowing that I'm not invalidiating other text.

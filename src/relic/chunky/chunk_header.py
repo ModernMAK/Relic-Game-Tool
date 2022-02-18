@@ -48,7 +48,7 @@ class ChunkHeader:
 
         unks_v3 = _v3_1_unks.unpack_stream(stream) if chunky_version == ChunkyVersion.v3_1 else None
 
-        # Id can have nulls on both Left-side and right-side
+        # ID can have nulls on both Left-side and right-side
         id = args[1].decode("ascii").strip("\x00")
         version, size = args[2:4]
 

@@ -1,13 +1,13 @@
-import struct
+from archive_tools.structx import Struct
 from typing import BinaryIO, Tuple
 
 SSND = "SSND"
-SSND_STRUCT = struct.Struct("> 4s l L L H")  # Relic has an extra short in there
+SSND_STRUCT = Struct("> 4s l L L H")  # Relic has an extra short in there
 
 
 # According to the DOW spec, offset and blocksize is always 0
 def write_SSND(stream: BinaryIO, data: bytes, block_bitrate: int):
-    buffer = SSND_STRUCT.pack(SSND.encode("ascii"), len(data) + 8 + 2, 0, 0, block_bitrate)  # +2 for block_bitrate! DOH! its not in the spec so i was confused
+    buffer = SSND_STRUCT.pack(SSND.encode("ascii"), len(data) + 8 + 2, 0, 0, block_bitrate)  # +2 for block_bitrate! DOH! it's not in the spec so I was confused
     total = stream.write(buffer)
     total += stream.write(data)
     return total
@@ -22,7 +22,7 @@ def read_SSND(stream: BinaryIO) -> Tuple[bytes, int]:
     return data, block_bitrate
 
 
-MARKER_STRUCT = struct.Struct("> H L b")  # Relic has an extra short inthere
+MARKER_STRUCT = Struct("> H L b")  # Relic has an extra short inthere
 
 
 def read_marker(stream: BinaryIO) -> Tuple[int, int, str]:
@@ -49,7 +49,7 @@ def write_default_markers(stream: BinaryIO) -> int:
 
 
 MARK = "MARK"
-MARK_STRUCT = struct.Struct("> 4s l H")  # Relic has an extra short inthere
+MARK_STRUCT = Struct("> 4s l H")  # Relic has an extra short inthere
 
 
 def write_MARK(stream: BinaryIO, count: int, marker_data: bytes) -> int:
@@ -69,8 +69,8 @@ def read_MARK(stream: BinaryIO) -> Tuple[int, bytes]:
 
 
 COMM = "COMM"
-COMM_STRUCT = struct.Struct(
-    "> 4s l h L h 10s 4s b")  # python doesnt have an easy 10byte float, so I head by using a double, and relying on the fact that the fraction's most finite bits will be 0
+COMM_STRUCT = Struct(
+    "> 4s l h L h 10s 4s b")  # python doesn't have an easy 10byte float, so I get by using a double, and relying on the fact that the fraction's most finite bits will be 0
 COMM_MINSIZE = 23
 
 
@@ -123,7 +123,7 @@ def read_COMM(stream: BinaryIO) -> Tuple[int, int, int, float, str, str]:
 
 
 FVER = "FVER"
-FVER_STRUCT = struct.Struct("> 4s l")
+FVER_STRUCT = Struct("> 4s l")
 
 
 def write_FVER(stream: BinaryIO, data: bytes = None) -> int:
@@ -149,7 +149,7 @@ def write_default_FVER(stream: BinaryIO) -> int:
 
 
 FORM = "FORM"
-FORM_STRUCT = struct.Struct("> 4s l 4s")
+FORM_STRUCT = Struct("> 4s l 4s")
 AIFC = "AIFC"
 
 
