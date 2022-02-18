@@ -1,54 +1,25 @@
 from enum import Enum
+from os import PathLike
 from os.path import join, exists, abspath
+from pathlib import Path, PurePath
 from typing import Optional, Iterable, Tuple, Set
 
-# Todo, move all winreg operations to a specific windows only block
-from winreg import HKEY_LOCAL_MACHINE, OpenKey, QueryValueEx
+import archive_tools.common_directories
 
 dll_folder = abspath(join(__file__, "..\\..\\dll"))
 aifc_decoder_path = join(dll_folder, "dec.exe")
 aifc_encoder_path = join(dll_folder, "enc.exe")
 texconv_path = join(dll_folder, "texconv.exe")
 
-window_steam_registry_keys = {
-    32: (HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam"),
-    64: (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam"),
-}
 
+def get_path_to_steam_library(steam_directory: PathLike = None) -> Path:
+    steam_directory = PurePath(steam_directory) or archive_tools.common_directories.get_steam_install_dir()
+    return steam_directory / "steamapps" / "common"
 
-def read_install_path_from_registry(bit_mode: int = 32) -> Optional[str]:
-    key_mode, key_path = window_steam_registry_keys[bit_mode]
-    with OpenKey(HKEY_LOCAL_MACHINE, key_path) as key_handle:
-        return QueryValueEx(key_handle, "InstallPath")[0]
-
-
-# Allows me to manually specify steam_dirs
-steam_dirs = [
-    # r"D:\Steam"
-]
-
-
-def get_path_to_steam_library(steam_directory: str) -> str:
-    return join(steam_directory, "steamapps", "common")
-
-
-def get_all_steam_dirs() -> Iterable[str]:
-    dirs = {d for d in steam_dirs}
-    for bit_mode in window_steam_registry_keys.keys():
-        try:
-            dirs.add(read_install_path_from_registry(bit_mode))
-        except OSError:
-            continue
-    return (get_path_to_steam_library(d) for d in dirs)
-
-
-# Absolute paths to DOW installations directories (sans "Dawn of War
-root_dirs = [
-
-]
 
 class DowIIIGame(Enum):
     BaseGame = 0
+
 
 class DowIIGame(Enum):
     Retribution = 2
@@ -57,7 +28,7 @@ class DowIIGame(Enum):
 
 
 class DowGame(Enum):
-    Soulstorm = 4
+    SoulStorm = 4
     DarkCrusade = 3
     WinterAssault = 2
     Gold = 1
@@ -69,7 +40,7 @@ dow_game_paths = {
 
     DowIIGame.Retribution: "Dawn of War II - Retribution",
 
-    DowGame.Soulstorm: "Dawn of War Soulstorm",
+    DowGame.SoulStorm: "Dawn of War Soulstorm",
     DowGame.DarkCrusade: "Dawn of War Dark Crusade",
     DowGame.WinterAssault: "Dawn of War Winter Assault",
     DowGame.Gold: "Dawn of War Gold",
@@ -77,15 +48,15 @@ dow_game_paths = {
 }
 
 
-def get_dow_root_directories() -> Iterable[Tuple[DowGame, str]]:
-    for steam_path in get_all_steam_dirs():
-        for game, path in dow_game_paths.items():
-            path = join(steam_path, path)
-            if exists(path):
-                yield game, path
+def get_dow_root_directories() -> Iterable[Tuple[DowGame, Path]]:
+    steam_path = get_path_to_steam_library()
+    for game, partial_path in dow_game_paths.items():
+        path = steam_path / partial_path
+        if exists(partial_path):
+            yield game, path
 
 
-def filter_unique_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) -> Iterable[Tuple[DowGame, str]]:
+def filter_unique_dow_game(dow_root_directories: Iterable[Tuple[DowGame, Path]]) -> Iterable[Tuple[DowGame, Path]]:
     unique: Set[DowGame] = set()
     for game, path in dow_root_directories:
         if game in unique:
@@ -102,8 +73,7 @@ def filter_unique_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]]) 
 #       If we only want to dump ONE game; we'd want to dump the latest to get all the assets from the previous one
 #           With the exception of campaign  assets; which are unique to each install
 #           For Campaign assets, use get_unique and dump each to a seperate directory (or order the dumps such that later games come after earlier games)
-def filter_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]], series: Enum = DowGame) -> Optional[
-    Tuple[DowGame, str]]:
+def filter_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, Path]], series: Enum = DowGame) -> Optional[Tuple[DowGame, Path]]:
     latest = latest_path = None
     for game, path in dow_root_directories:
         if not isinstance(game, series):
@@ -117,15 +87,19 @@ def filter_latest_dow_game(dow_root_directories: Iterable[Tuple[DowGame, str]], 
     return None
 
 
-def get_latest_dow_game() -> Optional[Tuple[DowGame, str]]:
+def get_latest_dow_game() -> Optional[Tuple[DowGame, Path]]:
     return filter_latest_dow_game(get_dow_root_directories(), series=DowGame)
 
 
-def get_latest_dow2_game() -> Optional[Tuple[DowGame, str]]:
+def get_latest_dow2_game() -> Optional[Tuple[DowGame, Path]]:
     return filter_latest_dow_game(get_dow_root_directories(), series=DowIIGame)
 
 
-def get_unique_dow_game() -> Iterable[Tuple[DowGame, str]]:
+def get_latest_dow3_game() -> Optional[Tuple[DowGame, Path]]:
+    return filter_latest_dow_game(get_dow_root_directories(), series=DowIIIGame)
+
+
+def get_unique_dow_game() -> Iterable[Tuple[DowGame, Path]]:
     return filter_unique_dow_game(get_dow_root_directories())
 
 

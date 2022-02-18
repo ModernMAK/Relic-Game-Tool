@@ -1,17 +1,17 @@
 import zlib
 from io import BytesIO
-from typing import BinaryIO, Tuple, List, Any, Dict, Optional
+from typing import BinaryIO, Tuple, List, Dict
 
 from relic.sga import Archive, AbstractDirectory, Folder, File, VirtualDriveHeader, FolderHeader, FileHeader, \
     ArchiveToC, ArchiveTableOfContents, ArchiveSubHeader
+# Flattened is edited IN PLACE
+from relic.sga.file import FileCompressionFlag
+from relic.sga.shared import ArchiveRange, SgaVersion, OffsetInfo, FilenameOffsetInfo
+from relic.shared import Version
+
 
 # Cycles aren't supported (and will crash)
 # Multiple parents will be copied
-
-# Flattened is edited IN PLACE
-from relic.sga.file import FileCompressionFlag
-from relic.sga.shared import ArchiveRange, SgaVersion, OffsetInfo, FilenameOffsetInfo, ARCHIVE_MAGIC
-from relic.shared import Version
 
 
 def flatten_folders(collection: AbstractDirectory, flattened: List[Folder]) -> Tuple[int, int]:

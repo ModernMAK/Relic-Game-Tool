@@ -1,4 +1,4 @@
-from struct import Struct
+from archive_tools.structx import Struct
 
 from relic.shared import Magic, MagicWalker
 

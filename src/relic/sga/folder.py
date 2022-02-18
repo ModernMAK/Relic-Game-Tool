@@ -1,13 +1,11 @@
 from dataclasses import dataclass
-from struct import Struct
+from archive_tools.structx import Struct
 from typing import BinaryIO, Dict, Optional, List
 
 from relic.sga.archive_header import ArchiveInfo
 from relic.sga.shared import ArchiveRange, Version, SgaVersion
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
-from relic.shared import unpack_from_stream
-from relic.util.struct_util import pack_into_stream
 
 
 @dataclass
@@ -15,7 +13,7 @@ class FolderHeader:
     __v2_LAYOUT = Struct("< L 4H")  # 12
     __v5_LAYOUT = __v2_LAYOUT  # 12
     __v9_LAYOUT = Struct("< L 4L")  # 20
-    __LAYOUT = {SgaVersion.Dow:__v2_LAYOUT, SgaVersion.Dow2:__v5_LAYOUT,SgaVersion.Dow3:__v9_LAYOUT}
+    __LAYOUT = {SgaVersion.Dow: __v2_LAYOUT, SgaVersion.Dow2: __v5_LAYOUT, SgaVersion.Dow3: __v9_LAYOUT}
 
     name_offset: int
     subfolder_range: ArchiveRange
@@ -24,12 +22,12 @@ class FolderHeader:
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version) -> 'FolderHeader':
         if version in [SgaVersion.Dow, SgaVersion.Dow2]:
-            args = unpack_from_stream(cls.__v2_LAYOUT, stream)
+            args = cls.__v2_LAYOUT.unpack_stream(stream)
             subfolder_range = ArchiveRange(args[1], args[2])
             file_range = ArchiveRange(args[3], args[4])
             return FolderHeader(args[0], subfolder_range, file_range)
         elif version == SgaVersion.Dow3:
-            args = unpack_from_stream(cls.__v9_LAYOUT, stream)
+            args = cls.__v9_LAYOUT.unpack_stream(stream)
             subfolder_range = ArchiveRange(args[1], args[2])
             file_range = ArchiveRange(args[3], args[4])
             return FolderHeader(args[0], subfolder_range, file_range)
@@ -44,8 +42,7 @@ class FolderHeader:
         else:
             raise NotImplementedError(version)
 
-        return pack_into_stream(layout, stream, *args)
-
+        return layout.pack_stream( stream, *args)
 
     def read_name_from_lookup(self, lookup: Dict[int, str], info: Optional[ArchiveInfo] = None) -> str:
         # If info is provided; use absolute values
@@ -54,7 +51,6 @@ class FolderHeader:
         else:
             offset = self.name_offset
         return lookup[offset]
-
 
 
 @dataclass

@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from struct import Struct
+from archive_tools.structx import Struct
 from typing import BinaryIO, Optional, List
 
 from relic.chunky.version import ChunkyVersion
 from relic.shared import Version
-from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 RELIC_CHUNKY_HEADER_LAYOUT = Struct("< 4s L L")
 
@@ -19,12 +18,12 @@ class RelicChunkyHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO):
-        type_br, v_major, v_minor = unpack_from_stream(RELIC_CHUNKY_HEADER_LAYOUT, stream)
+        type_br, v_major, v_minor = RELIC_CHUNKY_HEADER_LAYOUT.unpack_stream(stream)
         version = Version(v_major, v_minor)
         type_br = type_br.decode("ascii")
         v3_args = None
         if version == ChunkyVersion.v3_1:
-            v3_args = unpack_from_stream(V3_1_LAYOUT, stream)
+            v3_args = V3_1_LAYOUT.unpack_stream(stream)
             # Always these 3 values from what I've looked at so far. Why?
             # 36 is the position of the first chunk  in the ones I've looked at
             assert v3_args[0] == 36
@@ -38,10 +37,10 @@ class RelicChunkyHeader:
     def pack(self, stream: BinaryIO) -> int:
         written = 0
         args = self.type_br.encode("ascii"), self.version.major, self.version.minor
-        written += pack_into_stream(RELIC_CHUNKY_HEADER_LAYOUT, stream, *args)
+        written += RELIC_CHUNKY_HEADER_LAYOUT.pack_stream(stream, *args)
         if self.version == ChunkyVersion.v3_1:
             v3_args = self.three_point_one_args
-            written += pack_into_stream(V3_1_LAYOUT, stream, *v3_args)
+            written += V3_1_LAYOUT.pack_stream(stream, *v3_args)
         return written
 
     @classmethod

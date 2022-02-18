@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-from struct import Struct
+from archive_tools.structx import Struct
 from typing import BinaryIO, Optional
 
 from relic.sga.shared import ARCHIVE_MAGIC, Version, FilenameOffsetInfo, OffsetInfo, SgaVersion
-from relic.shared import unpack_from_stream
-from relic.util.struct_util import pack_into_stream
 
 
 @dataclass
@@ -39,15 +37,15 @@ class ArchiveHeader:
     def unpack(cls, stream: BinaryIO, read_magic: bool = True) -> 'ArchiveHeader':
         if read_magic:
             ARCHIVE_MAGIC.assert_magic_word(stream, True)
-        version_args = unpack_from_stream(cls.__VERSION_LAYOUT, stream)
+        version_args = cls.__VERSION_LAYOUT.unpack_stream(stream)
         version = Version(*version_args)
         if version == SgaVersion.Dow3:
-            args = unpack_from_stream(cls.__v9_LAYOUT, stream)
+            args = cls.__v9_LAYOUT.unpack_stream( stream)
             name = args[0].decode("utf-16-le").rstrip("\x00")
             return ArchiveHeader(version, name)
 
         elif version in [SgaVersion.Dow2, SgaVersion.Dow]:
-            args = unpack_from_stream(cls.__v2_LAYOUT, stream)
+            args = cls.__v2_LAYOUT.unpack_stream(stream)
             md5_a = args[0]
             name = args[1].decode("utf-16-le").rstrip("\x00")
             md5_b = args[2]
@@ -59,12 +57,12 @@ class ArchiveHeader:
         written = 0
         if write_magic:
             written += ARCHIVE_MAGIC.write_magic_word(stream)
-            written += pack_into_stream(self.__VERSION_LAYOUT, stream, self.version.major, self.version.minor)
+            written += self.__VERSION_LAYOUT.pack_stream(stream, self.version.major, self.version.minor)
         if self.version == SgaVersion.Dow3:
-            written += pack_into_stream(self.__v9_LAYOUT, stream, self.name.encode("utf-16-le"))
+            written += self.__v9_LAYOUT.pack_stream(stream, self.name.encode("utf-16-le"))
         elif self.version in [SgaVersion.Dow2, SgaVersion.Dow]:
             args = self.checksum_a, self.name.encode("utf-16-le"), self.checksum_b
-            written += pack_into_stream(self.__v2_LAYOUT, stream, *args)
+            written += self.__v2_LAYOUT.pack_stream(stream, *args)
         else:
             raise NotImplementedError(self.version)
         return written
@@ -87,7 +85,7 @@ class ArchiveTableOfContents:
         return ArchiveTableOfContents(descriptions_info, folders_info, files_info, filenames_info)
 
     @classmethod
-    def get_size(cls, version: Version) -> int:
+    def get_size(cls, version: SgaVersion) -> int:
         _sizes = {SgaVersion.Dow: 24, SgaVersion.Dow2: 24, SgaVersion.Dow3: 32}
         return _sizes[version]
 
@@ -111,9 +109,9 @@ class ArchiveSubHeader:
     __v9_LAYOUT = Struct("< Q L Q 4L 256s")
     # V2.0 2L (8)
     #   Relative Offset (TOC SIZE!!!)
-    #       While reading my notes, I realaized that 'Relative Offset' would be the size of the TOC Header + TOC Data
+    #       While reading my notes, I realized that 'Relative Offset' would be the size of the TOC Header + TOC Data
     #       Specifically 'data_offset - toc_offset'
-    #           If Data_Offset is aboslute offset, and TOC Offset is always 180 (which it is in v2)
+    #           If Data_Offset is absolute offset, and TOC Offset is always 180 (which it is in v2)
     #           Then TOC size lines up with what we know about this field!
     #   Absolute Offset
     # V5.0 6L (24)
@@ -138,7 +136,7 @@ class ArchiveSubHeader:
     # For DOW 1; this is typically the data_offset - toc_offset
     toc_size: int
     data_offset: int
-    # To make reading TOC easier (code-wise); this is always included, despite not exisitng before v5
+    # To make reading TOC easier (code-wise); this is always included, despite not existing before v5
     toc_offset: int
     # V5 Exclusives
     unk_v5_one: Optional[int] = None
@@ -180,25 +178,25 @@ class ArchiveSubHeader:
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version = SgaVersion.Dow) -> 'ArchiveSubHeader':
         if SgaVersion.Dow == version:
-            toc_size, data_off = unpack_from_stream(cls.__v2_LAYOUT, stream)
+            toc_size, data_off = cls.__v2_LAYOUT.unpack_stream(stream)
             toc_offset = stream.tell()
             if toc_size + toc_offset != data_off:
                 raise Exception(
                     f"Invalid Data Offset, rel: '{toc_size}', abs_off: '{data_off}' dif: '{data_off - toc_size}'")
             return ArchiveSubHeader(toc_size, data_off, toc_offset)
         elif SgaVersion.Dow2 == version:
-            toc_size, data_off, toc_off, unk_one, unk_zero, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
+            toc_size, data_off, toc_off, unk_one, unk_zero, unk_b = cls.__v5_LAYOUT.unpack_stream(stream)
             return ArchiveSubHeader(toc_size, data_off, toc_off, unk_v5_one=unk_one, unk_v5_zero=unk_zero,
                                     unk_v5_b=unk_b)
         elif SgaVersion.Dow3 == version:
-            args = unpack_from_stream(cls.__v9_LAYOUT, stream)
+            args = cls.__v9_LAYOUT.unpack_stream(stream)
             unk_zero_c, unk_one_d, unk_e = args[4], args[5], args[6]
             unk_160 = args[7]
 
             toc_offset, toc_size, data_offset, data_size = args[0], args[1], args[2], args[3]
 
-            assert unk_zero_c == 0, (unk_zero_c, 0, (args))
-            assert unk_one_d == 1, (unk_one_d, 1, (args))
+            assert unk_zero_c == 0, (unk_zero_c, 0, args)
+            assert unk_one_d == 1, (unk_one_d, 1, args)
 
             return ArchiveSubHeader(
                 toc_size, data_offset, toc_offset,
@@ -209,19 +207,19 @@ class ArchiveSubHeader:
     def pack(self, stream: BinaryIO, version: Version) -> int:
         if SgaVersion.Dow == version:
             args = self.toc_size, self.data_offset
-            return pack_into_stream(self.__v2_LAYOUT, stream, *args)
+            return self.__v2_LAYOUT.pack_stream(stream, *args)
         elif SgaVersion.Dow2 == version:
             args = self.toc_size, self.data_offset, self.toc_offset, self.unk_v5_one, self.unk_v5_zero, self.unk_v5_b
-            return pack_into_stream(self.__v5_LAYOUT, stream, *args)
+            return self.__v5_LAYOUT.pack_stream(stream, *args)
         elif SgaVersion.Dow3 == version:
             args = self.toc_offset, self.toc_size, self.data_offset, self.data_size, self.unk_v9_zero, \
                    self.unk_v9_one, self.unk_v9_a, self.unk_v9_256_bytes
-            return pack_into_stream(self.__v9_LAYOUT, stream, *args)
+            return self.__v9_LAYOUT.pack_stream(stream, *args)
         else:
             raise NotImplementedError(version)
 
     @classmethod
-    def get_size(cls, version: Version):
+    def get_size(cls, version: SgaVersion):
         sizes = {SgaVersion.Dow: cls.__v2_LAYOUT.size, SgaVersion.Dow2: cls.__v5_LAYOUT.size,
                  SgaVersion.Dow3: cls.__v9_LAYOUT.size}
         return sizes[version]

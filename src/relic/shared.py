@@ -4,11 +4,8 @@ from dataclasses import dataclass, is_dataclass, asdict
 from enum import Enum
 from functools import partial
 from os.path import splitext, join
-from struct import Struct
 from typing import Tuple, List, BinaryIO, Iterable, Optional, Union, Callable
-
-from relic.util.struct_util import unpack_from_stream, pack_into_stream
-
+from archive_tools.structx import Struct
 
 class VersionEnum(Enum):
 
@@ -58,19 +55,19 @@ class Version:
 
     @classmethod
     def unpack_32(cls, stream: BinaryIO):
-        return Version(*unpack_from_stream(cls.__32, stream))
+        return Version(*cls.__32.unpack_stream(stream))
 
     @classmethod
     def unpack_64(cls, stream: BinaryIO):
-        return Version(*unpack_from_stream(cls.__64, stream))
+        return Version(*cls.__64.unpack_stream(stream))
 
     def pack_32(self, stream: BinaryIO) -> int:
         args = self.minor, self.minor
-        return pack_into_stream(self.__32, stream, *args)
+        return self.__32.pack_stream(stream, *args)
 
     def pack_64(self, stream: BinaryIO) -> int:
         args = self.minor, self.minor
-        return pack_into_stream(self.__64, stream, *args)
+        return self.__64.pack_stream(stream, *args)
 
 
 class MagicUtil:
@@ -78,7 +75,7 @@ class MagicUtil:
     def read_magic_word(cls, stream: BinaryIO, layout: Struct, advance: bool = True) -> Optional[str]:
         origin = stream.tell()
         try:
-            return unpack_from_stream(layout, stream)[0].decode("ascii")
+            return layout.unpack_stream(stream)[0].decode("ascii")
         except (struct.error, UnicodeDecodeError):
             return None
         finally:
@@ -98,7 +95,7 @@ class MagicUtil:
     @classmethod
     def write_magic_word(cls, stream: BinaryIO, layout: Struct, word: str) -> int:
         # We could just as easily write the word directly, but we don't
-        return pack_into_stream(layout, stream, word.encode("ascii"))
+        return layout.pack_stream(stream, word.encode("ascii"))
 
 
 @dataclass

@@ -1,18 +1,15 @@
 from dataclasses import dataclass
-from os.path import join
-from struct import Struct
-from typing import BinaryIO, List, Optional
+from archive_tools.structx import Struct
+from typing import BinaryIO, List
+
 from relic.sga.file import File
 from relic.sga.file_collection import AbstractDirectory, ArchiveWalkResult
 from relic.sga.folder import Folder
-from relic.sga.shared import Version, ArchiveRange, SgaVersion
-from relic.shared import unpack_from_stream
-
+from relic.sga.shared import ArchiveRange, SgaVersion
 # Are there ever more than one V-Drives?
 # Looking at a lua script: the path was structured as 'data:path-to-file'
 # Therefore, a 'VirtualDrive' seems more descriptive, RootFolders would also work I suppose
 #   I stuck to V-Drive since this does function differently
-from relic.util.struct_util import pack_into_stream
 
 
 @dataclass
@@ -39,9 +36,9 @@ class VirtualDriveHeader:
     unk_a: int  # 0
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, version: Version) -> 'VirtualDriveHeader':
+    def unpack(cls, stream: BinaryIO, version: SgaVersion) -> 'VirtualDriveHeader':
         if version in cls.__LAYOUT:
-            args = unpack_from_stream(cls.__LAYOUT[version], stream)
+            args = cls.__LAYOUT[version].unpack_stream(stream)
         else:
             raise NotImplementedError(version)
 
@@ -52,15 +49,13 @@ class VirtualDriveHeader:
         assert args[6] == args[2], args[2:]
         return VirtualDriveHeader(category, name, subfolder_range, file_range, args[6])
 
-    def pack(self, stream: BinaryIO, version: Version) -> int:
+    def pack(self, stream: BinaryIO, version: SgaVersion) -> int:
         if version in self.__LAYOUT:
             layout = self.__LAYOUT[version]
         else:
             raise NotImplementedError(version)
-        args = self.path.encode("ascii"), self.name.encode(
-            "ascii"), self.subfolder_range.start, self.subfolder_range.end, \
-               self.file_range.start, self.file_range.end, self.unk_a
-        return pack_into_stream(layout, stream, *args)
+        args = self.path.encode("ascii"), self.name.encode("ascii"), self.subfolder_range.start, self.subfolder_range.end, self.file_range.start, self.file_range.end, self.unk_a
+        return layout.pack_stream(stream, *args)
 
 
 @dataclass

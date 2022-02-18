@@ -7,8 +7,7 @@ SSND_STRUCT = struct.Struct("> 4s l L L H")  # Relic has an extra short in there
 
 # According to the DOW spec, offset and blocksize is always 0
 def write_SSND(stream: BinaryIO, data: bytes, block_bitrate: int):
-    buffer = SSND_STRUCT.pack(SSND.encode("ascii"), len(data) + 8 + 2, 0, 0,
-                              block_bitrate)  # +2 for block_bitrate! DOH! its not in the spec so i was confused
+    buffer = SSND_STRUCT.pack(SSND.encode("ascii"), len(data) + 8 + 2, 0, 0, block_bitrate)  # +2 for block_bitrate! DOH! its not in the spec so i was confused
     total = stream.write(buffer)
     total += stream.write(data)
     return total

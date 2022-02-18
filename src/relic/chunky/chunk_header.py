@@ -1,15 +1,14 @@
-import struct
+from archive_tools.structx import Struct
 from dataclasses import dataclass
 from enum import Enum
 from typing import BinaryIO, Optional, List
 
 from relic.chunky.version import ChunkyVersion
-from relic.shared import unpack_from_stream, Version
-from relic.util.struct_util import pack_into_stream
+from relic.shared import Version
 
 _data_chunk_magic_word = "DATA"
 _folder_chunk_magic_word = "FOLD"
-_chunk_header_layout = struct.Struct("< 4s 4s L L L")
+_chunk_header_layout = Struct("< 4s 4s L L L")
 
 
 class ChunkType(Enum):
@@ -18,7 +17,7 @@ class ChunkType(Enum):
     # BLANK = "\x00\x00\x00\x00"
 
 
-_v3_1_unks = struct.Struct("< L L")
+_v3_1_unks = Struct("< L L")
 
 
 @dataclass
@@ -40,14 +39,14 @@ class ChunkHeader:
 
     @classmethod
     def unpack(cls, stream: BinaryIO, chunky_version: Version) -> 'ChunkHeader':
-        args = unpack_from_stream(_chunk_header_layout, stream)
+        args = _chunk_header_layout.unpack_stream(stream)
         try:
             type = ChunkType(args[0].decode("ascii"))
         except ValueError:
             err_pos = stream.tell() - _chunk_header_layout.size
             raise TypeError(f"Type not valid! '{args[0]}' @{err_pos} ~ 0x {hex(err_pos)[2:]}")
 
-        unks_v3 = unpack_from_stream(_v3_1_unks, stream) if chunky_version == ChunkyVersion.v3_1 else None
+        unks_v3 = _v3_1_unks.unpack_stream(stream) if chunky_version == ChunkyVersion.v3_1 else None
 
         # Id can have nulls on both Left-side and right-side
         id = args[1].decode("ascii").strip("\x00")
@@ -65,10 +64,10 @@ class ChunkHeader:
 
     def pack(self, stream: BinaryIO, chunky_version: Version) -> int:
         args = self.type.value.encode("ascii"), self.id.encode("ascii"), self.version, self.size, len(self.name)
-        written = pack_into_stream(_chunk_header_layout, stream, *args)
+        written = _chunk_header_layout.pack_stream(stream, *args)
         written += stream.write(self.name.encode("ascii"))
         if chunky_version == ChunkyVersion.v3_1:
-            written += pack_into_stream(_v3_1_unks, stream, self.unk_v3_1)
+            written += _v3_1_unks.pack_stream( stream, self.unk_v3_1)
         return written
 
     def copy(self) -> 'ChunkHeader':

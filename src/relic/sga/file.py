@@ -3,17 +3,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from io import BytesIO
-from struct import Struct
+from archive_tools.structx import Struct
 from typing import BinaryIO, Optional, Dict, Iterable
 
 from relic.sga.archive_header import ArchiveInfo, ArchiveSubHeader
 from relic.sga.shared import Version, SgaVersion
-from relic.shared import fix_extension_list, filter_path_by_extension, KW_LIST, unpack_from_stream
-
-
+from relic.shared import fix_extension_list, filter_path_by_extension, KW_LIST
 # Compression flag is either 0 (Decompressed) or 16/32 which are both compressed
 # Aside from 0; these appear to be the Window-Sizes for the Zlib Compression (In KibiBytes)
-from relic.util.struct_util import pack_into_stream
 
 
 class FileCompressionFlag(Enum):
@@ -58,18 +55,16 @@ class FileHeader:
     @classmethod
     def unpack(cls, stream: BinaryIO, version: Version = SgaVersion.Dow) -> 'FileHeader':
         if SgaVersion.Dow == version:
-            name_offset, compression_flag_value, data_offset, decompressed_size, compressed_size = unpack_from_stream(
-                cls.__v2_LAYOUT, stream)
+            name_offset, compression_flag_value, data_offset, decompressed_size, compressed_size = cls.__v2_LAYOUT.unpack_stream(stream)
             compression_flag = FileCompressionFlag(compression_flag_value)
             return FileHeader(name_offset, data_offset, decompressed_size, compressed_size,
                               compression_flag=compression_flag)
         elif version == SgaVersion.Dow2:
-            name_off, data_off, comp_size, decomp_size, unk_a, unk_b = unpack_from_stream(cls.__v5_LAYOUT, stream)
+            name_off, data_off, comp_size, decomp_size, unk_a, unk_b = cls.__v5_LAYOUT.unpack_stream( stream)
             # Name, File, Compressed, Decompressed, ???, ???
             return FileHeader(name_off, data_off, decomp_size, comp_size, unk_v5_a=unk_a, unk_v5_b=unk_b)
         elif version == SgaVersion.Dow3:
-            name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e = unpack_from_stream(
-                cls.__v9_LAYOUT, stream)
+            name_off, unk_a, data_off, unk_b, comp_size, decomp_size, unk_c, unk_d, unk_e = cls.__v9_LAYOUT.unpack_stream(stream)
             # assert unk_a == 0, (unk_a, 0)
             # assert unk_b == 0, (unk_b, 0)
 
@@ -85,7 +80,7 @@ class FileHeader:
         else:
             raise NotImplementedError(version)
 
-    def pack(self, stream: BinaryIO, version: Version) -> int:
+    def pack(self, stream: BinaryIO, version: SgaVersion) -> int:
         versioning = {
             SgaVersion.Dow: self.__v2_LAYOUT,
             SgaVersion.Dow2: self.__v5_LAYOUT,
@@ -105,7 +100,7 @@ class FileHeader:
             raise NotImplementedError(version)
 
         layout = versioning[version]
-        return pack_into_stream(layout, stream, *args)
+        return layout.pack_stream(stream, *args)
 
     def read_name_from_lookup(self, lookup: Dict[int, str], info: Optional[ArchiveInfo] = None) -> str:
         # If info is provided; use absolute values

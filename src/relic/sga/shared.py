@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from io import BytesIO
-from struct import Struct
+from archive_tools.structx import Struct
 from typing import Optional, Iterator, BinaryIO, Dict
 
 from relic.shared import Magic, MagicWalker, Version, VersionEnum
-from relic.util.struct_util import unpack_from_stream, pack_into_stream
 
 __MAGIC_LAYOUT = Struct("< 8s")
 __MAGIC_WORD = "_ARCHIVE"
@@ -59,20 +58,20 @@ class OffsetInfo:
         self.offset_relative = abs_offset - self.toc_offset
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, toc_offset: int, version: Version) -> 'OffsetInfo':
+    def unpack(cls, stream: BinaryIO, toc_offset: int, version: SgaVersion) -> 'OffsetInfo':
 
         if version in cls._LAYOUT:
             layout = cls._LAYOUT[version]
-            args = unpack_from_stream(layout, stream)
+            args = layout.unpack_stream(stream)
             return OffsetInfo(toc_offset, *args)
         else:
             raise NotImplementedError(version)
 
-    def pack(self, stream: BinaryIO, version: Version) -> int:
+    def pack(self, stream: BinaryIO, version: SgaVersion) -> int:
         if version in self._LAYOUT:
             layout = self._LAYOUT[version]
             args = (self.offset_relative, self.count)
-            return pack_into_stream(layout, stream, *args)
+            return layout.pack_stream(stream, *args)
         else:
             raise NotImplementedError(version)
 
@@ -130,14 +129,14 @@ class FilenameOffsetInfo(OffsetInfo):
         return d
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, toc_offset: int, version: Version) -> 'FilenameOffsetInfo':
+    def unpack(cls, stream: BinaryIO, toc_offset: int, version: SgaVersion) -> 'FilenameOffsetInfo':
         basic = OffsetInfo.unpack(stream, toc_offset, version)
         if version == SgaVersion.Dow3:
             return FilenameOffsetInfo(basic.toc_offset, basic.offset_relative, None, basic.count)
         elif version in [SgaVersion.Dow2, SgaVersion.Dow]:
             return FilenameOffsetInfo(basic.toc_offset, basic.offset_relative, basic.count, None)
 
-    def pack(self, stream: BinaryIO, version: Version) -> int:
+    def pack(self, stream: BinaryIO, version: SgaVersion) -> int:
         if version in self._LAYOUT:
             layout = self._LAYOUT[version]
             if version == SgaVersion.Dow3:
@@ -147,6 +146,6 @@ class FilenameOffsetInfo(OffsetInfo):
             else:
                 raise NotImplementedError(version)
 
-            return pack_into_stream(layout, stream, *args)
+            return layout.pack_stream(stream, *args)
         else:
             raise NotImplementedError(version)
