@@ -1,8 +1,7 @@
 from io import BytesIO
 
-from relic.chunky import RelicChunky, DataChunk, FolderChunk
+from relic.chunky import RelicChunky, DataChunk, FolderChunk, ChunkyVersion
 # from relic.sga import Archive, writer, File, Folder
-from relic.chunky.version import ChunkyVersion
 from write_chunky_samples import build_sample_chunky_v1_1
 
 
@@ -18,15 +17,15 @@ def assert_chunies(left: RelicChunky, right: RelicChunky):
         assert l_path == r_path, "Chunk Path Mismatch"
         assert len(l_folders) == len(r_folders), "Chunk Folder Count Mismatch"
         for l_folder, r_folder in zip(l_folders, r_folders):
-            l_folder:FolderChunk
-            r_folder:FolderChunk
+            l_folder: FolderChunk
+            r_folder: FolderChunk
             # WE do it manualy since we don't expect size to be correct for manually built chunkies
             assert l_folder.header.version == r_folder.header.version, "Chunk Folder Header ('Version') Mismatch"
             assert l_folder.header.name == r_folder.header.name, "Chunk Folder Header ('Name') Mismatch"
             assert l_folder.header.type == r_folder.header.type, "Chunk Folder Header ('Type') Mismatch"
-            assert l_folder.header.id == r_folder.header.id,  "Chunk Folder Header ('Id') Mismatch"
+            assert l_folder.header.id == r_folder.header.id, "Chunk Folder Header ('Id') Mismatch"
             if v == ChunkyVersion.v3_1:
-                assert l_folder.header.unk_v3_1 == r_folder.header.unk_v3_1,  "Chunk Folder Header ('Unks v3.1') Mismatch"
+                assert l_folder.header.unk_v3_1 == r_folder.header.unk_v3_1, "Chunk Folder Header ('Unks v3.1') Mismatch"
 
         assert len(l_datas) == len(r_datas), "Chunk Data Count Mismatch"
         for l_data, r_data in zip(l_datas, r_datas):

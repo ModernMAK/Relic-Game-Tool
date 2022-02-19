@@ -25,8 +25,8 @@ class TxtrChunk:
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> 'TxtrChunk':
-        head_chunk = chunk.get_chunk(id="HEAD")
-        imag_chunk = chunk.get_chunk(id="IMAG")
+        head_chunk = chunk.get_chunk(chunk_id="HEAD")
+        imag_chunk = chunk.get_chunk(chunk_id="IMAG")
 
         head = HeadChunk.convert(head_chunk)
         imag = ImagChunk.convert(imag_chunk)

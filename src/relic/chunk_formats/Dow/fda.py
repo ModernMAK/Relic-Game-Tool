@@ -12,7 +12,7 @@ from relic.chunk_formats.Dow.shared.fbif_chunk import FbifChunk
 from relic.chunky import DataChunk
 from relic.chunky import RelicChunky, FolderChunk
 from relic.chunky import RelicChunkyHeader
-from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
+from relic.chunky import AbstractRelicChunky
 from relic.config import aifc_decoder_path, aifc_encoder_path
 from relic.file_formats import aiff
 
@@ -58,8 +58,8 @@ class FdaChunk:
     @classmethod
     def convert(cls, chunk: FolderChunk) -> 'FdaChunk':
         # We fetch 'FDA ' and get the Info/Data block from FDA
-        info = chunk.get_chunk(id="INFO", recursive=False)
-        data = chunk.get_chunk(id="DATA", recursive=False)
+        info = chunk.get_chunk(chunk_id="INFO", recursive=False)
+        data = chunk.get_chunk(chunk_id="DATA", recursive=False)
 
         # parse the blocks
         fda_info = FdaInfoChunk.convert(info)
@@ -76,10 +76,10 @@ class FdaChunky(AbstractRelicChunky):
     @classmethod
     def convert(cls, chunky: RelicChunky) -> 'FdaChunky':
         # We ignore burn info ~ FBIF
-        fda_folder: FolderChunk = chunky.get_chunk(id="FDA ", recursive=False)
+        fda_folder: FolderChunk = chunky.get_chunk(chunk_id="FDA ", recursive=False)
         fda = FdaChunk.convert(fda_folder)
 
-        fbif_data: FolderChunk = chunky.get_chunk(id="FBIF", recursive=False)
+        fbif_data: FolderChunk = chunky.get_chunk(chunk_id="FBIF", recursive=False)
         fbif = FbifChunk.convert(fbif_data)
 
         return FdaChunky(chunky.chunks, chunky.header, fbif, fda)

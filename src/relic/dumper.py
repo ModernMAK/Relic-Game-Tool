@@ -17,7 +17,7 @@ from relic.chunk_formats.Dow.whm.writer import write_mtllib_to_obj, write_msgr_t
 from relic.chunk_formats.Dow.wtp import create_mask_image, WtpChunky
 from relic.chunky import RelicChunky, DataChunk, AbstractRelicChunky, RelicChunkyMagic, FolderChunk
 from relic.config import filter_latest_dow_game, get_dow_root_directories, DowGame, DowIIGame, DowIIIGame
-from relic.sga import Archive, File
+from relic.sga.sga import Archive, File
 from relic.sga.dumper import __safe_makedirs, write_file_as_binary, walk_archive_paths, \
     walk_archives, walk_archive_files, filter_archive_files_by_extension, collapse_walk_in_files
 from relic.shared import KW_LIST, EnhancedJSONEncoder

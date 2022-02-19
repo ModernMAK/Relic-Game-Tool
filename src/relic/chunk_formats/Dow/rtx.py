@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from relic.chunk_formats.Dow.shared.txtr import TxtrChunk
 from relic.chunky import RelicChunky
-from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
+from relic.chunky import AbstractRelicChunky
 
 
 @dataclass
@@ -11,7 +11,7 @@ class RtxChunky(AbstractRelicChunky):
 
     @classmethod
     def convert(cls, chunky: RelicChunky) -> 'RtxChunky':
-        txtr_folder = chunky.get_chunk(id="TXTR")
+        txtr_folder = chunky.get_chunk(chunk_id="TXTR")
         txtr = TxtrChunk.convert(txtr_folder)
         return RtxChunky(chunky.chunks, chunky.header, txtr)
 

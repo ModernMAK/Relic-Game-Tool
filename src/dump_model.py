@@ -6,7 +6,7 @@ from relic.chunk_formats.Dow2.model.writer import dump_model_as_obj
 from relic.chunk_formats.Dow3.rgm.rgm_chunky import RgmChunky
 from relic.chunk_formats.Dow3.rgm.writer import dump_rgm_as_obj
 from relic.chunky import RelicChunky
-from relic.chunky.version import RelicChunkyVersion
+from relic.chunky.common import RelicChunkyVersion
 
 
 def wait():

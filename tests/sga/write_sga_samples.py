@@ -1,13 +1,10 @@
+import zlib
 from io import BytesIO
 from os.path import join
 
-from relic.sga import Archive, ArchiveInfo, VirtualDrive, File, FileHeader, Folder, FolderHeader, \
-    ArchiveHeader
-from relic.sga.file import FileCompressionFlag
-from relic.sga.shared import SgaVersion
-import zlib
+from relic.sga.sga import Archive, ArchiveInfo, VirtualDrive, File, FileHeader, Folder, FolderHeader, \
+    ArchiveHeader, FileCompressionFlag, SgaVersion, write_archive, DowIFileHeader, DowIIFileHeader, DowIIIFileHeader
 from tests.helpers import get_testdata_root_folder, lorem_ipsum
-from relic.sga.writer import write_archive
 
 
 def compress16(b: bytes) -> bytes:
@@ -36,12 +33,9 @@ def build_sample_dow1_archive():
     comp_16_content = compress16(raw_content)
     comp_32_content = compress32(raw_content)
 
-    raw_file = File(FileHeader(None, None, len(raw_content), len(raw_content), FileCompressionFlag.Decompressed),
-                    "Lorem Ipsum Raw", raw_content)
-    comp16_file = File(FileHeader(None, None, len(raw_content), len(comp_16_content), FileCompressionFlag.Compressed16),
-                       "Lorem Ipsum Zlib-16", comp_16_content)
-    comp32_file = File(FileHeader(None, None, len(raw_content), len(comp_32_content), FileCompressionFlag.Compressed32),
-                       "Lorem Ipsum Zlib-32", comp_32_content)
+    raw_file = File(DowIFileHeader(None, None, len(raw_content), len(raw_content), FileCompressionFlag.Decompressed), "Lorem Ipsum Raw", raw_content)
+    comp16_file = File(DowIFileHeader(None, None, len(raw_content), len(comp_16_content), FileCompressionFlag.Compressed16), "Lorem Ipsum Zlib-16", comp_16_content)
+    comp32_file = File(DowIFileHeader(None, None, len(raw_content), len(comp_32_content), FileCompressionFlag.Compressed32), "Lorem Ipsum Zlib-32", comp_32_content)
     lorem_folder = Folder([], [raw_file, comp16_file, comp32_file], 0, 3, FolderHeader(None, None, None), "Lorem Ipsum")
     test_drive = VirtualDrive([lorem_folder], [], 1, 0, "test", "Test Drive", None)
 
@@ -57,17 +51,15 @@ def build_sample_dow2_archive():
     comp_16_content = compress16(raw_content)
     comp_32_content = compress32(raw_content)
 
-    raw_file = File(FileHeader(None, None, len(raw_content), len(raw_content), None, 0, 0),
-                    "Lorem Ipsum Raw", raw_content)
-    comp16_file = File(FileHeader(None, None, len(raw_content), len(comp_16_content), None, 0, 0),
-                       "Lorem Ipsum Zlib-16", comp_16_content)
-    comp32_file = File(FileHeader(None, None, len(raw_content), len(comp_32_content), None, 0, 0),
-                       "Lorem Ipsum Zlib-32", comp_32_content)
+    raw_file = File(DowIIFileHeader(None, None, len(raw_content), len(raw_content), 0, 0), "Lorem Ipsum Raw", raw_content)
+    comp16_file = File(DowIIFileHeader(None, None, len(raw_content), len(comp_16_content), 0, 0), "Lorem Ipsum Zlib-16", comp_16_content)
+    comp32_file = File(DowIIFileHeader(None, None, len(raw_content), len(comp_32_content), 0, 0), "Lorem Ipsum Zlib-32", comp_32_content)
     lorem_folder = Folder([], [raw_file, comp16_file, comp32_file], 0, 3, FolderHeader(None, None, None), "Lorem Ipsum")
     test_drive = VirtualDrive([lorem_folder], [], 1, 0, "test", "Test Drive", None)
 
     archive = Archive(info, [test_drive])
     return archive
+
 
 def build_sample_dow3_archive():
     header = ArchiveHeader(SgaVersion.Dow3.value, "DowIII Test Data")
@@ -77,17 +69,18 @@ def build_sample_dow3_archive():
     comp_16_content = compress16(raw_content)
     comp_32_content = compress32(raw_content)
 
-    raw_file = File(FileHeader(None, None, len(raw_content), len(raw_content), None, None, None, 0, 0, 0, 0, 0),
+    raw_file = File(DowIIIFileHeader(None, None, len(raw_content), len(raw_content), 0, 0, 0, 0, 0),
                     "Lorem Ipsum Raw", raw_content)
-    comp16_file = File(FileHeader(None, None, len(raw_content), len(comp_16_content), None, None, None, 0, 0, 0, 0, 0),
+    comp16_file = File(DowIIIFileHeader(None, None, len(raw_content), len(comp_16_content), 0, 0, 0, 0, 0),
                        "Lorem Ipsum Zlib-16", comp_16_content)
-    comp32_file = File(FileHeader(None, None, len(raw_content), len(comp_32_content), None, None, None, 0, 0, 0, 0, 0),
+    comp32_file = File(DowIIIFileHeader(None, None, len(raw_content), len(comp_32_content), 0, 0, 0, 0, 0),
                        "Lorem Ipsum Zlib-32", comp_32_content)
     lorem_folder = Folder([], [raw_file, comp16_file, comp32_file], 0, 3, FolderHeader(None, None, None), "Lorem Ipsum")
     test_drive = VirtualDrive([lorem_folder], [], 1, 0, "test", "Test Drive", None)
 
     archive = Archive(info, [test_drive])
     return archive
+
 
 if __name__ == "__main__":
     root = get_testdata_root_folder()

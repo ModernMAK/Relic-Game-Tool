@@ -21,11 +21,11 @@ class TpatChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'TpatChunk':
-        info_chunk = chunk.get_chunk(id="INFO")
-        imag_chunk = chunk.get_chunk(id="IMAG")
-        ptld_chunks = chunk.get_chunk_list(id="PTLD", optional=True)
-        ptbd_chunks = chunk.get_chunk_list(id="PTBD", optional=True)
-        ptbn_chunks = chunk.get_chunk_list(id="PTBN", optional=True)
+        info_chunk = chunk.get_chunk(chunk_id="INFO")
+        imag_chunk = chunk.get_chunk(chunk_id="IMAG")
+        ptld_chunks = chunk.get_chunk_list(chunk_id="PTLD", optional=True)
+        ptbd_chunks = chunk.get_chunk_list(chunk_id="PTBD", optional=True)
+        ptbn_chunks = chunk.get_chunk_list(chunk_id="PTBN", optional=True)
 
         info = WtpInfoChunk.create(info_chunk)
         imag = ImagChunk.convert(imag_chunk)

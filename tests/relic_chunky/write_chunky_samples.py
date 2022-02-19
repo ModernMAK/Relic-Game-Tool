@@ -1,7 +1,6 @@
 import zlib
 
-from relic.chunky import RelicChunky, DataChunk, ChunkHeader, ChunkType, FolderChunk, RelicChunkyHeader
-from relic.chunky.version import ChunkyVersion
+from relic.chunky import RelicChunky, DataChunk, ChunkHeader, ChunkType, FolderChunk, RelicChunkyHeader, ChunkyVersion
 from tests.helpers import lorem_ipsum
 
 

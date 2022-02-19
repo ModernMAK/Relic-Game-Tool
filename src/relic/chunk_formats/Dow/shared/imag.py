@@ -84,8 +84,8 @@ class ImagChunk:
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> 'ImagChunk':
-        attr_chunk = chunk.get_chunk(id="ATTR")
-        data_chunk = chunk.get_chunk(id="DATA")
+        attr_chunk = chunk.get_chunk(chunk_id="ATTR")
+        data_chunk = chunk.get_chunk(chunk_id="DATA")
 
         attr = AttrChunk.convert(attr_chunk)
         data = data_chunk

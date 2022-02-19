@@ -12,7 +12,7 @@ from relic.chunk_formats.Dow.shared.fbif_chunk import FbifChunk
 from relic.chunk_formats.Dow.whm.errors import UnimplementedMslcBlockFormat
 from relic.chunk_formats.Dow.whm.skel_chunk import SkelChunk
 from relic.chunky import ChunkCollection, ChunkHeader, DataChunk, FolderChunk, RelicChunky
-from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
+from relic.chunky import AbstractRelicChunky
 
 
 @dataclass
@@ -176,7 +176,7 @@ class MslcChunk:
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'MslcChunk':
-        data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
+        data: DataChunk = chunk.get_chunk(chunk_id="DATA", recursive=False)
         # WHM's data.header.version always '2'
         with BytesIO(data.data) as stream:
             header = MsclHeader.unpack(stream)
@@ -222,11 +222,11 @@ class MsgrChunk:
     @classmethod
     def convert(cls, chunk: FolderChunk) -> 'MsgrChunk':
         # the id is DATA not the type (alhough it is coincidentally, a ChunkType.Data)
-        data: DataChunk = chunk.get_chunk(id="DATA", recursive=False)
+        data: DataChunk = chunk.get_chunk(chunk_id="DATA", recursive=False)
         with BytesIO(data.data) as stream:
             count = cls.LAYOUT.unpack_stream(stream)[0]
             parts = [MsgrName.unpack(stream) for _ in range(count)]
-        submeshes = [MslcChunk.create(mscl) for mscl in chunk.get_chunks(id="MSLC")]
+        submeshes = [MslcChunk.create(mscl) for mscl in chunk.get_chunks(chunk_id="MSLC")]
 
         return MsgrChunk(parts, submeshes)
 
@@ -266,8 +266,8 @@ class AnimChunk:
 
     @classmethod
     def convert(cls, chunk: ChunkCollection) -> 'AnimChunk':
-        data = AnimChunkData.convert(chunk.get_chunk(recursive=False, id="DATA"))
-        anbv = AnbvChunk.convert(chunk.get_chunk(recursive=False, id="ANBV"))
+        data = AnimChunkData.convert(chunk.get_chunk(recursive=False, chunk_id="DATA"))
+        anbv = AnbvChunk.convert(chunk.get_chunk(recursive=False, chunk_id="ANBV"))
         return AnimChunk(data, anbv)
 
 
@@ -281,17 +281,17 @@ class RsgmChunk:
 
     @classmethod
     def convert(cls, chunk: ChunkCollection) -> 'RsgmChunk':
-        sshr = [SshrChunk.convert(c) for c in chunk.get_chunks(id='SSHR', recursive=False)]
+        sshr = [SshrChunk.convert(c) for c in chunk.get_chunks(chunk_id='SSHR', recursive=False)]
 
-        skel_chunk = chunk.get_chunk(id='SKEL', recursive=False, optional=True)
+        skel_chunk = chunk.get_chunk(chunk_id='SKEL', recursive=False, optional=True)
         skel = SkelChunk.convert(skel_chunk) if skel_chunk else None
 
-        mark_chunk = chunk.get_chunk(id="MARK", recursive=False, optional=True)
+        mark_chunk = chunk.get_chunk(chunk_id="MARK", recursive=False, optional=True)
         mark = MarkChunk.convert(mark_chunk) if mark_chunk else None
 
-        msgr = MsgrChunk.convert(chunk.get_chunk(id="MSGR", recursive=False))
+        msgr = MsgrChunk.convert(chunk.get_chunk(chunk_id="MSGR", recursive=False))
 
-        anim = [AnimChunk.convert(c) for c in chunk.get_chunks(id='ANIM', recursive=False)]
+        anim = [AnimChunk.convert(c) for c in chunk.get_chunks(chunk_id='ANIM', recursive=False)]
 
         return RsgmChunk(sshr, skel, msgr, mark, anim)
 
@@ -303,8 +303,8 @@ class WhmChunky(AbstractRelicChunky):
 
     @classmethod
     def convert(cls, chunky: RelicChunky) -> 'WhmChunky':
-        rsgm = RsgmChunk.convert(chunky.get_chunk(id="RSGM", recursive=False))
-        fbif = FbifChunk.convert(chunky.get_chunk(id="FBIF", recursive=False))
+        rsgm = RsgmChunk.convert(chunky.get_chunk(chunk_id="RSGM", recursive=False))
+        fbif = FbifChunk.convert(chunky.get_chunk(chunk_id="FBIF", recursive=False))
         # sshr = [SshrChunk.convert(c) for c in chunky.get_chunks(id='SSHR')]
         # msgr = MsgrChunk.convert(chunky.get_chunk(id="MSGR"))
         return WhmChunky(chunky.chunks, chunky.header, rsgm, fbif)  # sshr, msgr)

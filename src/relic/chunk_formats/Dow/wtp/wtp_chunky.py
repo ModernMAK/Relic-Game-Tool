@@ -3,7 +3,7 @@ from typing import BinaryIO
 
 from relic.chunk_formats.Dow.wtp.tpat_chunk import TpatChunk
 from relic.chunky import RelicChunky, FolderChunk
-from relic.chunky.abstract_relic_chunky import AbstractRelicChunky
+from relic.chunky import AbstractRelicChunky
 
 
 @dataclass
@@ -12,7 +12,7 @@ class WtpChunky(AbstractRelicChunky):
 
     @classmethod
     def convert(cls, chunky: RelicChunky) -> 'WtpChunky':
-        tpat_folder: FolderChunk = chunky.get_chunk(id="TPAT")
+        tpat_folder: FolderChunk = chunky.get_chunk(chunk_id="TPAT")
         tpat = TpatChunk.create(tpat_folder)
         return WtpChunky(chunky.chunks, chunky.header, tpat)
 
