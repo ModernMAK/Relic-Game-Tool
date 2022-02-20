@@ -1,1 +1,0 @@
-raise NotImplementedError("Use archive_tools structx/vstruct!")

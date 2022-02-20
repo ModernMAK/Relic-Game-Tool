@@ -20,4 +20,4 @@ depends/
 .pytest_cache/
 
 secrets/
-src/dll/texconv.exe
+osrc/dll/texconv.exe
