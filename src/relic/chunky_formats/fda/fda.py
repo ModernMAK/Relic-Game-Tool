@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
-from ...chunky.chunk.chunk import DataChunk, GenericDataChunk, FolderChunk, AbstractChunk
-from ...chunky.chunk.header import ChunkType
-from ...chunky.chunky.chunky import RelicChunky, GenericRelicChunky
+from ...chunky.chunk import DataChunk, GenericDataChunk, FolderChunk, AbstractChunk, ChunkType
+from ...chunky.chunky import RelicChunky, GenericRelicChunky
 from ..common_chunks.fbif import FbifChunk
 from ..convertable import ConvertableDataChunk, find_chunk, ConvertableChunky
 

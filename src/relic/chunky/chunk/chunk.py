@@ -11,6 +11,7 @@ class AbstractChunk:
     """A base class for all chunks."""
     header: ChunkHeader
 
+
 @dataclass
 class ChunkCollection:
     chunks: List[AbstractChunk]

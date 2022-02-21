@@ -5,10 +5,10 @@ from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO
 
-from relic.chunky.chunky.header import ChunkyHeader
-from relic.config import aifc_encoder_path, aifc_decoder_path
-from relic.file_formats import aiff
-from relic.formats.fda.fda import FdaChunky, FdaChunk, FdaDataChunk
+from ...chunky.chunky import ChunkyHeader
+from ...config import aifc_encoder_path, aifc_decoder_path
+from ...file_formats import aiff
+from .fda import FdaChunky, FdaChunk, FdaDataChunk
 
 
 class FdaConverter:

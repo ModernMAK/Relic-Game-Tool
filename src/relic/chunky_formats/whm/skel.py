@@ -70,7 +70,7 @@ from relic.file_formats.mesh_io import Float3, Float4
 #
 #     # Return a 4 element array containing the final quaternion (q02,q12,q22,q32)
 #     return final_quaternion
-from relic.formats.common_chunks.skel_chunk_nonwhm import SkelChunk
+# from ..common_chunks.skel_chunk_nonwhm import SkelChunk
 
 
 @dataclass

@@ -85,8 +85,8 @@ from archive_tools.walkutil import filter_by_file_extension, collapse_walk_on_fi
 
 from relic.chunky.serializer import read_chunky
 from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
-from relic.formats.convertable import ChunkyConverterFactory
-from relic.formats.converter import generate_chunky_converter
+from relic.chunky_formats.convertable import ChunkyConverterFactory
+from relic.chunky_formats.converter import generate_chunky_converter
 
 if __name__ == "__main__":
     # A compromise between an automatic location and NOT the local directory
@@ -111,7 +111,16 @@ if __name__ == "__main__":
     # Tested against the IBB Extraction tool; these files could not be parsed
     KNOWN_INVALID = [
         # r"DXP2Data-SharedTextures-Full\data\art\ebps\races\dark_eldar\texture_share\darkeldar_warrior_default.wtp"
-        "default.wtp"  # General rule '*_default.wtp' are wierd (one file has bad chunks, one file has LITERALLY NO DATA)
+        "default.wtp",  # General rule '*_default.wtp' are wierd (one file has bad chunks, one file has LITERALLY NO DATA)
+
+        # *_convervator files are off by 1 (usually, a few point to wierd data)
+        # *_default_4 has the same issue
+        r"_conservator.rtx",
+        r"_default_6.rtx",
+        r"_default_4.rtx",
+        r"_default_0.rtx",
+
+
     ]
 
 
@@ -132,11 +141,14 @@ if __name__ == "__main__":
                 print(f, ":\t", converted.__class__)
 
 
+    only_isolated = False
     conv = generate_chunky_converter()
-    isolated_ext = "wtp"
+    isolated_ext = "rtx"
     if isolated_ext:
         run(out_path, isolated_ext, conv)
+
     # TEST WHM/FDA/...
-    exts = ["fda", "whm", "wtp"]
+    exts = conv.supported
     exts = [_ for _ in exts if _ != isolated_ext]
-    run(out_path, exts, conv)
+    if not only_isolated:
+        run(out_path, exts, conv)

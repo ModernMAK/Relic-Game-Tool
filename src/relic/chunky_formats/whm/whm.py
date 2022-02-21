@@ -63,7 +63,7 @@ class MsclHeader:
 
         assert rsv_0a == 0
         assert rsv_0b == 0
-        assert flag == 1
+        assert flag in [1, 0], (flag, val)
 
         return MsclHeader(flag, val, names)
 
@@ -225,8 +225,8 @@ class MslcBlockUtil:
             return TextureMsclBlock(f, count, subs, infos, *unks, code)
 
         try:
-            if f == MslcBlockFormat.Vertex32:
-                return Vertex32MsclBlock.convert(stream, count)
+            # if f == MslcBlockFormat.Vertex32:
+            #     return Vertex32MsclBlock.convert(stream, count)
             buffer_size = f.vertex_buffer_size()
             v_buffer = stream.read(buffer_size * count)
             return VertexMsclBlock(f, count, v_buffer, code)

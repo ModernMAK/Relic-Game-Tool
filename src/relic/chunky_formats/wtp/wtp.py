@@ -11,8 +11,8 @@ from archive_tools.vstruct import VStruct
 from relic.chunky.chunk.chunk import GenericDataChunk, AbstractChunk, FolderChunk
 from relic.chunky.chunk.header import ChunkType
 from relic.chunky.chunky.chunky import GenericRelicChunky, RelicChunky
-from relic.formats.common_chunks.imag import AttrChunk, ImagChunk
-from relic.formats.convertable import find_chunk, find_chunks
+from relic.chunky_formats.common_chunks.imag import ImagChunk
+from relic.chunky_formats.convertable import find_chunk, find_chunks
 
 
 # Painted Team Layer Data?

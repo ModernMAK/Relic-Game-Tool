@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import BinaryIO, Dict
+from typing import BinaryIO, Dict, Type
 
 from archive_tools.ioutil import as_hex_adr, abs_tell
 from archive_tools.vstruct import VStruct
@@ -53,7 +53,7 @@ class ChunkHeader:
 
 @dataclass
 class ChunkHeaderV0101(ChunkHeader):
-    LAYOUT = VStruct("< 4s 4s 2L v")
+    LAYOUT = VStruct("< 4s 4s 2l v")
 
     @property
     def chunky_version(self) -> ChunkyVersion:
@@ -61,7 +61,13 @@ class ChunkHeaderV0101(ChunkHeader):
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ChunkHeader:
-        args = cls.LAYOUT.unpack_stream(stream)
+        try:
+            start = stream.tell()
+            args = cls.LAYOUT.unpack_stream(stream)
+        except AssertionError:
+            stream.seek(start)
+            _ = stream.read(cls.LAYOUT.min_size)
+            raise
         chunk_type = args[0].decode("ascii")
         _ = as_hex_adr(abs_tell(stream))
         chunk_type = ChunkType(chunk_type)
@@ -99,7 +105,7 @@ class ChunkHeaderV0301(ChunkHeader):
         return self.LAYOUT.pack_stream(stream, *args)
 
 
-_VERSION_MAP: Dict[VersionLike, ChunkHeader] = {
+_VERSION_MAP: Dict[VersionLike, Type[ChunkHeader]] = {
     ChunkyVersion.v0101: ChunkHeaderV0101,
     ChunkyVersion.v0301: ChunkHeaderV0301
 }

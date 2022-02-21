@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import BinaryIO, Dict
+from typing import BinaryIO, Dict, Type
 
 from archive_tools.magic import MagicWordIO, MagicWord
 from archive_tools.structx import Struct
@@ -102,7 +102,7 @@ class ChunkyHeaderV0301(ChunkyHeader):
         return self.LAYOUT.pack_stream(stream, *self.CONST)
 
 
-_VERSION_MAP: Dict[VersionLike, ChunkyHeader] = {
+_VERSION_MAP: Dict[VersionLike, Type[ChunkyHeader]] = {
     ChunkyVersion.v0101: ChunkyHeaderV0101,
     ChunkyVersion.v0301: ChunkyHeaderV0301
 }
