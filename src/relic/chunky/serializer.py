@@ -65,11 +65,12 @@ def read_all_chunks(stream: BinaryIO, chunky_version: ChunkyVersion) -> List[Abs
         header = ChunkHeader.unpack(stream, chunky_version)
         with BinaryWindow.slice(stream, header.size).as_parsing_window() as window:
             if header.type == ChunkType.Folder:
-                c = read_folder_chunk(stream,header)
+                c = read_folder_chunk(window, header)
             elif header.type == ChunkType.Data:
                 c = read_data_chunk(window, header)
             else:
                 raise TypeError(header.type)
+
         chunks.append(c)
     return chunks
 

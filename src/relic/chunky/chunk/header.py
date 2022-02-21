@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import BinaryIO, Dict
 
+from archive_tools.ioutil import as_hex_adr, abs_tell
 from archive_tools.vstruct import VStruct
 
 from ..chunky.header import ChunkyVersion
@@ -61,7 +62,9 @@ class ChunkHeaderV0101(ChunkHeader):
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ChunkHeader:
         args = cls.LAYOUT.unpack_stream(stream)
-        chunk_type = ChunkType(args[0].decode("ascii"))
+        chunk_type = args[0].decode("ascii")
+        _ = as_hex_adr(abs_tell(stream))
+        chunk_type = ChunkType(chunk_type)
         chunk_id = args[1].decode("ascii").strip("\x00")
         version, size = args[2:4]
         name = args[4].decode("ascii").rstrip("\x00")

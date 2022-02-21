@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from archive_tools.vstruct import VStruct
 
-from relic.formats.format_converter import ConvertableDataChunk
+from relic.formats.convertable import ConvertableDataChunk
 from relic.chunky.chunk.chunk import DataChunk, GenericDataChunk
 
 

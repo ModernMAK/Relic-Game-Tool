@@ -8,7 +8,7 @@ from ...chunky.chunk.chunk import DataChunk, GenericDataChunk, FolderChunk, Abst
 from ...chunky.chunk.header import ChunkType
 from ...chunky.chunky.chunky import RelicChunky, GenericRelicChunky
 from ..common_chunks.fbif import FbifChunk
-from ..format_converter import ConvertableDataChunk, find_chunk
+from ..convertable import ConvertableDataChunk, find_chunk, ConvertableChunky
 
 
 @dataclass
@@ -63,7 +63,7 @@ class FdaChunk(AbstractChunk):
 
 
 @dataclass
-class FdaChunky(RelicChunky):
+class FdaChunky(ConvertableChunky, RelicChunky):
     fbif: FbifChunk
     fda: FdaChunk
 

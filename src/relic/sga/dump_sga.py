@@ -56,15 +56,19 @@ def dump_archive(input_folder: os.PathLike, output_folder: os.PathLike, overwrit
                         msg = f"Writing '{relative_file_path}'"
                         skip = False
                         if output_file_path.exists():
-                            if not overwrite:
-                                msg = f"Skipping (Exists)"
-                                skip = True
-                            elif update:
-                                if output_file_path.stat().st_size == file.header.decompressed_size:
-                                    msg = f"Skipping (Up to date)"
+                            if update:
+                                if output_file_path.stat().st_size == file.header.decompressed_size :
+                                    msg = f"Skipping (Up to date - Decompressed Size Match)"
+                                    skip = True
+                                elif output_file_path.stat().st_size == file.header.compressed_size:
+                                    msg = f"Skipping (Up to date - Compressed Size Match)"
                                     skip = True
                                 else:
                                     msg = f"Updating"
+                            elif not overwrite:
+                                msg = f"Skipping (Exists)"
+                                skip = True
+
                         print(f"\t\t{msg} '{relative_file_path}'")
                         if skip:
                             continue
@@ -97,7 +101,7 @@ if __name__ == "__main__":
     else:
         raise FileNotFoundError("Couldn't find any suitable DOW games!")
     print(f"Dumping game '{game}' from '{in_path}' to '{out_path}'\n")
-    dump_archive(in_path, out_path)
+    dump_archive(in_path, out_path,update=True)
     print(f"\nDumped game '{game}' from '{in_path}' to '{out_path}'")
     # dump_all_sga(root, blacklist=[r"-Low", "-Med"],
     #              out_dir=r"D:/Dumps/DOW I/sga", verbose=True)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
@@ -5,13 +6,15 @@ from enum import Enum
 from io import BytesIO
 from os.path import dirname, splitext
 from tempfile import NamedTemporaryFile
-from typing import BinaryIO
+from typing import BinaryIO, Optional, ForwardRef, List
 
 from archive_tools.structx import Struct
 
-from relic.chunky import DataChunk, FolderChunk
-from relic.config import texconv_path
-from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
+from ..convertable import find_chunk, find_chunks
+from ...chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
+from ...chunky.chunk.header import ChunkType
+from ...config import texconv_path
+from ...file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC
 
 
 class ImageFormat(Enum):
@@ -52,7 +55,7 @@ class ImageFormat(Enum):
 
 
 @dataclass
-class AttrChunk:
+class AttrChunk(AbstractChunk):
     LAYOUT = Struct("< 3l")
     LAYOUT_WITH_MIP = Struct("< 4l")
 
@@ -62,35 +65,45 @@ class AttrChunk:
     mips: int
 
     @classmethod
-    def convert(cls, chunk: DataChunk) -> 'AttrChunk':
+    def convert(cls, chunk: GenericDataChunk) -> 'AttrChunk':
         buffer_size = len(chunk.data)
         if buffer_size == cls.LAYOUT_WITH_MIP.size:
             args = cls.LAYOUT_WITH_MIP.unpack(chunk.data)
-            args = (*args, 0)
         elif buffer_size == cls.LAYOUT.size:
             args = cls.LAYOUT.unpack(chunk.data)
+            args = (*args, 0)
         else:
             raise NotImplementedError
 
         img = ImageFormat(args[0])
         args = args[1:]
-        return AttrChunk(img, *args)
+        return AttrChunk(chunk.header, img, *args)
 
+
+# TxtrChunk = ForwardRef("TxtrChunk")
 
 @dataclass
-class ImagChunk:
+class ImagChunk(AbstractChunk):
     attr: AttrChunk
-    data: DataChunk
+    data: GenericDataChunk
+    txtr: Optional[TxtrChunk]
+    shdr: Optional[FolderChunk]  # TODO
+    sshr: List[FolderChunk]  # TODO
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> 'ImagChunk':
-        attr_chunk = chunk.get_chunk(chunk_id="ATTR")
-        data_chunk = chunk.get_chunk(chunk_id="DATA")
+        attr = find_chunk(chunk.chunks, "ATTR", ChunkType.Data)
+        attr = AttrChunk.convert(attr)
+        data = find_chunk(chunk.chunks, "DATA", ChunkType.Data)
+        txtr = find_chunk(chunk.chunks,"TXTR",ChunkType.Folder)
+        if txtr:
+            txtr = TxtrChunk.convert(txtr)
+        shdr = find_chunk(chunk.chunks, "SHDR", ChunkType.Folder)
 
-        attr = AttrChunk.convert(attr_chunk)
-        data = data_chunk
-
-        return ImagChunk(attr, data)
+        sshr = find_chunks(chunk.chunks,"SSHR",ChunkType.Data)
+        sshr = list(sshr)
+        assert len(chunk.chunks) == 2 + (1 if shdr else 0) + (1 if txtr else 0) + len(sshr)
+        return ImagChunk(chunk.header, attr, data, txtr, shdr, sshr)
 
 
 # Dumps the raw image, DDS images will be inverted, TGA images will be normal
@@ -189,9 +202,28 @@ class ImagConverter:
                 cls.Imag2StreamRaw(imag, stream)
 
 
-__all__ = [
-    AttrChunk.__name__,
-    ImagChunk.__name__,
-    ImageFormat.__name__,
-    ImagConverter.__name__
-]
+
+@dataclass
+class HeadChunk:
+    LAYOUT = Struct("< 2l")
+    image_format: int
+    unk_a: int
+
+    @classmethod
+    def convert(cls, chunk: GenericDataChunk) -> HeadChunk:
+            args = cls.LAYOUT.unpack(chunk.data)
+            return HeadChunk(*args)
+
+
+@dataclass
+class TxtrChunk:
+    head: HeadChunk
+    imag: ImagChunk
+
+    @classmethod
+    def convert(cls, chunk: FolderChunk) -> TxtrChunk:
+        head = find_chunk(chunk.chunks, "HEAD", ChunkType.Data)
+        head = HeadChunk.convert(head)
+        imag = find_chunk(chunk.chunks, "IMAG", ChunkType.Folder)
+        imag = ImagChunk.convert(imag)
+        return TxtrChunk(head, imag)

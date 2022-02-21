@@ -25,7 +25,7 @@ class FileCompressionFlag(Enum):
 
 @dataclass
 class FileHeader:
-    Layout: ClassVar[Struct]
+    LAYOUT: ClassVar[Struct]
     name_sub_ptr: Ptr  # Sub ptr is expected to be used via window (E.G. 'WindowPtr() as handle', then, 'data_sub_ptr.stream_jump_to(handle)')
     data_sub_ptr: Ptr
     decompressed_size: int
