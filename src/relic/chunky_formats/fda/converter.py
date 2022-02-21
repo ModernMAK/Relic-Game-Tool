@@ -116,4 +116,3 @@ class FdaConverter:
             cls.Wav2Aiffr(stream, aiffr)
             aiffr.seek(0)
             return cls.Aiffr2Fda(aiffr)
-

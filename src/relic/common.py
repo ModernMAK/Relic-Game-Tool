@@ -6,7 +6,6 @@ from archive_tools.structx import Struct
 
 
 class VersionEnum(Enum):
-
     def __eq__(self, other):
         if isinstance(other, VersionEnum):
             return self.value == other.value
@@ -20,7 +19,6 @@ class VersionEnum(Enum):
 
     def __hash__(self):
         return self.value.__hash__()
-
 
 
 @dataclass
@@ -51,22 +49,6 @@ class Version:
         # Realistically; Version will always be <256
         # But we could manually set it to something much bigger by accident; and that may cause collisions
         return self.major << 32 + self.minor
-    #
-    # @classmethod
-    # def unpack_32(cls, stream: BinaryIO):
-    #     return Version(*cls.__32.unpack_stream(stream))
-    #
-    # @classmethod
-    # def unpack_64(cls, stream: BinaryIO):
-    #     return Version(*cls.__64.unpack_stream(stream))
-    #
-    # def pack_32(self, stream: BinaryIO) -> int:
-    #     args = self.minor, self.minor
-    #     return self.__32.pack_stream(stream, *args)
-    #
-    # def pack_64(self, stream: BinaryIO) -> int:
-    #     args = self.minor, self.minor
-    #     return self.__64.pack_stream(stream, *args)
 
 
 VersionLike = Union[Version, VersionEnum]

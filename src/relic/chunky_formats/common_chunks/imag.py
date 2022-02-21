@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 import subprocess
 from dataclasses import dataclass
@@ -6,7 +7,7 @@ from enum import Enum
 from io import BytesIO
 from os.path import dirname, splitext
 from tempfile import NamedTemporaryFile
-from typing import BinaryIO, Optional, ForwardRef, List
+from typing import BinaryIO, Optional, List
 
 from archive_tools.structx import Struct
 
@@ -95,12 +96,12 @@ class ImagChunk(AbstractChunk):
         attr = find_chunk(chunk.chunks, "ATTR", ChunkType.Data)
         attr = AttrChunk.convert(attr)
         data = find_chunk(chunk.chunks, "DATA", ChunkType.Data)
-        txtr = find_chunk(chunk.chunks,"TXTR",ChunkType.Folder)
+        txtr = find_chunk(chunk.chunks, "TXTR", ChunkType.Folder)
         if txtr:
             txtr = TxtrChunk.convert(txtr)
         shdr = find_chunk(chunk.chunks, "SHDR", ChunkType.Folder)
 
-        sshr = find_chunks(chunk.chunks,"SSHR",ChunkType.Data)
+        sshr = find_chunks(chunk.chunks, "SSHR", ChunkType.Data)
         sshr = list(sshr)
         assert len(chunk.chunks) == 2 + (1 if shdr else 0) + (1 if txtr else 0) + len(sshr)
         return ImagChunk(chunk.header, attr, data, txtr, shdr, sshr)
@@ -202,7 +203,6 @@ class ImagConverter:
                 cls.Imag2StreamRaw(imag, stream)
 
 
-
 @dataclass
 class HeadChunk:
     LAYOUT = Struct("< 2l")
@@ -211,8 +211,8 @@ class HeadChunk:
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> HeadChunk:
-            args = cls.LAYOUT.unpack(chunk.data)
-            return HeadChunk(*args)
+        args = cls.LAYOUT.unpack(chunk.data)
+        return HeadChunk(*args)
 
 
 @dataclass

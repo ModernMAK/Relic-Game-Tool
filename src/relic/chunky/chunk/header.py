@@ -80,6 +80,7 @@ class ChunkHeaderV0101(ChunkHeader):
         args = self.type.value, self.id, self.chunky_version, self.size, self.name
         return self.LAYOUT.pack_stream(stream, *args)
 
+
 @dataclass
 class ChunkHeaderV0301(ChunkHeader):
     LAYOUT = VStruct("< 4s 4s 2L v 2L")

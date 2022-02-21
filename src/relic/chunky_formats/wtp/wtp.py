@@ -83,7 +83,7 @@ class PtldChunk(AbstractChunk):
         assert chunk.header.version == 1
         layer_code, image = cls.LAYOUT.unpack(chunk.data)
         layer = PtldLayer(layer_code)
-        return PtldChunk(chunk.header,layer, image)
+        return PtldChunk(chunk.header, layer, image)
 
 
 @dataclass
@@ -122,6 +122,6 @@ class WtpChunky(RelicChunky):
 
     @classmethod
     def convert(cls, chunky: GenericRelicChunky) -> WtpChunky:
-        tpat = find_chunk(chunky.chunks,"TPAT", ChunkType.Folder)
+        tpat = find_chunk(chunky.chunks, "TPAT", ChunkType.Folder)
         tpat = TpatChunk.convert(tpat)
         return WtpChunky(chunky.header, tpat)

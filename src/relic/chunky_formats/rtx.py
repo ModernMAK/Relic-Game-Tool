@@ -13,8 +13,7 @@ class RtxChunky(RelicChunky):
 
     @classmethod
     def convert(cls, chunky: GenericRelicChunky) -> RtxChunky:
-        txtr = find_chunk(chunky.chunks,"TXTR",ChunkType.Folder)
+        txtr = find_chunk(chunky.chunks, "TXTR", ChunkType.Folder)
         txtr = TxtrChunk.convert(txtr)
         assert len(chunky.chunks) == 1
         return RtxChunky(chunky.header, txtr)
-

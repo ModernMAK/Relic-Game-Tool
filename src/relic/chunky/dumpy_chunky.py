@@ -80,13 +80,12 @@ import os
 from os.path import splitext
 from pathlib import Path
 
-from archive_tools.error import ParsingError
 from archive_tools.walkutil import filter_by_file_extension, collapse_walk_on_files, WhiteList, filter_by_path
 
 from relic.chunky.serializer import read_chunky
-from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
 from relic.chunky_formats.convertable import ChunkyConverterFactory
 from relic.chunky_formats.converter import generate_chunky_converter
+from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
 
 if __name__ == "__main__":
     # A compromise between an automatic location and NOT the local directory
@@ -119,7 +118,6 @@ if __name__ == "__main__":
         r"_default_6.rtx",
         r"_default_4.rtx",
         r"_default_0.rtx",
-
 
     ]
 

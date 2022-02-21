@@ -9,6 +9,8 @@ from archive_tools.vstruct import VStruct
 
 from relic.chunky.chunk.chunk import GenericDataChunk, AbstractChunk
 from relic.file_formats.mesh_io import Float3, Float4
+
+
 # STOLEN FROM 'https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/'
 #
 #
@@ -105,7 +107,6 @@ class SkelChunk(AbstractChunk):
             bone_count = cls.LAYOUT.unpack_stream(stream)[0]
             bones = [SkelBone.unpack(stream) for _ in range(bone_count)]
             return SkelChunk(chunk.header, bones)
-
 
 # _Euler90_0_0 = Quaternion(0.7071068, 0, 0, 0.7071068)
 #

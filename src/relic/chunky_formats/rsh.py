@@ -1,15 +1,14 @@
 from dataclasses import dataclass
 
-from relic.chunk_formats.Dow.shared.txtr import TxtrChunk
-from relic.chunky import FolderChunk, RelicChunky
-from relic.chunky import AbstractRelicChunky
+from relic.chunky.chunk import FolderChunk
+from relic.chunky_formats.common_chunks.imag import TxtrChunk
 
 
 @dataclass
 class ShrfChunk:
     texture: TxtrChunk
 
-    shader: FolderChunk #ShdrChunk
+    shader: FolderChunk  # ShdrChunk
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'ShrfChunk':
@@ -19,7 +18,7 @@ class ShrfChunk:
         txtr = TxtrChunk.convert(txtr_chunk)
         # shdr = ShdrChunk.create(shdr_chunk)
 
-        return ShrfChunk(txtr,shdr_chunk)  # shdr,)
+        return ShrfChunk(txtr, shdr_chunk)  # shdr,)
 
 
 @dataclass
@@ -31,12 +30,3 @@ class RshChunky(AbstractRelicChunky):
         shrf_folder = chunky.get_chunk(chunk_id="SHRF", recursive=True)
         shrf = ShrfChunk.create(shrf_folder)
         return RshChunky(chunky.chunks, chunky.header, shrf)
-
-
-__all__ = [
-    RshChunky.__name__,
-    ShrfChunk.__name__,
-    # The following are provided as Aliases
-    TxtrChunk.__name__
-
-]
