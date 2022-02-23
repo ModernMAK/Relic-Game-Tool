@@ -45,7 +45,7 @@ class ArchiveRange:
         return self.end - self.start
 
     # We don't use iterable to avoid x
-    def __iter__(self) -> 'ArchiveRange':
+    def __iter__(self) -> ArchiveRange:
         self.__iterable = iter(range(self.start, self.end))
         return self
 

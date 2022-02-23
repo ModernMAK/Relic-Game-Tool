@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ..heiarchy import DriveChild, FolderCollection, FileCollection, FolderChild, walk
+from ..hierarchy import DriveChild, FolderCollection, FileCollection, FolderChild, walk
 
 if TYPE_CHECKING:
     from ..file.file import File
     from ..toc.toc import ArchiveTableOfContents
     from ..vdrive.virtual_drive import VirtualDrive
     from .header import FolderHeader
-    from ..heiarchy import ArchiveWalk
+    from ..hierarchy import ArchiveWalk
 
 
 @dataclass

@@ -222,6 +222,7 @@ class TxtrChunk:
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> TxtrChunk:
+        assert chunk.header.version == 1
         head = find_chunk(chunk.chunks, "HEAD", ChunkType.Data)
         head = HeadChunk.convert(head)
         imag = find_chunk(chunk.chunks, "IMAG", ChunkType.Folder)

@@ -1,32 +1,35 @@
 from dataclasses import dataclass
+from typing import List
 
-from relic.chunky.chunk import FolderChunk
+from relic.chunky.chunk import FolderChunk, ChunkType, AbstractChunk
+from relic.chunky.chunky import RelicChunky, GenericRelicChunky
 from relic.chunky_formats.common_chunks.imag import TxtrChunk
+from relic.chunky_formats.convertable import find_chunk, find_chunks
 
 
 @dataclass
-class ShrfChunk:
-    texture: TxtrChunk
-
-    shader: FolderChunk  # ShdrChunk
+class ShrfChunk(AbstractChunk):
+    texture: List[TxtrChunk]
+    shdr: FolderChunk  # ShdrChunk
 
     @classmethod
     def create(cls, chunk: FolderChunk) -> 'ShrfChunk':
-        txtr_chunk = chunk.get_folder_chunk("TXTR")
-        shdr_chunk = chunk.get_folder_chunk("SHDR")
+        txtr = find_chunks(chunk.chunks, "TXTR", ChunkType.Folder)
+        txtr = [TxtrChunk.convert(_) for _ in txtr]
+        shdr = find_chunk(chunk.chunks, "SHDR", ChunkType.Folder)
 
-        txtr = TxtrChunk.convert(txtr_chunk)
         # shdr = ShdrChunk.create(shdr_chunk)
-
-        return ShrfChunk(txtr, shdr_chunk)  # shdr,)
+        assert len(chunk.chunks) == 1 + len(txtr), ([(c.header.type.name, c.header.id) for c in chunk.chunks])
+        return ShrfChunk(chunk.header, txtr, shdr)
 
 
 @dataclass
-class RshChunky(AbstractRelicChunky):
+class RshChunky(RelicChunky):
     shrf: ShrfChunk
 
     @classmethod
-    def convert(cls, chunky: RelicChunky) -> 'RshChunky':
-        shrf_folder = chunky.get_chunk(chunk_id="SHRF", recursive=True)
-        shrf = ShrfChunk.create(shrf_folder)
-        return RshChunky(chunky.chunks, chunky.header, shrf)
+    def convert(cls, chunky: GenericRelicChunky) -> 'RshChunky':
+        shrf = find_chunk(chunky.chunks, "SHRF", ChunkType.Folder)
+        shrf = ShrfChunk.create(shrf)
+        assert len(chunky.chunks) == 1
+        return RshChunky(chunky.header, shrf)

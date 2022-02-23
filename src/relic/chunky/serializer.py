@@ -4,11 +4,11 @@ from archive_tools.ioutil import end_of_stream, BinaryWindow
 
 from .chunk.chunk import AbstractChunk, FolderChunk, GenericDataChunk
 from .chunk.header import ChunkHeader, ChunkType
-from .chunky.chunky import RelicChunky, GenericRelicChunky
+from .chunky.chunky import GenericRelicChunky
 from .chunky.header import ChunkyVersion, ChunkyMagic, ChunkyHeader
 
 
-def read_chunky(stream: BinaryIO) -> RelicChunky:
+def read_chunky(stream: BinaryIO) -> GenericRelicChunky:
     ChunkyMagic.assert_magic_word(stream)
     header = ChunkyHeader.unpack(stream)
     chunks = read_all_chunks(stream, header.version)

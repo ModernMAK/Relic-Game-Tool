@@ -1,10 +1,15 @@
+from .archive import *
+from .file import *
+from .folder import *
+from .toc import *
+from .vdrive import *
+from . import common, hierarchy, writer
 from . import archive, file, folder, toc, vdrive
-from . import common, heiarchy, writer
 
 __all__ = [
-    common,
-    heiarchy,
-    writer,
+    "common",
+    "hierarchy",
+    "writer",
 ]
 
 __all__.extend(archive.__all__)

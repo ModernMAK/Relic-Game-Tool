@@ -107,18 +107,26 @@ if __name__ == "__main__":
     else:
         raise FileNotFoundError("Couldn't find any suitable DOW games!")
 
-    # Tested against the IBB Extraction tool; these files could not be parsed
     KNOWN_INVALID = [
         # r"DXP2Data-SharedTextures-Full\data\art\ebps\races\dark_eldar\texture_share\darkeldar_warrior_default.wtp"
         "default.wtp",  # General rule '*_default.wtp' are wierd (one file has bad chunks, one file has LITERALLY NO DATA)
 
         # *_convervator files are off by 1 (usually, a few point to wierd data)
-        # *_default_4 has the same issue
+        # *_default_*.rtx has the same issue
         r"_conservator.rtx",
         r"_default_6.rtx",
         r"_default_4.rtx",
         r"_default_0.rtx",
 
+        # r"DXP2Data-Whm-High\data\art\ebps\environment\single_player_dxp\spo_05",  # Wierd 'Mesh codes'
+        # r"DXP2Data-Whm-High\data\art\ebps\environment\snow",  # Too many wierd ones in snow; skip for now
+        # r"DXP2Data-Whm-High\data\art\ebps\environment\urban",  # Too many wierd ones; skip for now
+        # r"DXP2Data-Whm-High\data\art\ebps\environment\urban",  # Too many wierd ones; skip for now
+        #
+        # # Try to limit race restrictions to ONLY invalid
+        # r"DXP2Data-Whm-High\data\art\ebps\races\eldar\structures\aspect_portal.whm",
+        # r"DXP2Data-Whm-High\data\art\ebps\races\imperial_guard", # LOL, IG is just broken.... Muh baneblade...
+        # r"DXP2Data-Whm-High\data\art\ebps\races\necrons\structures\aspect_portal.whm",
     ]
 
 
@@ -135,18 +143,30 @@ if __name__ == "__main__":
                     temp = Path(f)
                     print(temp, "\n\t", temp.relative_to(root_dir))
                     raise
+                print(f, ":\t", end="")
                 converted = converter.convert(ext, chunky)
-                print(f, ":\t", converted.__class__)
+                print(converted.__class__)
 
 
-    only_isolated = False
     conv = generate_chunky_converter()
-    isolated_ext = "rtx"
-    if isolated_ext:
-        run(out_path, isolated_ext, conv)
+    test_not_implemented = False
+    test_supported = False
+    test_isolated = False  # Will take longer due to repeated walks; but will open the same number of files
 
-    # TEST WHM/FDA/...
-    exts = conv.supported
-    exts = [_ for _ in exts if _ != isolated_ext]
-    if not only_isolated:
+    if test_supported and test_not_implemented:
+        exts = []
+        exts.extend(conv.not_implemented)
+        exts.extend(conv.supported)
+    elif test_not_implemented:
+        exts = conv.not_implemented
+    elif test_supported:
+        exts = conv.supported
+    else:  # Hardcoded tests
+        exts = ["fda"]
+    if test_isolated:
+        for ext in exts:
+            print(f"Testing: '{ext}'")
+            run(out_path, ext, conv)
+    else:
+        print("Testing: '" + ", ".join(exts) + "'")
         run(out_path, exts, conv)

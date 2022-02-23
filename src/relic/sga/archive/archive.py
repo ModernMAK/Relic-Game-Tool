@@ -5,7 +5,7 @@ from typing import BinaryIO, List, Type, Dict, TYPE_CHECKING
 
 from .header import ArchiveHeader
 from ..common import ArchiveVersion
-from ..heiarchy import DriveCollection, ArchiveWalk, walk
+from ..hierarchy import DriveCollection, ArchiveWalk, walk
 from ...common import VersionLike
 
 if TYPE_CHECKING:

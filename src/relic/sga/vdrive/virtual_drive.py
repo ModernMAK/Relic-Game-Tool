@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import List, TYPE_CHECKING
 
-from ..heiarchy import FileCollection, FolderCollection, ArchiveWalk, walk
+from ..hierarchy import FileCollection, FolderCollection, ArchiveWalk, walk
 
 if TYPE_CHECKING:
     from ..file.file import File

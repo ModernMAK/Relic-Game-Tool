@@ -14,7 +14,8 @@ from archive_tools.vstruct import VStruct
 from .skel import SkelChunk
 from ..common_chunks.fbif import FbifChunk
 from ..common_chunks.imag import TxtrChunk
-from ..convertable import find_chunk, find_chunks, ConvertableChunky
+from ..convertable import find_chunk, find_chunks, ConvertableChunky, UnimplementedDataChunk
+from ...chunky import ChunkyVersion
 from ...chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
 from ...chunky.chunk.header import ChunkType
 from ...chunky.chunky.chunky import RelicChunky, GenericRelicChunky
@@ -40,6 +41,9 @@ class SshrChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> SshrChunk:
+        # VERSIONED
+        assert chunk.header.version in [2], chunk.header.version
+
         with BytesIO(chunk.data) as stream:
             name = cls.LAYOUT.unpack_stream(stream)[0]
             name = name.decode("ascii")
@@ -287,26 +291,27 @@ class MsgrName:
 
 
 @dataclass
-class MslcDataChunk(AbstractChunk):
-    sub_header: MsclHeader
-    names: List[MslcName]
-    blocks: List[MslcBlock]
-
-    EXPECTED_VERSION = 2
-
-    # Mesh data I believe
-    @classmethod
-    def convert(cls, chunk: GenericDataChunk) -> MslcDataChunk:
-        # WHM's data.header.version always '2'
-        assert chunk.header.version == cls.EXPECTED_VERSION
-        with BytesIO(chunk.data) as stream:
-            sub_header = MsclHeader.unpack(stream)
-            names = [MslcName.unpack(stream) for _ in range(sub_header.name_count)]
-            blocks = []
-            while has_data(stream):
-                block = MslcBlockUtil.unpack(stream)
-                blocks.append(block)
-            return MslcDataChunk(chunk.header, sub_header, names, blocks)
+class MslcDataChunk(UnimplementedDataChunk):
+    pass
+    # sub_header: MsclHeader
+    # names: List[MslcName]
+    # blocks: List[MslcBlock]
+    #
+    # # Mesh data I believe
+    # @classmethod
+    # def convert(cls, chunk: GenericDataChunk) -> MslcDataChunk:
+    #
+    #     # VERSIONED
+    #     assert chunk.header.version in [2], chunk.header.version
+    #
+    #     with BytesIO(chunk.data) as stream:
+    #         sub_header = MsclHeader.unpack(stream)
+    #         names = [MslcName.unpack(stream) for _ in range(sub_header.name_count)]
+    #         blocks = []
+    #         while has_data(stream):
+    #             block = MslcBlockUtil.unpack(stream)
+    #             blocks.append(block)
+    #         return MslcDataChunk(chunk.header, sub_header, names, blocks)
 
 
 # IDK, its names but the layout seems to vary BUT NOT BY VERSION
@@ -331,12 +336,8 @@ class MslcDataChunk(AbstractChunk):
 
 
 @dataclass
-class BvolChunk(AbstractChunk):
-    raw: bytes
-
-    @classmethod
-    def convert(cls, chunk: GenericDataChunk) -> BvolChunk:
-        return BvolChunk(chunk.header, chunk.data)
+class BvolChunk(UnimplementedDataChunk):
+    pass
 
 
 @dataclass
@@ -350,6 +351,9 @@ class MslcChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> MslcChunk:
+        # VERSIONED
+        assert chunk.header.version in [1], chunk.header.version
+
         data = find_chunk(chunk.chunks, "DATA", ChunkType.Data)
         data = MslcDataChunk.convert(data)
         # data = [MslcDataChunk.convert(d) for d in data]
@@ -384,6 +388,9 @@ class MsgrChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> MsgrChunk:
+        # VERSIONED
+        assert chunk.header.version in [1], chunk.header.version
+
         mslc = find_chunks(chunk.chunks, "MSLC", ChunkType.Folder)
         mslc = [MslcChunk.convert(_) for _ in mslc]
 
@@ -404,40 +411,31 @@ class MsgrChunk(AbstractChunk):
 
 
 @dataclass
-class MarkChunk(AbstractChunk):
-    raw: bytes
-
-    @classmethod
-    def convert(cls, chunk: GenericDataChunk) -> MarkChunk:
-        return MarkChunk(chunk.header, chunk.data)
+class MarkChunk(UnimplementedDataChunk):
+    pass
 
 
 @dataclass
-class AnbvChunk(AbstractChunk):
-    raw: bytes
-
-    @classmethod
-    def convert(cls, chunk: GenericDataChunk) -> AnbvChunk:
-        return AnbvChunk(chunk.header, chunk.data)
+class AnbvChunk(UnimplementedDataChunk):
+    pass
 
 
 @dataclass
-class AnimChunkData(AbstractChunk):
-    raw: bytes
-
-    @classmethod
-    def convert(cls, chunk: GenericDataChunk) -> AnimChunkData:
-        return AnimChunkData(chunk.header, chunk.data)
+class AnimChunkData(UnimplementedDataChunk):
+    pass
 
 
 @dataclass
-class AnimChunk(GenericDataChunk):
+class AnimChunk(AbstractChunk):
     data: AnimChunkData
     anbv: AnbvChunk
     anim: Optional[AnimChunk]
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> AnimChunk:
+        # VERSIONED
+        assert chunk.header.version in [3], chunk.header.version
+
         data = find_chunk(chunk.chunks, "DATA", ChunkType.Data)
         data = AnimChunkData.convert(data)
         anbv = find_chunk(chunk.chunks, "ANBV", ChunkType.Data)
@@ -463,6 +461,9 @@ class RsgmChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> RsgmChunk:
+        # VERSIONED
+        assert chunk.header.version in [1, 3], chunk.header.version
+
         sshr = find_chunks(chunk.chunks, "SSHR", ChunkType.Data)
         sshr = [SshrChunk.convert(_) for _ in sshr]
 
@@ -490,17 +491,20 @@ class RsgmChunk(AbstractChunk):
         cams = find_chunk(chunk.chunks, "CAMS", ChunkType.Data)
 
         args = (sshr, skel, msgr, mark, anim, txtr, shdr, cams)
-        assert len(chunk.chunks) == _count(*args)
+        assert len(chunk.chunks) == _count(*args), (cls.__name__, [(_.header.type.value, _.header.id) for _ in chunk.chunks])
         return RsgmChunk(chunk.header, *args)
 
 
 @dataclass
-class WhmChunky(ConvertableChunky, RelicChunky):
+class WhmChunky(RelicChunky):
     fbif: FbifChunk
     rsgm: RsgmChunk
 
     @classmethod
     def convert(cls, chunky: GenericRelicChunky) -> WhmChunky:
+        # VERSIONED
+        assert chunky.header.version in [ChunkyVersion.v0101], chunky.header.version
+
         fbif = find_chunk(chunky.chunks, "FBIF", ChunkType.Data)
         fbif = FbifChunk.convert(fbif)
 
@@ -508,4 +512,4 @@ class WhmChunky(ConvertableChunky, RelicChunky):
         rsgm = RsgmChunk.convert(rsgm)
         assert len(chunky.chunks) == 2
 
-        return WhmChunky(chunky.header, fbif, rsgm)
+        return cls(chunky.header, fbif, rsgm)
