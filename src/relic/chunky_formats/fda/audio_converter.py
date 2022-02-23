@@ -8,9 +8,10 @@ from typing import BinaryIO
 
 from .chunky import FdaChunky, FdaChunk, FdaDataChunk, FdaInfoChunk
 from ..common_chunks.fbif import FbifChunk
-from ...config import aifc_encoder_path, aifc_decoder_path
 from ...file_formats.aiff import Aiff, Marker, Comm, Ssnd
 
+DECODER_PATH = __file__+"/conv/dec.exe"
+ENCODER_PATH = __file__+"/conv/enc.exe"
 
 class FdaAudioConverter:
 
@@ -53,14 +54,14 @@ class FdaAudioConverter:
     # Assuming I do figure out the Relic Compression Algorithm from the .EXE, I won't need the binaries anymore
     @classmethod
     def Aiffr2Wav(cls, aiffr: BinaryIO, wav: BinaryIO) -> int:
-        if not exists(aifc_decoder_path):
-            raise FileNotFoundError(aifc_decoder_path)
+        if not exists(DECODER_PATH):
+            raise FileNotFoundError(DECODER_PATH)
         try:
             with NamedTemporaryFile("wb", delete=False) as aiffr_file:
                 aiffr_file.write(aiffr.read())
                 aiffr_file.close()
                 wav_file_name = aiffr_file.name + ".wav"
-            subprocess.call([aifc_decoder_path, aiffr_file.name, wav_file_name], stdout=subprocess.DEVNULL)  # TODO see if i can wrap stdout into a seperate stream, then raise an error if it prints ERROR
+            subprocess.call([DECODER_PATH, aiffr_file.name, wav_file_name], stdout=subprocess.DEVNULL)  # TODO see if i can wrap stdout into a seperate stream, then raise an error if it prints ERROR
             with open(wav_file_name, "rb") as wav_file:
                 buffer = wav_file.read()
                 return wav.write(buffer)
@@ -76,12 +77,14 @@ class FdaAudioConverter:
 
     @classmethod
     def Wav2Aiffr(cls, wav: BinaryIO, aiffr: BinaryIO) -> int:
+        if not exists(DECODER_PATH):
+            raise FileNotFoundError(ENCODER_PATH)
         try:
             with NamedTemporaryFile("wb", delete=False) as wav_file:
                 wav_file.write(wav.read())
                 wav_file.close()
                 aiffr_file_name = wav_file.name + ".aiffr"
-            subprocess.call([aifc_encoder_path, wav_file.name, aiffr_file_name])
+            subprocess.call([ENCODER_PATH, wav_file.name, aiffr_file_name])
 
             with open(aiffr_file_name, "rb") as aiffr_file:
                 return aiffr.write(aiffr_file.read())

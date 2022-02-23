@@ -22,3 +22,5 @@ depends/
 secrets/
 osrc/dll/texconv.exe
 /EXE Rev-Engineering
+src/**.egg-info/*
+dist/*

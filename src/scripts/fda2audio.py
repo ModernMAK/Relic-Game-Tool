@@ -89,7 +89,7 @@ def run(run_args: argparse.Namespace):
     elif len(outputs) >= 1:
         main_output = outputs[-1]
     else:
-        main_output = os.path.abspath(".")
+        main_output = os.path.abspath("")
 
     if map_in2out:
         for in_path, out_path in zip(inputs, outputs):
