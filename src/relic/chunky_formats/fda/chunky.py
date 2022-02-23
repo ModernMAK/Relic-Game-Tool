@@ -79,6 +79,7 @@ class FdaChunk(AbstractChunk):
 
 @dataclass
 class FdaChunky(RelicChunky):
+    SUPPORTED_VERSIONS = [ChunkyVersion.v0101]
     fbif: FbifChunk
     fda: FdaChunk
 
@@ -90,7 +91,7 @@ class FdaChunky(RelicChunky):
     @classmethod
     def convert(cls, chunky: GenericRelicChunky) -> FdaChunky:
         # VERSIONED
-        assert chunky.header.version in [ChunkyVersion.v0101], chunky.header.version
+        assert chunky.header.version in cls.SUPPORTED_VERSIONS, chunky.header.version
         converted = FdaChunkConverter.convert_many(chunky.chunks)
         x = ChunkCollectionX.list2col(converted)
         fbif = x.find(FbifChunk)

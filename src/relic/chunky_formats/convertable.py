@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os.path
 from abc import ABC
 from collections import UserDict
 from dataclasses import dataclass
@@ -8,6 +9,14 @@ from typing import Dict, Type, List, Optional, Iterable, Protocol, Union, Tuple,
 from ..chunky.chunk.chunk import AbstractChunk, GenericDataChunk, FolderChunk
 from ..chunky.chunk.header import ChunkType, ChunkHeader
 from ..chunky.chunky.chunky import GenericRelicChunky, RelicChunky
+
+
+def DEBUG_WRITE_TO_BIN(data: bytes, name: str = None):
+    name = name or r"debug_dump"
+    name += ".bin"
+    print("\n",os.path.abspath(f".\\{name}"))
+    with open(name, "wb") as h:
+        h.write(data)
 
 
 def find_chunks(chunks: List[AbstractChunk], id: str, type: ChunkType) -> Iterable[AbstractChunk]:
@@ -113,10 +122,10 @@ class ChunkCollectionX:
     def folder_chunks(self) -> Iterable[AbstractChunk]:
         return self.get_chunks_by_type(ChunkType.Folder)
 
-    def find(self, chunk: Type[SelfIdentifyingChunk], many: bool = False) -> Union[Iterable[AbstractChunk], Optional[AbstractChunk]]:
+    def find(self, chunk: Type[SelfIdentifyingChunk], many: bool = False) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         return self.get(chunk.CHUNK_ID, chunk.CHUNK_TYPE, many=many)
 
-    def find_and_convert(self, id_converter: Union[ClassVar[SelfIdConvertableDataChunk], ClassVar[SelfIdConvertableDataChunk]], many: bool = False) -> Union[Optional[AbstractChunk], Iterable[AbstractChunk]]:
+    def find_and_convert(self, id_converter: Union[ClassVar[SelfIdConvertableDataChunk], ClassVar[SelfIdConvertableDataChunk]], many: bool = False) -> Union[Optional[AbstractChunk], List[AbstractChunk]]:
         if many:
             chunks = self.find_chunks(id_converter)
             return [id_converter.convert(_) for _ in chunks]
@@ -127,22 +136,20 @@ class ChunkCollectionX:
             else:
                 return None
 
-    def find_chunk(self, chunk: Type[SelfIdentifyingChunk]) -> Union[Iterable[AbstractChunk], Optional[AbstractChunk]]:
+    def find_chunk(self, chunk: Type[SelfIdentifyingChunk]) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         return self.get_chunk(chunk.CHUNK_ID, chunk.CHUNK_TYPE)
 
-    def find_chunks(self, chunk: Type[SelfIdentifyingChunk]) -> Union[Iterable[AbstractChunk], Optional[AbstractChunk]]:
+    def find_chunks(self, chunk: Type[SelfIdentifyingChunk]) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         return self.get_chunks(chunk.CHUNK_ID, chunk.CHUNK_TYPE)
 
-    def get(self, chunk_id: str, chunk_type: ChunkType, many: bool = False) -> Union[Iterable[AbstractChunk], Optional[AbstractChunk]]:
+    def get(self, chunk_id: str, chunk_type: ChunkType, many: bool = False) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         if many:
             return self.get_chunks(chunk_id, chunk_type)
         else:
             return self.get_chunk(chunk_id, chunk_type)
 
-    def get_chunks(self, chunk_id: str, chunk_type: ChunkType) -> Iterable[AbstractChunk]:
-        for c in self.get_chunks_by_type(chunk_type):
-            if c.header.id == chunk_id:
-                yield c
+    def get_chunks(self, chunk_id: str, chunk_type: ChunkType) -> List[AbstractChunk]:
+        return [c for c in self.get_chunks_by_type(chunk_type) if c.header.id == chunk_id]
 
     def get_chunk(self, chunk_id: str, chunk_type: ChunkType) -> Optional[AbstractChunk]:
         for c in self.get_chunks(chunk_id, chunk_type):
@@ -201,27 +208,33 @@ class GenericFolderChunk(AbstractChunk):
 
 
 class ChunkConverterFactory(UserDict[Tuple[ChunkType, str], Type[Union[ConvertableDataChunk, ConvertableFolderChunk]]]):
-    def __init__(self, default_generic_folder: bool = False, __dict: Dict[Tuple[ChunkType, str], Type[Union[ConvertableDataChunk, ConvertableFolderChunk]]] = None, **kwargs):
+    def __init__(self, default_generic_folder: bool = False, allow_overwrite: bool = False, __dict: Dict[Tuple[ChunkType, str], Type[Union[ConvertableDataChunk, ConvertableFolderChunk]]] = None, **kwargs):
         super().__init__(__dict, **kwargs)
         self.default_generic_folder = default_generic_folder
+        self.allow_overwrite = allow_overwrite
 
     def __setitem__(self, key: Tuple[ChunkType, str], value):
         assert len(key[1]) <= 4, f"ID '{key[1]}' is too large! IDs can be at most 4 characters long. This tool will strip '\0' but leave ' '."
+        if not self.allow_overwrite and key in self.keys():
+            raise KeyError(f"Key '{key}' already exists and overwrites are not allowed!")
         super().__setitem__(key, value)
 
     def __getitem__(self, item: Tuple[ChunkType, str]):
         return super().__getitem__(item)
 
-    def add_converter(self, chunk_type: ChunkType, chunk_id: str, convertable: Type[Union[ConvertableDataChunk, ConvertableFolderChunk]]):
+    def add_converter(self, chunk_type: ChunkType, chunk_id: str, convertable: Union[ChunkConverterFactory, Type[Union[ConvertableDataChunk, ConvertableFolderChunk]]]):
         self[(chunk_type, chunk_id)] = convertable
 
-    def register(self, convertable: Type[Union[SelfIdConvertableDataChunk, SelfIdConvertableFolderChunk]]):
+    def register(self, convertable: Union[Type[SelfIdConvertableDataChunk], Type[SelfIdConvertableFolderChunk]]):
         self.add_converter(convertable.CHUNK_TYPE, convertable.CHUNK_ID, convertable)
+
+    def register_sub_factory(self, chunk: SelfIdentifyingChunk, converter: ChunkConverterFactory):
+        self.add_converter(chunk.CHUNK_TYPE, chunk.CHUNK_ID, converter)
 
     def add_data_converter(self, chunk_id: str, convertable: Type[ConvertableDataChunk]):
         self.add_converter(ChunkType.Data, chunk_id, convertable)
 
-    def add_folder_converter(self, chunk_id: str, convertable: Type[ConvertableFolderChunk]):
+    def add_folder_converter(self, chunk_id: str, convertable: Union[ChunkConverterFactory, Type[SelfIdConvertableFolderChunk]]):
         self.add_converter(ChunkType.Data, chunk_id, convertable)
 
     def get_converter(self, chunk_type: ChunkType, chunk_id: str, _default: Type[Union[ConvertableDataChunk, ConvertableFolderChunk]] = None) -> Optional[Type[Union[ConvertableDataChunk, ConvertableFolderChunk]]]:
@@ -240,11 +253,15 @@ class ChunkConverterFactory(UserDict[Tuple[ChunkType, str], Type[Union[Convertab
 
     def convert(self, chunk: Union[GenericDataChunk, FolderChunk]) -> AbstractChunk:
         converter = self.get_converter_from_chunk(chunk)
+
         if not converter:
             if self.default_generic_folder and chunk.header.type == ChunkType.Folder:
                 return self.__convert_folder_generic(chunk)
             raise KeyError(chunk.header.type, chunk.header.id)
-        return converter.convert(chunk)
+        if isinstance(converter, ChunkConverterFactory):
+            return converter.convert(chunk)  # Same signature but very different methods
+        else:
+            return converter.convert(chunk)
 
     def convert_many(self, chunks: Iterable[Union[GenericDataChunk, FolderChunk]]) -> List[AbstractChunk]:
         return [self.convert(c) for c in chunks]

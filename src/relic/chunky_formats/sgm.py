@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
 
-from relic.chunky import RelicChunky, AbstractChunk, FolderChunk, GenericDataChunk
+from relic.chunky import RelicChunky, AbstractChunk, FolderChunk
 from relic.chunky.chunk import ChunkType
 from relic.chunky.chunky import GenericRelicChunky
 from relic.chunky_formats.common_chunks.imag import ImagChunk
-from relic.chunky_formats.convertable import find_chunk, find_chunks, UnimplementedFolderChunk, UnimplementedDataChunk
-from relic.chunky_formats.whm.skel import SkelChunk
-from relic.chunky_formats.whm.whm import SshrChunk, MsgrChunk, MarkChunk, AnimChunk, _count
+from relic.chunky_formats.convertable import find_chunk, UnimplementedFolderChunk, UnimplementedDataChunk
 
 
 @dataclass

@@ -216,7 +216,11 @@ class HeadChunk:
 
 
 @dataclass
-class TxtrChunk:
+class TxtrChunk(AbstractChunk):
+    CHUNK_ID = "TXTR"
+    CHUNK_TYPE = ChunkType.Folder
+    VERSIONS = [1]
+
     head: HeadChunk
     imag: ImagChunk
 
@@ -227,4 +231,4 @@ class TxtrChunk:
         head = HeadChunk.convert(head)
         imag = find_chunk(chunk.chunks, "IMAG", ChunkType.Folder)
         imag = ImagChunk.convert(imag)
-        return TxtrChunk(head, imag)
+        return TxtrChunk(chunk.header, head, imag)

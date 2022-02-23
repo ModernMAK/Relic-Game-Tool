@@ -2,7 +2,7 @@ import math
 import os
 import subprocess
 from io import BytesIO
-from os.path import exists
+from os.path import exists, dirname
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO
 
@@ -10,8 +10,9 @@ from .chunky import FdaChunky, FdaChunk, FdaDataChunk, FdaInfoChunk
 from ..common_chunks.fbif import FbifChunk
 from ...file_formats.aiff import Aiff, Marker, Comm, Ssnd
 
-DECODER_PATH = __file__+"/conv/dec.exe"
-ENCODER_PATH = __file__+"/conv/enc.exe"
+__ROOT_PATH = dirname(__file__)
+DECODER_PATH = __ROOT_PATH+"/conv/dec.exe"
+ENCODER_PATH = __ROOT_PATH+"/conv/enc.exe"
 
 class FdaAudioConverter:
 
