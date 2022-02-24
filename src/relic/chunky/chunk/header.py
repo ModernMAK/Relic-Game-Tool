@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import BinaryIO, Dict, Type
+from typing import BinaryIO, Dict, Type, Union
 
-from archive_tools.ioutil import as_hex_adr, abs_tell
+from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
 from ..chunky.header import ChunkyVersion
@@ -15,6 +15,48 @@ class ChunkType(Enum):
     Folder = "FOLD"
     Data = "DATA"
 
+    @classmethod
+    def parse(cls, value: Union[str, bytes]) -> ChunkType:
+        if isinstance(value, bytes):
+            try:
+                _ = value.decode("ascii")
+            except UnicodeDecodeError:
+                raise ChunkTypeError(value)
+            value = _
+        try:
+            return ChunkType(value)
+        except ValueError:
+            raise ChunkTypeError(value)
+
+
+class ChunkError(Exception):
+    pass
+
+
+class ChunkTypeError(ChunkError):
+    def __init__(self, chunk_type: Union[bytes, str] = None, *args):
+        super().__init__(*args)
+        self.chunk_type = chunk_type
+
+    def __str__(self):
+        msg = f"ChunkType must be {repr(ChunkType.Folder.value)} or {repr(ChunkType.Data.value)}"
+        if not self.chunk_type:
+            return msg + "!"
+        else:
+            return msg + f"; got {repr(self.chunk_type)}!"
+
+
+class ChunkNameError(ChunkError):
+    def __init__(self, name: Union[bytes, str] = None, *args):
+        super().__init__(*args)
+        self.name = name
+
+    def __str__(self):
+        msg = f"Chunk name was not parsable ascii text"
+        if not self.name:
+            return msg + "!"
+        else:
+            return msg + f"; got {repr(self.name)}!"
 
 @dataclass
 class ChunkHeader:
@@ -51,9 +93,11 @@ class ChunkHeader:
 #  OH GOD VERSION NAMES IN THE CLASS, I've tried V(#)p(#), V(hex #)(hex #) and they both look ugly
 #  Sticking to hex since it looks less bad
 
+
 @dataclass
 class ChunkHeaderV0101(ChunkHeader):
-    LAYOUT = VStruct("< 4s 4s 2l v")
+    CHUNK_TYPE_MAGIC_LAYOUT = Struct("< 4s")  # Seperated so we can raise an error before reading vlen
+    LAYOUT = VStruct("< 4s 2l v")
 
     @property
     def chunky_version(self) -> ChunkyVersion:
@@ -61,19 +105,15 @@ class ChunkHeaderV0101(ChunkHeader):
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ChunkHeader:
+        chunk_type = cls.CHUNK_TYPE_MAGIC_LAYOUT.unpack_stream(stream)[0]
+        chunk_type = ChunkType.parse(chunk_type)
+
+        chunk_id, version, size, raw_name = cls.LAYOUT.unpack_stream(stream)
+        chunk_id = chunk_id.decode("ascii").strip("\x00")
         try:
-            start = stream.tell()
-            args = cls.LAYOUT.unpack_stream(stream)
-        except AssertionError:
-            stream.seek(start)
-            _ = stream.read(cls.LAYOUT.min_size)
-            raise
-        chunk_type = args[0].decode("ascii")
-        _ = as_hex_adr(abs_tell(stream))
-        chunk_type = ChunkType(chunk_type)
-        chunk_id = args[1].decode("ascii").strip("\x00")
-        version, size = args[2:4]
-        name = args[4].decode("ascii").rstrip("\x00")
+            name = raw_name.decode("ascii").rstrip("\x00")
+        except UnicodeDecodeError as e:
+            raise ChunkNameError(raw_name) from e
         return cls(chunk_type, chunk_id, version, size, name)
 
     def _pack(self, stream: BinaryIO) -> int:

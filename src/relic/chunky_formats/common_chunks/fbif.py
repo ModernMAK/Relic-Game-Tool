@@ -26,11 +26,11 @@ class FbifChunk(DataChunk, ConvertableDataChunk):
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> FbifChunk:
         assert chunk.header.version in [1], chunk.header.version
-        plugin, version, name, timestamp = cls.LAYOUT.unpack(chunk.data)
+        plugin, version, name, timestamp = cls.LAYOUT.unpack(chunk.raw_bytes)
         plugin = plugin.decode("ascii")
         name = name.decode("ascii")
         timestamp = timestamp.decode("ascii")
-        assert len(chunk.data) == len(plugin) + len(name) + len(timestamp) + cls.LAYOUT.min_size
+        assert len(chunk.raw_bytes) == len(plugin) + len(name) + len(timestamp) + cls.LAYOUT.min_size
         return FbifChunk(chunk.header, plugin, version, name, timestamp)
 
     @classmethod

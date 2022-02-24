@@ -12,7 +12,7 @@ class ModfChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> ModfChunk:
-        return ModfChunk(chunk.header, chunk.data)
+        return ModfChunk(chunk.header, chunk.raw_bytes)
 
 
 @dataclass
@@ -21,7 +21,7 @@ class MdatChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> MdatChunk:
-        return cls(chunk.header, chunk.data)
+        return cls(chunk.header, chunk.raw_bytes)
 
 
 @dataclass

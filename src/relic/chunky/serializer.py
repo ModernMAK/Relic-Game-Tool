@@ -1,6 +1,6 @@
 from typing import BinaryIO, List
 
-from archive_tools.ioutil import end_of_stream, BinaryWindow
+from archive_tools.ioutil import end_of_stream, BinaryWindow, has_data
 
 from .chunk.chunk import AbstractChunk, FolderChunk, GenericDataChunk
 from .chunk.header import ChunkHeader, ChunkType
@@ -23,8 +23,9 @@ def write_chunky(chunky: GenericRelicChunky, stream: BinaryIO) -> int:
 
 
 def read_folder_chunk(stream: BinaryIO, header: ChunkHeader) -> FolderChunk:
-    chunks = read_all_chunks(stream, header.chunky_version)
-    return FolderChunk(chunks, header)
+    with BinaryWindow.slice(stream,header.size) as window:
+        chunks = read_all_chunks(window, header.chunky_version)
+        return FolderChunk(chunks, header)
 
 
 def write_folder_chunk(chunk: FolderChunk, stream: BinaryIO) -> int:
@@ -51,26 +52,25 @@ def read_data_chunk(stream: BinaryIO, header: ChunkHeader) -> GenericDataChunk:
 
 def write_data_chunk(chunk: GenericDataChunk, stream: BinaryIO) -> int:
     header = chunk.header.copy()
-    header.size = len(chunk.data)
+    header.size = len(chunk.raw_bytes)
 
     written = header.pack(stream)
-    written += stream.write(chunk.data)
+    written += stream.write(chunk.raw_bytes)
     return written
 
 
 def read_all_chunks(stream: BinaryIO, chunky_version: ChunkyVersion) -> List[AbstractChunk]:
     chunks: List[AbstractChunk] = []
 
-    while not end_of_stream(stream):
+    while has_data(stream):
         header = ChunkHeader.unpack(stream, chunky_version)
-        with BinaryWindow.slice(stream, header.size).as_parsing_window() as window:
+        with BinaryWindow.slice(stream, header.size) as window:
             if header.type == ChunkType.Folder:
                 c = read_folder_chunk(window, header)
             elif header.type == ChunkType.Data:
                 c = read_data_chunk(window, header)
             else:
                 raise TypeError(header.type)
-
         chunks.append(c)
     return chunks
 

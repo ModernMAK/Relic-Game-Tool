@@ -32,7 +32,7 @@ class PtbdChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> 'PtbdChunk':
-        args = cls.LAYOUT.unpack(chunk.data)
+        args = cls.LAYOUT.unpack(chunk.raw_bytes)
         return PtbdChunk(chunk.header, *args)
 
 
@@ -44,7 +44,7 @@ class WtpInfoChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> WtpInfoChunk:
-        height, width = cls.LAYOUT.unpack(chunk.data)
+        height, width = cls.LAYOUT.unpack(chunk.raw_bytes)
         return WtpInfoChunk(chunk.header, width=width, height=height)  # SWAPPED! Using Kwargs to make sure order doesn't matter
 
 
@@ -58,7 +58,8 @@ class PtbnChunk:
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> PtbnChunk:
-        args = cls.LAYOUT.unpack(chunk.data)
+        args = cls.LAYOUT.unpack(chunk.raw_bytes)
+        assert len(chunk.raw_bytes) == cls.LAYOUT.size
         return PtbnChunk(*args)
 
 
@@ -81,7 +82,7 @@ class PtldChunk(AbstractChunk):
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> PtldChunk:
         assert chunk.header.version == 1
-        layer_code, image = cls.LAYOUT.unpack(chunk.data)
+        layer_code, image = cls.LAYOUT.unpack(chunk.raw_bytes)
         layer = PtldLayer(layer_code)
         return PtldChunk(chunk.header, layer, image)
 
@@ -91,9 +92,9 @@ class TpatChunk:
     info: WtpInfoChunk
     imag: ImagChunk
 
-    ptld: Optional[List[PtldChunk]] = None
-    ptbd: Optional[List[PtbdChunk]] = None
-    ptbn: Optional[List[PtbnChunk]] = None
+    ptld: List[PtldChunk]
+    ptbd: Optional[PtbdChunk]
+    ptbn: Optional[PtbnChunk]
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> 'TpatChunk':
@@ -105,14 +106,17 @@ class TpatChunk:
 
         ptld = find_chunks(chunk.chunks, "PTLD", ChunkType.Data)
         ptld = [PtldChunk.convert(_) for _ in ptld]
+        # ptld = PtldChunk.convert(ptld) if ptld else None
 
-        ptbd = find_chunks(chunk.chunks, "PTBD", ChunkType.Data)
-        ptbd = [PtbdChunk.convert(_) for _ in ptbd]
+        ptbd = find_chunk(chunk.chunks, "PTBD", ChunkType.Data)
+        # ptbd = [PtbdChunk.convert(_) for _ in ptbd]
+        ptbd = PtbdChunk.convert(ptbd) if ptbd else None
 
-        ptbn = find_chunks(chunk.chunks, "PTBN", ChunkType.Data)
-        ptbn = [PtbnChunk.convert(_) for _ in ptbn]
+        ptbn = find_chunk(chunk.chunks, "PTBN", ChunkType.Data)
+        # ptbn = [PtbnChunk.convert(_) for _ in ptbn]
+        ptbn = PtbnChunk.convert(ptbn) if ptbn else None
 
-        assert len(chunk.chunks) == len(ptld) + len(ptbd) + len(ptbn) + 2
+        assert len(chunk.chunks) == sum(1 if _ else 0 for _ in [ptbd, ptbn]) + 2 + len(ptld), [(_.header.type.value,_.header.id) for _ in chunk.chunks]
         return TpatChunk(info, imag, ptld, ptbd, ptbn)
 
 

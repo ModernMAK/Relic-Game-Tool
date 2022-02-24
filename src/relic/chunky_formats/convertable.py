@@ -52,7 +52,7 @@ class UnimplementedDataChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> UnimplementedDataChunk:
-        return cls(chunk.header, chunk.data)
+        return cls(chunk.header, chunk.raw_bytes)
 
 
 class ConvertableFolderChunk(Protocol):

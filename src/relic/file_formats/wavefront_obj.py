@@ -1,6 +1,6 @@
-from typing import TextIO
+from typing import TextIO, Iterable, Tuple
 
-from relic.file_formats.mesh_io import Float3
+from relic.file_formats.mesh_io import Float3, Float2
 
 
 class ObjWriter:
@@ -37,44 +37,58 @@ class ObjWriter:
         return self._stream.write("\n")
 
     # Vertex Info
-    def write_vertex_position(self, x: float, y: float, z: float):
+    def write_vertex_position(self, x: float, y: float, z: float) -> int:
         line = 'v %f %f %f\n' % (x, y, z)
         return self._stream.write(line)
+
+    def write_vertex_positions(self, positions: Iterable[Float3]) -> int:
+        return sum(self.write_vertex_position(*pos) for pos in positions)
 
     def write_vertex_uv(self, u: float, v: float):
         line = 'vt %f %f\n' % (u, v)
         return self._stream.write(line)
 
+    def write_vertex_uvs(self, uvs: Iterable[Float2]) -> int:
+        return sum(self.write_vertex_uv(*uv) for uv in uvs)
+
     def write_vertex_normal(self, x: float, y: float, z: float):
         line = 'vn %f %f %f\n' % (x, y, z)
         return self._stream.write(line)
 
-    # Index Info
-    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding: bool = False,
-                         normal: bool = True, uv: bool = True):
-        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based, flip_winding=flip_winding,
-                                  normal=normal, uv=uv)
+    def write_vertex_normals(self, normals: Iterable[Float3]) -> int:
+        return sum(self.write_vertex_normal(*normal) for normal in normals)
 
-    def write_index_line(self, *indexes: int, offset: int = 0, zero_based: bool = False, normal: bool = True,
-                         uv: bool = True):
+    # Index Info
+    def write_index_face(self, *indexes: int, offset: int = 0, zero_based: bool = False, flip_winding: bool = False, normal: bool = True, uv: bool = True):
+        return self.__write_index("f", *indexes, offset=offset, zero_based=zero_based, flip_winding=flip_winding, normal=normal, uv=uv)
+
+    def write_index_faces(self, *indexes: Tuple[int, int, int], offset: int = 0, zero_based: bool = False, flip_winding: bool = False, normal: bool = True, uv: bool = True):
+        return sum(self.write_index_face(*index, offset=offset, zero_based=zero_based, flip_winding=flip_winding, normal=normal, uv=uv) for index in indexes)
+
+    def write_index_line(self, *indexes: int, offset: int = 0, zero_based: bool = False, normal: bool = True, uv: bool = True):
         return self.__write_index("l", *indexes, offset=offset, zero_based=zero_based, normal=normal, uv=uv)
 
-    def write_index_point(self, *indexes: int, offset: int = 0, zero_based: bool = False, normal: bool = True,
-                          uv: bool = True):
+    def write_index_lines(self, *indexes: Tuple[int, int], offset: int = 0, zero_based: bool = False, normal: bool = True, uv: bool = True):
+        return sum(self.write_index_line(*index, offset=offset, zero_based=zero_based, normal=normal, uv=uv) for index in indexes)
+
+    def write_index_point(self, *indexes: int, offset: int = 0, zero_based: bool = False, normal: bool = True, uv: bool = True):
         return self.__write_index("p", *indexes, offset=offset, zero_based=zero_based, normal=normal, uv=uv)
 
+    def write_index_points(self, *indexes: Tuple[int, int], offset: int = 0, zero_based: bool = False, normal: bool = True, uv: bool = True):
+        return sum(self.write_index_point(*index, offset=offset, zero_based=zero_based, normal=normal, uv=uv) for index in indexes)
+
     # Structure Info
-    def write_group_name(self, name: str):
+    def write_group_name(self, name: str) -> int:
         return self.__write_name("g", name)
 
-    def write_object_name(self, name: str):
+    def write_object_name(self, name: str) -> int:
         return self.__write_name("o", name)
 
     # Material
-    def write_material_library(self, name: str):
+    def write_material_library(self, name: str) -> int:
         return self.__write_name("mtllib", name)
 
-    def write_use_material(self, name: str):
+    def write_use_material(self, name: str) -> int:
         return self.__write_name("usemtl", name)
 
 
@@ -102,33 +116,33 @@ class MtlWriter:
         return self._stream.write(line)
 
     # Comment
-    def start_comment(self):
+    def start_comment(self) -> int:
         return self._stream.write("#\t")
 
     # Colors
-    def write_color_ambient(self, color: Float3):
+    def write_color_ambient(self, color: Float3) -> int:
         return self.__write_color("Ka", color)
 
-    def write_color_diffuse(self, color: Float3):
+    def write_color_diffuse(self, color: Float3) -> int:
         return self.__write_color("Kd", color)
 
-    def write_color_specular(self, color: Float3):
+    def write_color_specular(self, color: Float3) -> int:
         return self.__write_color("Ks", color)
 
     # Values
-    def write_specular_highlight(self, value: float):
+    def write_specular_highlight(self, value: float) -> int:
         return self.__write_float("Ns", value)
 
-    def write_optical_density(self, value: float):
+    def write_optical_density(self, value: float) -> int:
         return self.__write_float("Ni", value)
 
-    def write_dissolve(self, value: float):
+    def write_dissolve(self, value: float) -> int:
         written = self.__write_float("d", value)
         written += self.__write_float("Tr", 1.0 - value)
         return written
 
     # Enum
-    def write_illum_mode(self, value: int):
+    def write_illum_mode(self, value: int) -> int:
         return self.__write_int("illum", value)
 
     # Starts a block

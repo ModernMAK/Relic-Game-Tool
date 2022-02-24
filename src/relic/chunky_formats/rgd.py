@@ -11,7 +11,7 @@ class AegdChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> AegdChunk:
-        return AegdChunk(chunk.header,chunk.data)
+        return AegdChunk(chunk.header, chunk.raw_bytes)
 
 
 @dataclass

@@ -29,4 +29,4 @@ class DataChunk(AbstractChunk):
 
 @dataclass
 class GenericDataChunk(DataChunk):
-    data: bytes
+    raw_bytes: bytes

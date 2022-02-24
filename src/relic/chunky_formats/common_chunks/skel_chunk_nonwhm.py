@@ -14,7 +14,7 @@ class SkelInfoChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> SkelInfoChunk:
-        return cls(chunk.header, chunk.data)
+        return cls(chunk.header, chunk.raw_bytes)
 
 
 @dataclass
@@ -23,7 +23,7 @@ class BoneChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> BoneChunk:
-        return cls(chunk.header, chunk.data)
+        return cls(chunk.header, chunk.raw_bytes)
 
 
 @dataclass

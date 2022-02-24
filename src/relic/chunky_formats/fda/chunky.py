@@ -30,7 +30,7 @@ class FdaInfoChunk(DataChunk):
         # VERSIONED
         assert chunk.header.version in [1], chunk.header.version
 
-        args = cls.LAYOUT.unpack(chunk.data)
+        args = cls.LAYOUT.unpack(chunk.raw_bytes)
         return FdaInfoChunk(chunk.header, *args)
 
 
@@ -47,8 +47,8 @@ class FdaDataChunk(DataChunk):
         # VERSIONED
         assert chunk.header.version in [1], chunk.header.version
 
-        data = cls.LAYOUT.unpack(chunk.data)[0]
-        assert len(data) == len(chunk.data) - cls.LAYOUT.min_size
+        data = cls.LAYOUT.unpack(chunk.raw_bytes)[0]
+        assert len(data) == len(chunk.raw_bytes) - cls.LAYOUT.min_size
         return FdaDataChunk(chunk.header, data)
 
 

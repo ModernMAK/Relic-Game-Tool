@@ -17,7 +17,7 @@ class EvntChunk(AbstractChunk):
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> EvntChunk:
-        return cls(chunk.header, chunk.data)
+        return cls(chunk.header, chunk.raw_bytes)
 
 
 @dataclass
