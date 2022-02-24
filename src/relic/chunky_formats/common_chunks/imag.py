@@ -61,8 +61,8 @@ class AttrChunk(AbstractChunk):
     LAYOUT_WITH_MIP = Struct("< 4l")
 
     img: ImageFormat
-    width: int
     height: int
+    width: int
     mips: int
 
     @classmethod
@@ -78,7 +78,9 @@ class AttrChunk(AbstractChunk):
 
         img = ImageFormat(args[0])
         args = args[1:]
-        return AttrChunk(chunk.header, img, *args)
+        # ORDER MATTERS
+        height, width, mips = args
+        return AttrChunk(chunk.header, img=img, height=height, width=width, mips=mips)
 
 
 # TxtrChunk = ForwardRef("TxtrChunk")
