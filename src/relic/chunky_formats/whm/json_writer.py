@@ -5,9 +5,9 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from json import JSONEncoder
-from typing import TextIO, List, Any, Dict, Optional
+from typing import TextIO, List, Any, Dict, Optional, Tuple
 
-from relic.chunky_formats.whm.whm import MslcChunk, WhmChunky, RsgmChunkV3
+from relic.chunky_formats.whm.whm import MslcChunk, WhmChunky, RsgmChunkV3, Byte, Byte3, SkelChunk, MsgrChunk
 from relic.file_formats.mesh_io import Float3, Float2, Short3, Float4
 
 
@@ -32,80 +32,61 @@ class SimpleTransform:
 
 @dataclass
 class RawMesh:
+    name: str
     positions: List[Float3]
     normals: List[Float3]
+    bones: Dict[int, str]
+    bone_weights: Optional[List[Tuple[Float3, Byte3, Byte]]]
     uvs: List[Float2]
     sub_meshes: Dict[str, List[Short3]]
 
     @classmethod
     def convert_from_mslc(cls, chunk: MslcChunk) -> RawMesh:
         mesh = chunk.data
-        positions = [flip_float3(p, flip_x=True) for p in mesh.positions()]
-        normals = [flip_float3(n, flip_x=True) for n in mesh.normals()]
-        uvs = mesh.uvs()
-        indexes = {name: buffer for name, buffer, _ in mesh.triangle_buffers}
-        return RawMesh(positions, normals, uvs, indexes)
+        name = chunk.header.name
+        positions = [flip_float3(p, flip_x=True) for p in mesh.vertex_data.positions]
+        normals = [flip_float3(n, flip_x=True) for n in mesh.vertex_data.normals]
+        bones = {b.index: b.name for b in mesh.bones}
+        bone_weights = mesh.vertex_data.bone_weights
+        uvs = mesh.vertex_data.uvs
+        indexes = {sm.texture_path: sm.triangles for sm in mesh.sub_meshes}
+        return RawMesh(name, positions, normals, bones, bone_weights, uvs, indexes)
+
+    @classmethod
+    def convert_from_msgr(cls, chunk: MsgrChunk) -> List[RawMesh]:
+        return [cls.convert_from_mslc(c) for c in chunk.mslc]
 
 
 @dataclass
-class RawObject:
+class RawBone:
     name: str
+    # index: int
     transform: SimpleTransform
-    mesh: Optional[RawMesh]
-    children: List[RawObject]
+    children: List[RawBone]
 
     @classmethod
-    def convert_from_rsgm(cls, chunk: RsgmChunkV3) -> RawObject:
-        # build skeleton OBJs:
-        root = RawObject(chunk.header.name, None, None, [])
-        if chunk.skel:
-            _ = chunk.skel.transforms
-            tree = [RawObject(s.name, SimpleTransform(s.pos, s.quaternion), None, []) for s in chunk.skel.transforms]
-            for i, s in enumerate(chunk.skel.transforms):
-                current = tree[i]
-                if s.parent_index == -1:
-                    parent = root
-                else:
-                    parent = tree[s.parent_index]
-                parent.children.append(current)
-
-            meshes = {n.name: RawMesh.convert_from_mslc(m) for n, m in zip(chunk.msgr.data.items, chunk.msgr.mslc)}
-            used = set()
-            for o in tree:
-                if o.name in meshes:
-                    o.mesh = meshes[o.name]
-                    used.add(o.name)
-            assert len(used) == len(meshes), (len(used), len(meshes), [n for n,_  in meshes.items() if n not in used], used)
-        else:
-            children = [RawObject(n, None, RawMesh.convert_from_mslc(m), []) for n, m in zip(chunk.msgr.data.items, chunk.msgr.mslc)]
-            root.children.extend(children)
+    def convert_from_skel(cls, chunk: SkelChunk) -> RawBone:
+        root = RawBone(chunk.header.name, None, [])
+        tree = [RawBone(s.name, SimpleTransform(s.pos, s.quaternion), []) for s in chunk.bones]
+        for i, b in enumerate(chunk.bones):
+            current = tree[i]
+            if b.parent_index == -1:
+                parent = root
+            else:
+                parent = tree[b.parent_index]
+            parent.children.append(current)
         return root
 
-        # names = [_.name for _ in chunk.msgr.data.items]
-        # meshes = {n.name:RawMesh.convert_from_mslc(m) for n,m in zip(chunk.msgr.data.items,chunk.msgr.mslc)}
-        # objs: List[RawObject] = [RawObject(None, None, meshes[i], []) for i in range(len(meshes))]
-        # obj_lookup: Dict[str, RawObject] = {names[i]: objs[i] for i in range(len(names))}
-        # Hierarchy
-        # root = RawObject(chunk.header.name, None, None, [])
-        # if chunk.skel:
-        #     transforms = [SimpleTransform(_.pos, _.quaternion) for _ in chunk.skel.transforms]
-        #     for i, s in enumerate(chunk.skel.transforms):
-        #         if s.name in obj_lookup:
-        #                 root.name = s.name
-        #                 root.transform = transforms[i]
-        #             else:
-        #                 parent = objs[s.parent_index] if s.parent_index >= 0 else root
-        #                 current = obj_lookup[s.name]
-        #                 current.transform = transforms[i]
-        #                 parent.children.append(current)
-        #         else:
-        #             current = RawObject(s.name,transforms[i],None,[])
-        #
-        # elif len(meshes) == 1:
-        #     root.mesh = meshes[0]
-        # else:
-        #     root.children = objs
-        # return root
+        # bone_lookup = {}
+        # bone_lookup[-1] = RawBone(None, -1, None, [])
+        # for i, bone in enumerate(chunk.bones):
+        #     t = SimpleTransform(bone.pos, bone.quaternion)
+        #     bone_lookup[i] = RawBone(bone.name, i, t, [])
+        # for i, _ in enumerate(chunk.bones):
+        #     parent = bone_lookup[_.parent_index]
+        #     current = bone_lookup[i]
+        #     parent.children.append(current)
+        # return bone_lookup[-1]
 
 
 class SimpleJsonEncoder(JSONEncoder):
@@ -115,14 +96,17 @@ class SimpleJsonEncoder(JSONEncoder):
         elif isinstance(o, Enum):
             return {o.name: o.value}
         else:
-            return o
+            return super().default(o)
 
 
 def write_whm(stream: TextIO, whm: WhmChunky, pretty: bool = True):
     if isinstance(whm.rsgm, RsgmChunkV3):
-        raw_obj = RawObject.convert_from_rsgm(whm.rsgm)
+        meshes = RawMesh.convert_from_msgr(whm.rsgm.msgr)
+        skel = RawBone.convert_from_skel(whm.rsgm.skel)
+        name = whm.rsgm.header.name
+        d = {'name': name, 'skel': skel, 'meshes': meshes}
         try:
-            json.dump(raw_obj, stream, indent=(4 if pretty else None), cls=SimpleJsonEncoder)
+            json.dump(d, stream, indent=(4 if pretty else None), cls=SimpleJsonEncoder)
         except Exception as e:
             print(e)
             raise

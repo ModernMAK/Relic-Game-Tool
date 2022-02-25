@@ -71,7 +71,7 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
     writer.write_vertex_uvs(uvs)
     v_local_offset += mesh.vertex_count()
 
-    for ibuffer in mesh.triangle_buffers:
+    for ibuffer in mesh.sub_meshes:
         name, triangle_buffer = ibuffer[0], ibuffer[1]
         tex_name = get_name_from_texture_path(name)
         writer.write_use_material(tex_name)
@@ -101,7 +101,7 @@ def write_whm_textures(root: str, txtr: List[TxtrChunk], out_format: str = None,
 
 
 def fetch_textures_from_mslc(chunk: MslcChunk) -> Iterable[str]:
-    for tbuffer in chunk.data.triangle_buffers:
+    for tbuffer in chunk.data.sub_meshes:
         yield tbuffer[0]
 
 

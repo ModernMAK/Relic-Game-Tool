@@ -6,7 +6,6 @@ from os.path import splitext, join, basename
 
 from relic.chunky import ChunkyMagic
 from relic.chunky.serializer import read_chunky
-from relic.chunky_formats.whm.obj_writer import write_whm as write_whm_as_obj
 from relic.chunky_formats.whm.json_writer import write_whm as write_whm_as_json
 from relic.chunky_formats.whm.whm import WhmChunky
 
