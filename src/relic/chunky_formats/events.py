@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import chunk
 from dataclasses import dataclass
 from typing import List
 
 from relic.chunky import AbstractChunk, FolderChunk, GenericDataChunk
 from relic.chunky.chunk import ChunkType
 from relic.chunky.chunky import RelicChunky, GenericRelicChunky
-from relic.chunky_formats.common_chunks.imag import TxtrChunk
 from relic.chunky_formats.convertable import find_chunk, find_chunks
 
 

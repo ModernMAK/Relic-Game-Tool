@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import List
 
-from relic.chunky import RelicChunky, AbstractChunk, FolderChunk
+from archive_tools.structx import Struct
+from archive_tools.vstruct import VStruct
+
+from relic.chunky import RelicChunky, AbstractChunk, FolderChunk, GenericDataChunk
 from relic.chunky.chunk import ChunkType
 from relic.chunky.chunky import GenericRelicChunky
 from relic.chunky_formats.common_chunks.imag import ImagChunk
@@ -10,8 +14,17 @@ from relic.chunky_formats.convertable import find_chunk, UnimplementedFolderChun
 
 
 @dataclass
-class TxtrInfoChunk(UnimplementedDataChunk):
-    pass
+class TxtrInfoChunk(AbstractChunk):
+    LAYOUT = Struct("4i")
+    unk_a: int
+    width: int
+    height: int
+    unk_b: int
+
+    @classmethod
+    def convert(cls, chunk: GenericDataChunk) -> TxtrInfoChunk:
+        args = cls.LAYOUT.unpack(chunk.raw_bytes)
+        return cls(chunk.header, *args)
 
 
 @dataclass
@@ -28,16 +41,29 @@ class TxtrChunk(UnimplementedFolderChunk):
         imag = ImagChunk.convert(imag)
 
         return cls(chunk.header, info, imag)
+
+
 @dataclass
 class GeomDataChunk(UnimplementedDataChunk):
     pass
+    # LAYOUT = VStruct("v")
+
+    # @classmethod
+    # def convert(cls, chunk: GenericDataChunk) -> GeomDataChunk:
+    #     _ = cls.LAYOUT.unpack(chunk.raw_bytes)
+    #     assert len(chunk.raw_bytes) == len(_) + cls.LAYOUT.min_size, (len(chunk.raw_bytes), len(_) + cls.LAYOUT.min_size, _)
+    #     raise ValueError(chunk.raw_bytes)
+
+
 @dataclass
 class GeomShdwChunk(UnimplementedDataChunk):
     pass
 
+
 @dataclass
 class GeomBvolChunk(UnimplementedDataChunk):
     pass
+
 
 @dataclass
 class GeomChunk(AbstractChunk):
@@ -58,6 +84,7 @@ class GeomChunk(AbstractChunk):
 
         return cls(chunk.header, data, shdw, bvol)
 
+
 @dataclass
 class MeshChunk(AbstractChunk):
     geom: GeomChunk
@@ -75,13 +102,13 @@ class ShdrChunk(UnimplementedFolderChunk):
 
 
 @dataclass
-class RsgmChunk(AbstractChunk):
+class SgmRsgmChunk(AbstractChunk):
     txtr: TxtrChunk
     shdr: FolderChunk  # TODO
     mesh: MeshChunk
 
     @classmethod
-    def convert(cls, chunk: FolderChunk) -> RsgmChunk:
+    def convert(cls, chunk: FolderChunk) -> SgmRsgmChunk:
         assert chunk.header.version == 1
         txtr = find_chunk(chunk.chunks, "TXTR", ChunkType.Folder)
         txtr = TxtrChunk.convert(txtr)
@@ -92,17 +119,17 @@ class RsgmChunk(AbstractChunk):
         mesh = MeshChunk.convert(mesh)
 
         assert len(chunk.chunks) == 3, (cls.__name__, [(_.header.type.value, _.header.id) for _ in chunk.chunks])
-        return RsgmChunk(chunk.header, txtr, shdr, mesh)
+        return SgmRsgmChunk(chunk.header, txtr, shdr, mesh)
 
 
 # Like WHM, but lacks FBIF (file burn info)
 @dataclass
 class SgmChunky(RelicChunky):
-    rsgm: RsgmChunk
+    rsgm: SgmRsgmChunk
 
     @classmethod
     def convert(cls, chunky: GenericRelicChunky) -> SgmChunky:
         rsgm = find_chunk(chunky.chunks, "RSGM", ChunkType.Folder)
-        rsgm = RsgmChunk.convert(rsgm)
+        rsgm = SgmRsgmChunk.convert(rsgm)
         assert len(chunky.chunks) == 1
         return SgmChunky(chunky.header, rsgm)

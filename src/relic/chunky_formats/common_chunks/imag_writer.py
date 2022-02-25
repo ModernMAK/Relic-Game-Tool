@@ -75,7 +75,7 @@ class ImagConverter:
             args = [texconv_path, "-vflip" if perform_dds_fix else None, "-ft", out_format, "-y", "-o", dirname(in_file.name), in_file.name]
             # filter out vflip
             args = [arg for arg in args if arg is not None]
-            subprocess.run(args)
+            subprocess.run(args, stdout=subprocess.DEVNULL)
             b, _ = splitext(in_file.name)
             out_name = b + get_texconv_fmt_ext()
             with open(out_name, "rb") as out_file:
@@ -83,11 +83,11 @@ class ImagConverter:
         finally:
             try:
                 os.remove(in_file.name)
-            except FileNotFoundError:
+            except (FileNotFoundError, UnboundLocalError):
                 pass
             try:
                 os.remove(out_name)
-            except FileNotFoundError:
+            except (FileNotFoundError, UnboundLocalError):
                 pass
 
     @classmethod

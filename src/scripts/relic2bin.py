@@ -1,17 +1,21 @@
 import argparse
+import dataclasses
+import json
 import os
+from enum import Enum
+from json import JSONEncoder
 from os import path
 from os.path import splitext, join, basename
+from pathlib import Path
+from typing import List, Any
 
-from relic.chunky import ChunkyMagic
-from relic.chunky.chunk.header import ChunkTypeError, ChunkError
+from relic.chunky import ChunkyMagic, RelicChunky, GenericRelicChunky, FolderChunk, AbstractChunk, GenericDataChunk
 from relic.chunky.serializer import read_chunky
-from relic.chunky_formats.wtp.wtp import WtpChunky
-from relic.chunky_formats.wtp.writer import write_wtp
+from relic.chunky_formats.rsh import RshChunky, write_rsh
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="WTP 2 Image", description="Convert Relic WTP (Texture) files to Images.")
+    parser = argparse.ArgumentParser(prog="Relic Chunky 2 Binary", description="Convert Relic Chunkies to binary files.")
     parser.add_argument("input_path", nargs="*", type=str, help="The file(s) or directory(s) to read from.")
     parser.add_argument("-i", "--input", type=str, nargs='*', action='append', required=False, help="Additional paths or directories to read from.")
     parser.add_argument("-o", "--output", type=str, nargs='*', help="The file or directory to write to. Will only use the last directory specified, UNLESS -m or --multi is specified.")
@@ -20,57 +24,73 @@ def build_parser():
     parser.add_argument("-e", "--error", action='store_true', required=False, help="Execution will stop on an error. (False by default.)")
     parser.add_argument("-v", "--verbose", action='store_true', required=False, help="Errors will be printed to the console. (False by default.)")
     parser.add_argument("-x", "-q", "--squelch", "--quiet", action='store_true', required=False, help="Nothing will be printed, unless -v/--verbose is specified.")
-    parser.add_argument("-s", "--strict", action='store_true', required=False, help="Forces all files provided to be converted. (False by default; both non-'.wtp' and 'non-'Relic Chunky' files are ignored.)")
-    parser.add_argument("-f", "--fmt", "--format", default=None, choices=["png", "tga", "dds"], help="Choose what format to convert textures to.")
-    parser.add_argument("-c", "-t", "--conv", "--converter", "--texconv", help="Path to texconv.exe to use.")
+    parser.add_argument("-s", "--strict", action='store_true', required=False, help="Forces all files provided to be converted. (False by default; 'non-'Relic Chunky' files are ignored.)")
+    # parser.add_argument("-u", "--unimplemented", "--unk", action="store_true", help="Only dumps chunks which are not convertable")
     return parser
 
 
-def __convert_file(input_file: str, output_file: str, strict: bool = False, quiet: bool = False, indent: int = 0, out_format: str = None, texconv_path: str = None) -> bool:
-    _, ext = splitext(input_file)
-    if ext != ".wtp" and not strict:
-        return False
-    #
-    # _, ext = splitext(output_file)
-    # if out_format:
-    #     ext = ext or f".{out_format}"
-    # output_file = _ + ext
-    # p = Path(output_file)
+class DataclassJsonEncoder(JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        elif isinstance(o, Enum):
+            return {o.name: o.value}
+        else:
+            return o
+
+
+def dump_data_chunk(output_file: Path, chunk: GenericDataChunk):
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file.with_suffix(".bin"), "wb") as handle:
+        handle.write(chunk.raw_bytes)
+    with open(output_file.with_suffix(".meta"), "w") as meta:
+        json.dump(chunk.header, meta, cls=DataclassJsonEncoder)
+
+
+def dump_folder_chunk(output_dir: Path, chunk: FolderChunk):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    dump_chunk_col(output_dir, chunk.chunks)
+    with open(output_dir.with_suffix(".meta"), "w") as meta:
+        json.dump(chunk.header, meta, cls=DataclassJsonEncoder)
+
+
+def dump_chunk_col(output_dir: Path, chunks: List[AbstractChunk]):
+    for i, chunk in enumerate(chunks):
+        chunk_path = output_dir / f"{chunk.header.id}-{chunk.header.type.value}-[{i}]"
+        if isinstance(chunk, FolderChunk):
+            dump_folder_chunk(chunk_path, chunk)
+        elif isinstance(chunk, GenericDataChunk):
+            dump_data_chunk(chunk_path, chunk)
+
+
+def dump_chunky(output_dir: Path, chunky: GenericRelicChunky):
+    dump_chunk_col(output_dir, chunky.chunks)
+    with open(str(output_dir)+".meta", "w") as meta:
+        json.dump(chunky.header, meta, cls=DataclassJsonEncoder)
+
+
+def __convert_file(input_file: str, output_file: str, strict: bool = False, quiet: bool = False, indent: int = 0) -> bool:
     with open(input_file, "rb") as in_handle:
         if not strict and not ChunkyMagic.check_magic_word(in_handle):
             return False
         if not quiet:
             _ = '\t' * indent
             print(f"{_}Reading '{input_file}'...")
-        try:
-            chunky = read_chunky(in_handle)
-        except ChunkError:
-            if strict:
-                raise
-            else:
-                return False
-        wtp = WtpChunky.convert(chunky)
-        # p.parent.mkdir(exist_ok=True, parents=True)
-        # if out_format is not None:
-        #     x, _ = splitext(output_file)
-        #     x += wtp.shrf.texture.imag.attr.img.extension
-        #     output_file = ext
-        # with open(output_file, "wb") as out_handle:
-        write_wtp(output_file, wtp, out_format=out_format, texconv_path=texconv_path)
+        chunky = read_chunky(in_handle)
+        dump_chunky(Path(output_file), chunky)
         if not quiet:
             print(f"{_}\tWrote '{output_file}'...")
     return True
 
 
-def __convert_dir(input_file: str, output_file: str, recursive: bool = False, strict: bool = False, quiet: bool = False, out_format: str = None, texconv_path: str = None):
+def __convert_dir(input_file: str, output_file: str, recursive: bool = False, strict: bool = False, quiet: bool = False):
     for root, folders, files in os.walk(input_file):
         if not recursive:
             folders[:] = []
         for file in files:
             src = join(root, file)
             dest = src.replace(input_file, output_file)
-            dest = splitext(dest)[0]
-            __convert_file(src, dest, strict, quiet, indent=1, out_format=out_format, texconv_path=texconv_path)
+            __convert_file(src, dest, strict, quiet, indent=1)
 
 
 def run(run_args: argparse.Namespace):
@@ -82,7 +102,7 @@ def run(run_args: argparse.Namespace):
     outputs = []
     if run_args.output:
         outputs.extend(run_args.output)
-    map_in2out, recursive_walk, fail_on_error, print_errors, quiet, strict, fmt, conv = run_args.multi, run_args.recursive, run_args.error, run_args.verbose, run_args.squelch, run_args.strict, run_args.fmt, run_args.conv
+    map_in2out, recursive_walk, fail_on_error, print_errors, quiet, strict = run_args.multi, run_args.recursive, run_args.error, run_args.verbose, run_args.squelch, run_args.strict
     main_output = None
 
     if map_in2out:
@@ -97,11 +117,11 @@ def run(run_args: argparse.Namespace):
         for in_path, out_path in zip(inputs, outputs):
             try:
                 if path.isfile(in_path):
-                    __convert_file(in_path, out_path, strict, quiet, out_format=fmt, texconv_path=conv)
+                    __convert_file(in_path, out_path, strict, quiet)
                 else:
                     if not quiet:
                         print(f"Reading '{in_path}'...")
-                __convert_dir(in_path, out_path, recursive_walk, strict, quiet, out_format=fmt, texconv_path=conv)
+                __convert_dir(in_path, out_path, recursive_walk, strict, quiet)
             except BaseException as e:
                 if fail_on_error:
                     raise
@@ -115,11 +135,11 @@ def run(run_args: argparse.Namespace):
                 if path.isfile(in_path):
                     if output_is_dir:
                         out_path = join(out_path, basename(in_path))
-                    __convert_file(in_path, out_path, strict, quiet,  out_format=fmt,texconv_path=conv)
+                    __convert_file(in_path, out_path, strict, quiet)
                 else:
                     if not quiet:
                         print(f"Reading '{in_path}'...")
-                    __convert_dir(in_path, out_path, recursive_walk, strict, quiet, out_format=fmt, texconv_path=conv)
+                    __convert_dir(in_path, out_path, recursive_walk, strict, quiet)
             except BaseException as e:
                 if fail_on_error:
                     raise

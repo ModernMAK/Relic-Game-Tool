@@ -1,11 +1,8 @@
 from typing import BinaryIO, List
 
-from archive_tools.ioutil import end_of_stream, BinaryWindow, has_data
-
-from .chunk.chunk import AbstractChunk, FolderChunk, GenericDataChunk
-from .chunk.header import ChunkHeader, ChunkType
-from .chunky.chunky import GenericRelicChunky
-from .chunky.header import ChunkyVersion, ChunkyMagic, ChunkyHeader
+from archive_tools.ioutil import BinaryWindow, has_data
+from .chunk import AbstractChunk, FolderChunk, GenericDataChunk, ChunkHeader, ChunkType
+from .chunky import ChunkyVersion, ChunkyMagic, ChunkyHeader, GenericRelicChunky
 
 
 def read_chunky(stream: BinaryIO) -> GenericRelicChunky:

@@ -22,7 +22,6 @@ class RtxChunky(RelicChunky):
         return RtxChunky(chunky.header, txtr)
 
 
-
 def write_rtx(output_path: str, rtx: RtxChunky, out_format: str = None, texconv_path: str = None):
     p = Path(output_path).parent
     p.mkdir(parents=True, exist_ok=True)

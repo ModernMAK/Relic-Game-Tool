@@ -8,7 +8,7 @@ from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
 from ..chunky.header import ChunkyVersion
-from ...common import VersionLike
+from ...common import VersionLike, VersionError
 
 
 class ChunkType(Enum):
@@ -58,6 +58,7 @@ class ChunkNameError(ChunkError):
         else:
             return msg + f"; got {repr(self.name)}!"
 
+
 @dataclass
 class ChunkHeader:
     type: ChunkType
@@ -78,8 +79,10 @@ class ChunkHeader:
         raise NotImplementedError
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, chunky_version: ChunkyVersion) -> 'ChunkHeader':
-        class_type = _VERSION_MAP[chunky_version]
+    def unpack(cls, stream: BinaryIO, chunky_version: ChunkyVersion) -> ChunkHeader:
+        class_type = _VERSION_MAP.get(chunky_version)
+        if not class_type:
+            raise VersionError(chunky_version, list(_VERSION_MAP.keys()))
         return class_type._unpack(stream)
 
     def pack(self, stream: BinaryIO) -> int:

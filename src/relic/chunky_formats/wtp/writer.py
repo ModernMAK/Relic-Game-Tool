@@ -5,7 +5,7 @@ from relic.chunky_formats.wtp.wtp import WtpChunky, WtpInfoChunk, PtldChunk
 from relic.file_formats.dxt import build_dow_tga_gray_header
 
 
-def create_mask_image(stream: BinaryIO, data:bytes, info: WtpInfoChunk):
+def create_mask_image(stream: BinaryIO, data: bytes, info: WtpInfoChunk):
     header = build_dow_tga_gray_header(info.width, info.height)
     stream.write(header)
     stream.write(data)
@@ -15,6 +15,7 @@ def write_ptld(root: str, chunk: PtldChunk, info: WtpInfoChunk, out_format: str 
     path = root + "/" + chunk.layer.name + ".tga"
     with open(path, "wb") as handle:
         create_mask_image(handle, chunk.image, info)
+
 
 #
 # def write_ptbn(root: str, chunk: PtbdChunk, info: WtpInfoChunk, out_format: str = None, texconv_path: str = None):

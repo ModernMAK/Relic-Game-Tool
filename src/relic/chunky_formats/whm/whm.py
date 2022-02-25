@@ -15,7 +15,7 @@ from ...chunky import ChunkyVersion
 from ...chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
 from ...chunky.chunk.header import ChunkType
 from ...chunky.chunky.chunky import RelicChunky, GenericRelicChunky
-from ...file_formats.mesh_io import Float3, Float4, Float2
+from ...file_formats.mesh_io import Float3, Float4, Float2, Short3
 
 
 @dataclass
@@ -237,6 +237,79 @@ class MsgrName:
         return MsgrName(name, sub_count, sub_names)
 
 
+Byte4 = Tuple[int, int, int, int]
+Byte3 = Tuple[int, int, int]
+Byte = int
+
+
+@dataclass
+class MslcVertexData:
+    VERTEX_POS_LAYOUT = Struct("< 3f")
+    VERTEX_NORM_LAYOUT = Struct("< 3f")
+    VERTEX_UV_LAYOUT = Struct("< 2f")
+    VERTEX_BONE_WEIGHT_LAYOUT = Struct("< 3f 3c c")
+
+    positions: List[Float3]
+    normals: List[Float3]
+    bone_weights: Optional[List[Tuple[Float3, Byte4]]]
+    uvs: List[Float2]
+
+    @property
+    def count(self) -> int:
+        return len(self.positions)
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO, vertex_count: int, V_SIZE: int) -> MslcVertexData:
+        if V_SIZE in [32, 48]:
+            position_buffer = [cls.VERTEX_POS_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
+        else:
+            position_buffer = None
+
+        if V_SIZE in [48]:
+            bone_buffer = [cls.VERTEX_BONE_WEIGHT_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
+            bone_buffer = [((w1, w2, w3), (b1, b2, b3), f) for w1, w2, w3, b1, b2, b3, f in bone_buffer]
+        else:
+            bone_buffer = None
+
+        if V_SIZE in [32, 48]:
+            normal_buffer = [cls.VERTEX_NORM_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
+        else:
+            normal_buffer = None
+
+        if V_SIZE in [32, 48]:
+            uv_buffer = [cls.VERTEX_UV_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
+        else:
+            uv_buffer = None
+
+        return cls(position_buffer, normal_buffer, bone_buffer, uv_buffer)
+
+
+Short4 = Tuple[int, int, int, int]
+
+
+@dataclass
+class MslcSubmeshData:
+    COUNT_LAYOUT = Struct("i")
+    NAME_LAYOUT = VStruct("v")
+    INDEX_LAYOUT = Struct("H")
+    INDEX_TRI_LAYOUT = Struct("3H")
+    INDEX_TRAILING_LAYOUT = Struct("4h")
+
+    texture_path: str
+    triangles: List[Short3]
+    trailing: Short4
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO) -> MslcSubmeshData:
+        name = cls.NAME_LAYOUT.unpack_stream(stream)[0].decode("ascii")
+        index_count = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        tri_count = index_count / cls.INDEX_TRI_LAYOUT.args
+        assert int(tri_count) == tri_count
+        indexes = [cls.INDEX_TRI_LAYOUT.unpack_stream(stream) for _ in range(int(tri_count))]
+        trailing = cls.INDEX_TRAILING_LAYOUT.unpack_stream(stream)
+        return cls(name, indexes, trailing)
+
+
 @dataclass
 class MslcDataChunk(AbstractChunk):
     CHUNK_ID = "DATA"
@@ -244,26 +317,19 @@ class MslcDataChunk(AbstractChunk):
     VERSIONS = [2]
     # data: bytes
 
+    HEADER_NAME_LAYOUT = VStruct("vi")
     COUNT_LAYOUT = Struct("i")
     NAME_LAYOUT = VStruct("v")
-    HEADER_NAME_LAYOUT = VStruct("vi")
-    INDEX_LAYOUT = Struct("H")
-    INDEX_TRI_LAYOUT = Struct("3H")
-    INDEX_TRAILING_LAYOUT = Struct("4h")
     # VERTEX_LAYOUT = Struct("32s")
     # EXCESS_SIZE = 8
 
-    VERTEX_POS_LAYOUT = Struct("< 3f")
-    VERTEX_NORM_LAYOUT = Struct("< 3f")
-    VERTEX_UV_LAYOUT = Struct("< 2f")
-    VERTEX_UNK_LAYOUT = Struct("< 3f 4s")
     HEADER_LAYOUT = Struct("< i b i i")
 
     sub_header: Tuple[Any, ...]
     unks: Tuple[Any, ...]
     header_names: List[Tuple[str, int]]
-    vertex_buffers: Tuple[List[Float3], Optional[List], List[Float3], List[Float2]]
-    triangle_buffers: List[Tuple[str, List[Tuple[int, int, int]], List]]
+    vertex_buffers: MslcVertexData
+    triangle_buffers: List[Tuple[str, List[Tuple[Short3]], List]]
     trailing_data: bytes  # LIKELY EMBEDDED TEXTURES, No magic so TGA? Or relic's wierd no-magic DDS
 
     UNK2TEX = {}
@@ -305,18 +371,22 @@ class MslcDataChunk(AbstractChunk):
     }
 
     def positions(self) -> List[Float3]:
+        raise Exception("Use vertex_data accessors")
         return self.vertex_buffers[0]
 
     def normals(self) -> List[Float3]:
+        raise Exception("Use vertex_data accessors")
         return self.vertex_buffers[2]
 
     def uvs(self) -> List[Float2]:
+        raise Exception("Use vertex_data accessors")
         return self.vertex_buffers[3]
 
     def triangles(self, group: int) -> List[Tuple[int, int, int]]:
         return self.triangle_buffers[group][1]
 
     def vertex_count(self) -> int:
+        raise Exception("Use vertex_data accessors")
         return len(self.positions())
 
     def index_count(self, group: int = 0) -> int:
@@ -379,41 +449,14 @@ class MslcDataChunk(AbstractChunk):
 
                 _debug_V_BUFFER_START = stream.tell()
 
-                if V_SIZE in [32, 48]:
-                    position_buffer = [cls.VERTEX_POS_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
-                else:
-                    position_buffer = None
-
-                if V_SIZE in [48]:
-                    unk_buffer = [cls.VERTEX_UNK_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
-                else:
-                    unk_buffer = None
-
-                if V_SIZE in [32, 48]:
-                    normal_buffer = [cls.VERTEX_NORM_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
-                else:
-                    normal_buffer = None
-
-                if V_SIZE in [32, 48]:
-                    uv_buffer = [cls.VERTEX_UV_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
-                else:
-                    uv_buffer = None
-
                 _debug_vbuffer_fullsize = vertex_count * V_SIZE
-                vertex_buffer = (position_buffer, unk_buffer, normal_buffer, uv_buffer)
-
+                vertex_data = MslcVertexData.unpack(stream, vertex_count, V_SIZE)
                 e = stream.read(4)
                 assert e == b'\x00\x00\x00\x00', e
                 index_buffer_count = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
                 index_buffers = []
                 _debug_ibuffer_fullsize = 0
                 for _ in range(index_buffer_count):
-                    name = cls.NAME_LAYOUT.unpack_stream(stream)[0].decode("ascii")
-                    index_count = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
-                    tri_count = index_count / cls.INDEX_TRI_LAYOUT.args
-                    assert int(tri_count) == tri_count
-                    indexes = [cls.INDEX_TRI_LAYOUT.unpack_stream(stream) for _ in range(int(tri_count))]
-                    trailing = cls.INDEX_TRAILING_LAYOUT.unpack_stream(stream)
                     # index_trailing_a = stream.read(4)
                     # index_trailing_b = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
                     # assert index_trailing_a == 0, index_trailing_a
@@ -471,7 +514,7 @@ class MslcDataChunk(AbstractChunk):
             #     cls._EX.append(pair)
             #     print("\n"+", ".join('( '+str(_[0][0])+", "+str(_[0][1])+", "+str(_[0][2])+"):"+str(_[1]) for _ in cls._EX)+"\n")
             #     pass
-            return cls(chunk.header, header, (vertex_size_id,), header_names, vertex_buffer, index_buffers, baked_textures_maybe)
+            return cls(chunk.header, header, (vertex_size_id,), header_names, vertex_data, index_buffers, baked_textures_maybe)
         except Exception as e:
             # print(as_hex_adr(stream.tell()))
             # _ = None
@@ -581,7 +624,7 @@ class MsgrDataChunk(AbstractChunk):
     class Item:
         LAYOUT = VStruct("2vi")
         name: str
-        pat: str
+        path: str
         unk: int
 
         @classmethod
@@ -786,7 +829,7 @@ class RsgmChunkFactory:
 
 
 @dataclass
-class SkelBone:
+class SkelTransform:  # THE BIGGEST MISTAKE! Assuming that these had to be bones. They are transforms that match
     name: str
     parent_index: int
 
@@ -794,15 +837,15 @@ class SkelBone:
     pos: Float3
     quaternion: Float4
 
-    LAYOUT = VStruct("v <l3f4f")
+    LAYOUT = VStruct("v <l 3f 4f")
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> SkelBone:
+    def unpack(cls, stream: BinaryIO) -> SkelTransform:
         name, parent, px, py, pz, rx, ry, rz, rw = cls.LAYOUT.unpack_stream(stream)
         name = name.decode("ascii")
         p = (px, py, pz)
         q = (rx, ry, rz, rw)
-        return SkelBone(name, parent, p, q)
+        return SkelTransform(name, parent, p, q)
 
 
 @dataclass
@@ -810,15 +853,15 @@ class SkelChunk(AbstractChunk):
     CHUNK_TYPE = ChunkType.Data
     CHUNK_ID = "SKEL"
 
-    LAYOUT = Struct("<l")
-    # This chunk is super easy
-    bones: List[SkelBone]
+    LAYOUT = Struct("< l")
+    transforms: List[SkelTransform]
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> SkelChunk:
         with BytesIO(chunk.raw_bytes) as stream:
             bone_count = cls.LAYOUT.unpack_stream(stream)[0]
-            bones = [SkelBone.unpack(stream) for _ in range(bone_count)]
+            bones = [SkelTransform.unpack(stream) for _ in range(bone_count)]
+            assert stream.tell() == len(chunk.raw_bytes), (len(chunk.raw_bytes), stream.tell())
             return SkelChunk(chunk.header, bones)
 
 

@@ -1,10 +1,14 @@
+import dataclasses
+import json
+from enum import Enum
+from json import JSONEncoder
 from os.path import split, splitext, join, basename
 from pathlib import Path
-from typing import TextIO, Iterable, BinaryIO, List
+from typing import TextIO, Iterable, BinaryIO, List, Any
 
 from relic.chunky_formats.common_chunks.imag import TxtrChunk
 from relic.chunky_formats.common_chunks.imag_writer import ImagConverter
-from relic.chunky_formats.whm.whm import MsgrChunk, MslcChunk, WhmChunky, RsgmChunkV3
+from relic.chunky_formats.whm.whm import MsgrChunk, MslcChunk, WhmChunky, RsgmChunkV3, SkelChunk
 # from relic.chunky_formats.whm.skel_chunk import SkelChunk, Skeleton
 from relic.file_formats.mesh_io import Float3
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
@@ -107,8 +111,12 @@ def fetch_textures_from_msgr(chunk: MsgrChunk) -> Iterable[str]:
             yield texture
 
 
-def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None, force_valid: bool = True):
-    texture_ext = texture_ext or ""
+def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None, force_valid: bool = True, basename_only: bool = False):
+    if texture_ext:
+        if texture_ext[0] != ".":
+            texture_ext = "." + texture_ext
+    else:
+        texture_ext = ""
     textures = [t for t in fetch_textures_from_msgr(chunk)]
     textures = set(textures)
 
@@ -121,27 +129,41 @@ def write_msgr_to_mtl(stream: TextIO, chunk: MsgrChunk, texture_root: str = None
         if force_valid:
             d, b = split(full_texture)
             full_texture = join(d, b.replace(" ", "_"))
+        if basename_only:
+            full_texture = basename(full_texture)
         mtl_writer.write_texture_diffuse(full_texture)
         mtl_writer.write_texture_alpha(full_texture)
+
+
+class SkelJsonEncoder(JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        elif isinstance(o, Enum):
+            return {o.name: o.value}
+        else:
+            return o
+
+
+def write_skel_to_json(stream: TextIO, chunk: SkelChunk, pretty: bool = True):
+    json.dump(chunk, stream, cls=SkelJsonEncoder, indent=(4 if pretty else None))
 
 
 def write_whm(root: str, whm: WhmChunky, out_format: str = None, texconv_path: str = None):
     root, _ = splitext(root)
     p = Path(root)
-    p.mkdir(exist_ok=True,parents=True)
+    p.mkdir(exist_ok=True, parents=True)
     if isinstance(whm.rsgm, RsgmChunkV3):
         write_whm_textures(root, whm.rsgm.txtr, out_format, texconv_path)
         obj_path = p / (p.name + ".obj")
         with open(obj_path, "w") as obj_handle:
             mtl_path = write_matlib_name(obj_handle, str(obj_path))
-            write_msgr_mscl(obj_handle, whm.rsgm.msgr, )
+            write_msgr_mscl(obj_handle, whm.rsgm.msgr)
         with open(mtl_path, "w") as mtl_handle:
-            write_msgr_to_mtl(mtl_handle, whm.rsgm.msgr, str(p), out_format)
+            write_msgr_to_mtl(mtl_handle, whm.rsgm.msgr, str(p), out_format, basename_only=True)
+        if whm.rsgm.skel:
+            skel_path = p / (p.name + "-bones.json")
+            with open(skel_path, "w") as skel_handle:
+                write_skel_to_json(skel_handle, whm.rsgm.skel)
     else:
         raise NotImplementedError
-
-# def write_obj_mtl(dest: str, chunk: MsgrChunk, texture_root: str = None, texture_ext: str = None):
-#     with open(dest, "w") as obj_handle:
-#         _, mtl = write_msgr_to_obj(obj_handle, chunk)
-#     with open(mtl, "w") as mtl_handle:
-#         write_msgr_to_mtl(mtl_handle, chunk, texture_root, texture_ext)

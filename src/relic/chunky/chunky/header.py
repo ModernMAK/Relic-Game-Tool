@@ -6,7 +6,7 @@ from typing import BinaryIO, Dict, Type
 from archive_tools.magic import MagicWordIO, MagicWord
 from archive_tools.structx import Struct
 
-from relic.common import VersionEnum, Version, VersionLike
+from relic.common import VersionEnum, Version, VersionLike, VersionError
 
 ChunkyVersionLayout = Struct("< 2L")
 
@@ -57,11 +57,12 @@ class ChunkyHeader:
         MultiBR_Magic.assert_magic_word(stream)
         version = ChunkyVersion.unpack(stream)
 
-        class_type = _VERSION_MAP[version]
+        class_type = _VERSION_MAP.get(version)
+        if not class_type:
+            raise VersionError(version, list(_VERSION_MAP.keys()))
         return class_type._unpack(stream)
 
     def pack(self, stream: BinaryIO) -> int:
-
         written = 0
         written += MultiBR_Magic.write_magic_word(stream)
         written += ChunkyVersion.pack_version(stream, self.version)
