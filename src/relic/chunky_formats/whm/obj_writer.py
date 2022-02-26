@@ -59,9 +59,9 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
         writer.write_object_name(name)
 
     mesh = chunk.data
-    positions = mesh.positions()
-    normals = mesh.normals()
-    uvs = mesh.uvs()
+    positions = mesh.vertex_data.positions
+    normals = mesh.vertex_data.normals
+    uvs = mesh.vertex_data.uvs
     if axis_fix:
         positions = [flip_float3(p, flip_x=True) for p in positions]
         normals = [flip_float3(n, flip_x=True) for n in normals]
@@ -69,10 +69,10 @@ def write_mslc_to_obj(stream: TextIO, chunk: MslcChunk, name: str = None, v_offs
     writer.write_vertex_positions(positions)
     writer.write_vertex_normals(normals)
     writer.write_vertex_uvs(uvs)
-    v_local_offset += mesh.vertex_count()
+    v_local_offset += mesh.vertex_data.count
 
-    for ibuffer in mesh.sub_meshes:
-        name, triangle_buffer = ibuffer[0], ibuffer[1]
+    for m in mesh.sub_meshes:
+        name, triangle_buffer = m.texture_path, m.triangles
         tex_name = get_name_from_texture_path(name)
         writer.write_use_material(tex_name)
         writer.write_index_faces(*triangle_buffer, offset=v_offset, zero_based=True, flip_winding=True)
@@ -102,7 +102,7 @@ def write_whm_textures(root: str, txtr: List[TxtrChunk], out_format: str = None,
 
 def fetch_textures_from_mslc(chunk: MslcChunk) -> Iterable[str]:
     for tbuffer in chunk.data.sub_meshes:
-        yield tbuffer[0]
+        yield tbuffer.texture_path
 
 
 def fetch_textures_from_msgr(chunk: MsgrChunk) -> Iterable[str]:
@@ -149,12 +149,13 @@ def write_skel_to_json(stream: TextIO, chunk: SkelChunk, pretty: bool = True):
     json.dump(chunk, stream, cls=SkelJsonEncoder, indent=(4 if pretty else None))
 
 
-def write_whm(root: str, whm: WhmChunky, out_format: str = None, texconv_path: str = None):
+def write_whm(root: str, whm: WhmChunky, out_format: str = None, texconv_path: str = None, write_textures: bool = False):
     root, _ = splitext(root)
     p = Path(root)
     p.mkdir(exist_ok=True, parents=True)
     if isinstance(whm.rsgm, RsgmChunkV3):
-        write_whm_textures(root, whm.rsgm.txtr, out_format, texconv_path)
+        if write_textures:
+            write_whm_textures(root, whm.rsgm.txtr, out_format, texconv_path)
         obj_path = p / (p.name + ".obj")
         with open(obj_path, "w") as obj_handle:
             mtl_path = write_matlib_name(obj_handle, str(obj_path))
