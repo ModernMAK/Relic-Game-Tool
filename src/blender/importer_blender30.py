@@ -50,6 +50,19 @@ def rotate_matrix(m, q):
     return mathutils.Matrix.LocRotScale(m_t, temp_q, None)
 
 
+# IGNORES SCALE
+def scale_matrix(m, s):
+    m_t = m.to_translation()
+    axis, angle = m.to_quaternion().to_axis_angle()
+
+    def scale(v):
+        return (v[0] * s[0], v[1] * s[1], v[2] * s[2])
+
+    m_t = scale(m_t)
+    axis, angle = scale(axis), angle
+    return mathutils.Matrix.LocRotScale(m_t, mathutils.Quaternion(axis, angle), None)
+
+
 def apply_rotations(p: List, q):
     v = [mathutils.Vector(_) for _ in p]
     for _ in v:
@@ -92,10 +105,34 @@ class RawBone:
         return RawBone(name, transform, children)
 
 
-def create_mesh(data: RawMesh, root_rotation=None):
+def create_vert2loops(mesh):
+    vert2loops = {}
+    for poly in mesh.polygons:
+        for v_ix, l_ix in zip(poly.vertices, poly.loop_indices):
+            if v_ix in vert2loops:
+                vert2loops[v_ix].append(l_ix)
+            else:
+                vert2loops[v_ix] = [l_ix]
+    return vert2loops
+
+
+def get_material(name: str):
+    name = os.path.basename(name)
+    if name in bpy.data.materials:
+        mat = bpy.data.materials[name]
+    else:
+        mat = bpy.data.materials.new(name=name)
+    return mat
+
+
+def create_mesh(data: RawMesh, root_rotation=None, root_scale=None, flip_winding: bool = False):
     triangles = []
-    for t in data.sub_meshes.values():
-        triangles.extend(t)
+    for tri_buffers in data.sub_meshes.values():
+        if flip_winding:
+            for t in tri_buffers:
+                triangles.append([t[2], t[1], t[0]])
+        else:
+            triangles.extend(tri_buffers)
 
     positions = data.positions
     normals = data.normals
@@ -104,18 +141,44 @@ def create_mesh(data: RawMesh, root_rotation=None):
         positions = apply_rotations(positions, root_rotation)
         normals = apply_rotations(normals, root_rotation)
 
+    def apply_scale(values: List):
+        s = root_scale
+        return [(v[0] * s[0], v[1] * s[1], v[2] * s[2]) for v in values]
+
+    if root_scale:
+        positions = apply_scale(positions)
+        normals = apply_scale(normals)
+
     mesh = bpy.data.meshes.new(data.name)
     mesh.from_pydata(positions, [], triangles)
     mesh.update()
     for i, v in enumerate(mesh.vertices):
         v.normal = normals[i]
 
+    vert2loops = create_vert2loops(mesh)
+    uvs = data.uvs
+    uv_layer = mesh.uv_layers.new()
+    for i in range(len(positions)):
+        for loop in vert2loops[i]:
+            uv_layer.data[loop].uv = uvs[i]
+
+    face_lookup = {}
+    for mat_name, tris in data.sub_meshes.items():
+        mat = get_material(mat_name)
+        mesh.materials.append(mat)
+        for tri in tris:
+            t_key = frozenset(tri)
+            face_lookup[t_key] = len(mesh.materials) - 1
+    for face in mesh.polygons:
+        f_key = frozenset(face.vertices)
+        face.material_index = face_lookup[f_key]
+
     obj = bpy.data.objects.new(data.name, mesh)
     bpy.context.collection.objects.link(obj)
     return obj
 
 
-def create_bone(armature, data: RawBone, parent_mat=None, parent_small: bool = False):
+def create_bone(armature, data: RawBone, parent_mat=None, final_scale=None, parent_small: bool = False):
     bone = armature.edit_bones.new(data.name)
 
     is_small = "bip" in bone.name
@@ -132,12 +195,16 @@ def create_bone(armature, data: RawBone, parent_mat=None, parent_small: bool = F
     bone_mat = mat
     if parent_mat:
         bone_mat = parent_mat @ mat
+    final_mat = bone_mat
 
     const_rotation = mathutils.Quaternion([0, 0, 1], math.radians(90.0))  # Orient bones outward in direction of
-    bone.matrix = rotate_matrix(bone_mat, const_rotation)
+    final_mat = rotate_matrix(final_mat, const_rotation)
+    if final_scale:
+        final_mat = scale_matrix(final_mat, final_scale)
+    bone.matrix = final_mat
 
     for c in data.children:
-        child_bone = create_bone(armature, c, bone_mat, parent_small)
+        child_bone = create_bone(armature, c, parent_mat=bone_mat, parent_small=parent_small, final_scale=final_scale)
         # HACK TO PRETIFY BONES
         if "bip" in bone.name and "bip" in child_bone.name:
             if len(data.children) == 1 or ("pelvis" in bone.name and "spine" in child_bone.name):
@@ -148,7 +215,7 @@ def create_bone(armature, data: RawBone, parent_mat=None, parent_small: bool = F
     return bone
 
 
-def create_armature(data: RawBone, rotation=None):
+def create_armature(data: RawBone, rotation=None, root_scale: Float3 = None):
     if not data:
         return None
     # Preserve state after runnign script
@@ -166,7 +233,7 @@ def create_armature(data: RawBone, rotation=None):
 
         root_m = mathutils.Matrix.LocRotScale(None, rotation, None) if rotation else None
         for child in data.children:
-            create_bone(root, child, root_m)
+            create_bone(root, child, root_m, final_scale=root_scale)
     finally:
         if old_obj:
             bpy.context.view_layer.objects.active = old_obj
@@ -209,20 +276,17 @@ def build_from_stream(stream: TextIO):
     json_data = json.load(stream)
     name, meshes, bones = rebuild_from_json(json_data)
     root_rot = mathutils.Quaternion([1, 0, 0], math.radians(90.0))
+    root_scale: Float3 = (-1.0, 1.0, 1.0)
 
-    skel_obj = create_armature(bones, root_rot)
-    skel_obj.name = name
-
-    root_obj = bpy.data.objects.new(name, None)
-    root_obj.parent = skel_obj  # Parent root to armature
-    bpy.context.collection.objects.link(root_obj)
+    skel_obj = create_armature(bones, root_rot, root_scale)
 
     for mesh_data in meshes:
-        mesh = create_mesh(mesh_data, root_rot)
-        mesh.parent = root_obj  # Parent to root
+        mesh = create_mesh(mesh_data, root_rotation=root_rot, root_scale=root_scale, flip_winding=True)
+        mesh.parent = skel_obj  # Parent to skel
         create_skel_groups(skel_obj.data, mesh, mesh_data)
         armature_mod = mesh.modifiers.new("Armature", "ARMATURE")  # name is 'Armature' (Default when using ui), class is 'ARMATURE'
         armature_mod.object = skel_obj
+
     return skel_obj
 
 
@@ -274,7 +338,7 @@ def build(context, filepath):
 
 
 class ImportWHM(Operator, ImportHelper):
-    """This appears in the tooltip of the operator and in the generated docs"""
+    """Convert WHM data to mesh"""
     bl_idname = "importer.whm"  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = "open"
 
