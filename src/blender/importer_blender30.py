@@ -7,6 +7,12 @@ import math
 import bpy
 import mathutils
 
+# ImportHelper is a helper class, defines filename and
+# invoke() function which calls the file selector.
+from bpy_extras.io_utils import ImportHelper
+from bpy.props import StringProperty, BoolProperty, EnumProperty
+from bpy.types import Operator
+
 Float2 = Tuple[float, float]
 Float3 = Tuple[float, float, float]
 Float4 = Tuple[float, float, float, float]
@@ -108,9 +114,12 @@ def create_mesh(data: RawMesh, root_rotation=None):
     return obj
 
 
-def create_bone(armature, data: RawBone, parent_mat=None):
+def create_bone(armature, data: RawBone, parent_mat=None, force_small: bool = False):
     bone = armature.edit_bones.new(data.name)
-    bone.tail = mathutils.Vector([0, 1, 0])
+
+    force_small |= "bip" in bone.name
+    bone_size = .25 if force_small else 1
+    bone.tail = mathutils.Vector([0, bone_size, 0])
 
     transform = data.transform
     mat = transform.to_matrix()
@@ -123,7 +132,12 @@ def create_bone(armature, data: RawBone, parent_mat=None):
     bone.matrix = rotate_matrix(bone_mat, const_rotation)
 
     for c in data.children:
-        child_bone = create_bone(armature, c, bone_mat)
+        child_bone = create_bone(armature, c, bone_mat, force_small)
+        # HACK TO PRETIFY BONES
+        if "bip" in bone.name and "bip" in child_bone.name:
+            if len(data.children) == 1 or ("pelvis" in bone.name and "spine" in child_bone.name):
+                bone.tail = child_bone.head
+                child_bone.use_connect = True
         child_bone.parent = bone
 
     return bone
@@ -166,6 +180,7 @@ def create_skel_groups(skel, mesh, data: RawMesh):
         for vi, bw_data in enumerate(data.bone_weights):
             for bi, bw in bw_data:
                 mesh.vertex_groups[bi].add([vi], bw, 'REPLACE')
+
     elif data.has_implied_bone and data.name in name2index:
         bwi = name2index[data.name]
         vgroup = mesh.vertex_groups[bwi]
@@ -203,11 +218,6 @@ def build(context, filepath):
     return {'FINISHED'}
 
 
-# ImportHelper is a helper class, defines filename and
-# invoke() function which calls the file selector.
-from bpy_extras.io_utils import ImportHelper
-from bpy.props import StringProperty, BoolProperty, EnumProperty
-from bpy.types import Operator
 
 
 class ImportWHM(Operator, ImportHelper):
