@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import dataclass
 from typing import Callable
 
 
@@ -17,6 +18,36 @@ def build_shared_extractor_parser():
 
 
 SharedExtractorParser = build_shared_extractor_parser()
+
+@dataclass
+class PrintOptions:
+    strict: bool = False
+    quiet: bool = False
+    error_fail: bool = True
+    verbose: bool = False
+
+
+def print_any(f: str, indent: int = 0, print_opts: PrintOptions = None):
+    if not print_opts or not print_opts.quiet:
+        indent = '\t' * indent
+        print(f"{indent}{f}")
+
+def print_reading(f: str, indent: int = 0, print_opts: PrintOptions = None):
+    if not print_opts or not print_opts.quiet:
+        indent = '\t' * indent
+        print(f"{indent}Reading \"{f}\"...")
+
+
+def print_wrote(f: str, indent: int = 0, print_opts: PrintOptions = None):
+    if not print_opts or not print_opts.quiet:
+        indent = '\t' * indent
+        print(f"{indent}Wrote \"{f}\"...")
+
+
+def print_error(e: BaseException, indent: int = 0, print_opts: PrintOptions = None):
+    if not print_opts or not print_opts.quiet or print_opts.verbose:
+        indent = '\t' * indent
+        print(f"{indent}ERROR \"{e}\"...")
 
 def func_print_help(arg_parser: argparse.ArgumentParser, exit_code: int = 0) -> Callable[[argparse.Namespace], None]:
     def wrapper(_: argparse.Namespace):

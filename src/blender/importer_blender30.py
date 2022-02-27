@@ -114,11 +114,15 @@ def create_mesh(data: RawMesh, root_rotation=None):
     return obj
 
 
-def create_bone(armature, data: RawBone, parent_mat=None, force_small: bool = False):
+def create_bone(armature, data: RawBone, parent_mat=None, parent_small: bool = False):
     bone = armature.edit_bones.new(data.name)
 
-    force_small |= "bip" in bone.name
-    bone_size = .25 if force_small else 1
+    is_small = "bip" in bone.name
+    BIG_SIZE = 1
+    MID_SIZE = .5
+    SMALL_SIZE = 0.25
+    bone_size = SMALL_SIZE if is_small else (MID_SIZE if parent_small else BIG_SIZE)
+    parent_small |= is_small
     bone.tail = mathutils.Vector([0, bone_size, 0])
 
     transform = data.transform
@@ -132,7 +136,7 @@ def create_bone(armature, data: RawBone, parent_mat=None, force_small: bool = Fa
     bone.matrix = rotate_matrix(bone_mat, const_rotation)
 
     for c in data.children:
-        child_bone = create_bone(armature, c, bone_mat, force_small)
+        child_bone = create_bone(armature, c, bone_mat, parent_small)
         # HACK TO PRETIFY BONES
         if "bip" in bone.name and "bip" in child_bone.name:
             if len(data.children) == 1 or ("pelvis" in bone.name and "spine" in child_bone.name):
@@ -229,7 +233,7 @@ class ImportWHM(Operator, ImportHelper):
     filename_ext = ".json"
 
     filter_glob: StringProperty(
-        default="*.json",
+        default="*.meshdata.json",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )

@@ -47,11 +47,6 @@ def dump_chunk_col(output_dir: Path, chunks: List[AbstractChunk]):
             raise NotImplementedError(chunk)
 
 
-def dump_chunky(output_dir: Path, chunky: GenericRelicChunky):
-    dump_chunk_col(output_dir, chunky.chunks)
-    with open(str(output_dir) + ".meta", "w") as meta:
-        json.dump(chunky.header, meta, cls=DataclassJsonEncoder)
-
 
 def add_args(_: argparse.ArgumentParser):
     pass
@@ -65,9 +60,11 @@ def build_parser():
     return parser
 
 
-def extract_chunky(output_path: str, chunky: GenericRelicChunky) -> None:
+def dump_chunky(output_path: str, chunky: GenericRelicChunky) -> None:
     p = Path(output_path)
-    dump_chunky(p, chunky)
+    dump_chunk_col(p, chunky.chunks)
+    with open(str(p) + ".meta", "w") as meta:
+        json.dump(chunky.header, meta, cls=DataclassJsonEncoder)
 
 
 def extract_args(_: argparse.Namespace) -> Dict:
@@ -75,7 +72,7 @@ def extract_args(_: argparse.Namespace) -> Dict:
     return {}
 
 
-Runner = get_runner(extract_chunky, extract_args, None, True)
+Runner = get_runner(dump_chunky, extract_args, None, True)
 
 if __name__ == "__main__":
     p = build_parser()
