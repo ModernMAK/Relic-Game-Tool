@@ -4,16 +4,16 @@ from typing import Dict
 from relic.chunky import GenericRelicChunky
 from relic.chunky_formats.fda.chunky import FdaChunky
 from relic.chunky_formats.fda.audio_converter import FdaAudioConverter
-from scripts.universal.chunky.extractors.common import SharedExtractorParser, get_runner
-
+from scripts.universal.chunky.extractors.common import get_runner
+from scripts.universal.common import SharedExtractorParser
 
 def add_args(parser: argparse.ArgumentParser):
-    parser.add_argument("-f", "--fmt", "--format", default="wav", choices=["aiff", "wav"], type=str.lower, help="Choose what format to convert audio to.")
+    parser.add_argument("-f", "--fmt", "--format", default="wav", choices=["aiff", "wav"], type=str.lower, help="The desired output format.")
     # parser.add_argument("-c", "-t", "--conv", "--converter", "--texconv", help="Path to texconv.exe to use.")
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="FDA 2 Audio", description="Convert Relic FDA (Audio) files to Audio.", parents=SharedExtractorParser)
+    parser = argparse.ArgumentParser(prog="FDA 2 Audio", description="Convert Relic FDA (Audio) files to Wave/Aiffc-r.", parents=SharedExtractorParser)
     add_args(parser)
     return parser
 

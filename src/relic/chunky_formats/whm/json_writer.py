@@ -36,7 +36,7 @@ class RawMesh:
     positions: List[Float3]
     normals: List[Float3]
     bones: Dict[int, str]
-    bone_weights: Optional[List[Tuple[Float3, Byte3, Byte]]]
+    bone_weights: Optional[List[List[Tuple[Float3, Byte]]]]
     uvs: List[Float2]
     sub_meshes: Dict[str, List[Short3]]
 
@@ -44,10 +44,31 @@ class RawMesh:
     def convert_from_mslc(cls, chunk: MslcChunk) -> RawMesh:
         mesh = chunk.data
         name = chunk.header.name
-        positions = [flip_float3(p, flip_x=True) for p in mesh.vertex_data.positions]
-        normals = [flip_float3(n, flip_x=True) for n in mesh.vertex_data.normals]
+        # DO NOT PERFORM ANY MODIFICATIONS
+        #   Let importer handle it to keep it in one location
+        positions = mesh.vertex_data.positions
+        normals = mesh.vertex_data.normals
+        # positions = [flip_float3(p, flip_x=True) for p in mesh.vertex_data.positions]
+        # normals = [flip_float3(n, flip_x=True) for n in mesh.vertex_data.normals]
         bones = {b.index: b.name for b in mesh.bones}
-        bone_weights = mesh.vertex_data.bone_weights
+        bone_weights = None
+        if mesh.vertex_data.bone_weights:
+            bone_weights = []
+            for bwd in mesh.vertex_data.bone_weights:
+                w = []
+                t = 0
+                for i in range(4):
+                    bi = bwd[1][i]
+                    if bi == 255:
+                        break
+                    if i == 3:
+                        bw = 1.0 - t
+                    else:
+                        bw = bwd[0][i]
+                        t += bw
+                    w.append((bi, bw))
+                bone_weights.append(w)
+
         uvs = mesh.vertex_data.uvs
         indexes = {sm.texture_path: sm.triangles for sm in mesh.sub_meshes}
         return RawMesh(name, positions, normals, bones, bone_weights, uvs, indexes)
@@ -60,7 +81,6 @@ class RawMesh:
 @dataclass
 class RawBone:
     name: str
-    # index: int
     transform: SimpleTransform
     children: List[RawBone]
 
@@ -77,17 +97,6 @@ class RawBone:
             parent.children.append(current)
         return root
 
-        # bone_lookup = {}
-        # bone_lookup[-1] = RawBone(None, -1, None, [])
-        # for i, bone in enumerate(chunk.bones):
-        #     t = SimpleTransform(bone.pos, bone.quaternion)
-        #     bone_lookup[i] = RawBone(bone.name, i, t, [])
-        # for i, _ in enumerate(chunk.bones):
-        #     parent = bone_lookup[_.parent_index]
-        #     current = bone_lookup[i]
-        #     parent.children.append(current)
-        # return bone_lookup[-1]
-
 
 class SimpleJsonEncoder(JSONEncoder):
     def default(self, o: Any) -> Any:
@@ -100,9 +109,16 @@ class SimpleJsonEncoder(JSONEncoder):
 
 
 def write_whm(stream: TextIO, whm: WhmChunky, pretty: bool = True):
+    # Putting this here since this is the 'best' place I can think of
+    #   Some objects have skel's but no bones (vehicles do this alot)
+    #       I thought that maybe it was hidden elsewhere, but I decided ot play SS to look at the animations
+    #       After 15 minutes I got a blane-blade and carefully watched it raise hell
+    #           Despite my initial thoughts; that the cannon and barrels retracted after firing; the animations simply jolt the gun back to achieve a similar, cheaper effect
+    #   My conclusion is a skel's bone is implicitly weighted IFF (if anf only if) no bones are listed as bone weights AND the mesh name matches a bone name
+    #       Semi-Related, MARKs seem to be empty objects, should try listing that in the OBJ/JSON
     if isinstance(whm.rsgm, RsgmChunkV3):
         meshes = RawMesh.convert_from_msgr(whm.rsgm.msgr)
-        skel = RawBone.convert_from_skel(whm.rsgm.skel)
+        skel = RawBone.convert_from_skel(whm.rsgm.skel) if whm.rsgm.skel else None
         name = whm.rsgm.header.name
         d = {'name': name, 'skel': skel, 'meshes': meshes}
         try:

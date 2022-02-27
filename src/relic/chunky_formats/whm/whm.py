@@ -247,7 +247,7 @@ class MslcVertexData:
     VERTEX_POS_LAYOUT = Struct("< 3f")
     VERTEX_NORM_LAYOUT = Struct("< 3f")
     VERTEX_UV_LAYOUT = Struct("< 2f")
-    VERTEX_BONE_WEIGHT_LAYOUT = Struct("< 3f 3B B")
+    VERTEX_BONE_WEIGHT_LAYOUT = Struct("< 3f 4B")
 
     positions: List[Float3]
     normals: List[Float3]
@@ -267,7 +267,7 @@ class MslcVertexData:
 
         if V_SIZE in [48]:
             bone_buffer = [cls.VERTEX_BONE_WEIGHT_LAYOUT.unpack_stream(stream) for _ in range(vertex_count)]
-            bone_buffer = [((w1, w2, w3), (b1, b2, b3), f) for w1, w2, w3, b1, b2, b3, f in bone_buffer]
+            bone_buffer = [((w1, w2, w3), (b1, b2, b3, b4)) for w1, w2, w3, b1, b2, b3, b4 in bone_buffer]
         else:
             bone_buffer = None
 
@@ -343,7 +343,7 @@ class MslcDataChunk(AbstractChunk):
     # VERTEX_LAYOUT = Struct("32s")
     # EXCESS_SIZE = 8
 
-    HEADER_LAYOUT = Struct("< i b i i")
+    HEADER_LAYOUT = Struct("< i b 4s i")
 
     sub_header: Tuple[Any, ...]
     unks: Tuple[Any, ...]
@@ -428,6 +428,7 @@ class MslcDataChunk(AbstractChunk):
             return cls(chunk.header, header, (vertex_size_id,), bones, vertex_data, index_buffers, baked_textures_maybe)
         except Exception as e:
             raise
+
 
 @dataclass
 class BvolChunk(AbstractChunk):
@@ -542,14 +543,6 @@ class MsgrChunk(AbstractChunk):
         mslc = coll.find(MslcChunk, True)
         data = coll.find(MsgrDataChunk)
         bvol = coll.find(BvolChunk)
-        #
-        # mslc = find_chunks(chunk.chunks, "MSLC", ChunkType.Folder)
-        # mslc = [MslcChunk.convert(_) for _ in mslc]
-        #
-        # data = find_chunk(chunk.chunks, "DATA", ChunkType.Data)
-        #
-        # bvol = find_chunk(chunk.chunks, "BVOL", ChunkType.Data)
-        # bvol = BvolChunk.convert(bvol)
 
         assert len(chunk.chunks) == sum([1 if _ else 0 for _ in [data, bvol]]) + len(mslc)
         return MsgrChunk(chunk.header, mslc, data, bvol)
@@ -581,8 +574,6 @@ class AnimChunk(AbstractChunk):
 
     data: AnimDataChunk
     anbv: AnbvChunk
-
-    # anim: Optional[AnimChunk]
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> AnimChunk:
@@ -642,8 +633,7 @@ class RsgmChunkV3(RsgmChunk):
 
         count = sum([1 if _ else 0 for _ in [msgr, skel, mark, cams]]) + len(txtr) + len(shdr) + len(anim) + len(sshr)
         assert len(
-            chunk.chunks) == count  # , (chunk.header, count, ", ".join([_.header.type.value[0] + ":" + _.header.id for _ in [sshr, msgr, skel, mark, cams] if _ is not None]), ", ".join([(_.header.type.value[0] + ":" + _.header.id) for _ in chunk.chunks if _.header.id not in ["TXTR", "SHDR", "ANIM"]]))
-        # assert len(chunk.chunks) == _count(*args), (cls.__name__, [(_.header.type.value, _.header.id) for _ in chunk.chunks])
+            chunk.chunks) == count
         return RsgmChunkV3(chunk.header, anim, txtr, shdr, sshr, msgr, skel, mark, cams)
 
 
@@ -654,7 +644,7 @@ class ShdrInfoChunk(UnimplementedDataChunk):
 
 
 @dataclass
-class ShdrChanChunk(UnimplementedDataChunk):
+class ChanChunk(UnimplementedDataChunk):
     CHUNK_TYPE = ChunkType.Data
     CHUNK_ID = "CHAN"
 
@@ -665,7 +655,7 @@ class ShdrChunk(AbstractChunk):
     CHUNK_ID = "SHDR"
     VERSIONS = [1]
     info: ShdrInfoChunk
-    chan: List[ShdrChanChunk]
+    chan: List[ChanChunk]
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> ShdrChunk:
@@ -673,7 +663,7 @@ class ShdrChunk(AbstractChunk):
         converted = WhmChunkConverter.convert_many(chunk.chunks)
         coll = ChunkCollectionX.list2col(converted)
         info = coll.find(ShdrInfoChunk)
-        chan = coll.find(ShdrChanChunk, True)
+        chan = coll.find(ChanChunk, True)
         assert len(chunk.chunks) == 1 + len(chan)
         return cls(chunk.header, info, chan)
 
@@ -719,12 +709,13 @@ class SkelTransform:  # THE BIGGEST MISTAKE! Assuming that these had to be bones
 class SkelChunk(AbstractChunk):
     CHUNK_TYPE = ChunkType.Data
     CHUNK_ID = "SKEL"
-
+    VERSIONS = [5]
     LAYOUT = Struct("< l")
     bones: List[SkelTransform]
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> SkelChunk:
+        assert chunk.header.version in cls.VERSIONS, (chunk.header.version, cls.VERSIONS)
         with BytesIO(chunk.raw_bytes) as stream:
             bone_count = cls.LAYOUT.unpack_stream(stream)[0]
             bones = [SkelTransform.unpack(stream) for _ in range(bone_count)]
@@ -793,7 +784,7 @@ def add_whm_chunk_converter(conv: ChunkConverterFactory):
     conv.register(TxtrChunk)
     conv.register(ShdrChunk)
     conv.register(ShdrInfoChunk)
-    conv.register(ShdrChanChunk)
+    conv.register(ChanChunk)
     conv.register(MsgrChunk)
     conv.register(SkelChunk)
     conv.register(SshrChunk)

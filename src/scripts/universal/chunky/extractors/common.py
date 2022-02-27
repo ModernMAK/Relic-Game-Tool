@@ -2,30 +2,11 @@ import argparse
 import os
 from dataclasses import dataclass
 from os import path
-from os.path import splitext, join, basename
-from typing import List, Union, Dict, Callable, Any, Protocol
+from os.path import splitext, join
+from typing import List, Union, Dict, Callable, Protocol
 
 from relic.chunky import ChunkyMagic, GenericRelicChunky
-from relic.chunky.chunk.header import ChunkTypeError, ChunkError
 from relic.chunky.serializer import read_chunky
-from relic.chunky_formats.rtx import RtxChunky, write_rtx
-
-
-def build_shared_extractor_parser():
-    parser = argparse.ArgumentParser(description="Shared extractor arguments. This should never be seen.", add_help=False)
-    parser.add_argument("input_path", nargs="*", type=str, help="The file(s) or directory(s) to read from.")
-    parser.add_argument("-i", "--input", type=str, nargs='*', action='append', required=False, help="Additional paths or directories to read from.")
-    parser.add_argument("-o", "--output", type=str, nargs='*', help="The file or directory to write to. Will only use the last directory specified, UNLESS -m or --multi is specified.")
-    parser.add_argument("-m", "--multi", action='store_true', help="Writes the n-th input to the n-th output. Must provide an equal amount of inputs and outputs. (False by default.)")
-    parser.add_argument("-r", "--recursive", action='store_true', required=False, help="Recursively convert files inside directories. (False by default, directories will only convert top-level files.)")
-    parser.add_argument("-e", "--error", action='store_true', required=False, help="Execution will stop on an error.")
-    parser.add_argument("-v", "--verbose", action='store_true', required=False, help="Errors will be printed to the console.")
-    parser.add_argument("-x", "-q", "--squelch", "--quiet", action='store_true', required=False, help="Nothing will be printed, unless -v/--verbose is specified.")
-    parser.add_argument("-s", "--strict", action='store_true', required=False, help="Forces all files provided to be converted, no filtering on extension/magic words will be done.")
-    return parser
-
-
-SharedExtractorParser = build_shared_extractor_parser()
 
 
 def is_chunky(input_file: str, ext: Union[str, List[str]] = None, magic: bool = False) -> bool:
@@ -63,19 +44,19 @@ class PrintOptions:
 def _print_reading(f: str, indent: int = 0, print_opts: PrintOptions = None):
     if not print_opts or not print_opts.quiet:
         indent = '\t' * indent
-        print(f"{indent}Reading '{f}'...")
+        print(f"{indent}Reading \"{f}\"...")
 
 
 def _print_wrote(f: str, indent: int = 0, print_opts: PrintOptions = None):
     if not print_opts or not print_opts.quiet:
         indent = '\t' * indent
-        print(f"{indent}Wrote '{f}'...")
+        print(f"{indent}Wrote \"{f}\"...")
 
 
 def _print_error(e: BaseException, indent: int = 0, print_opts: PrintOptions = None):
-    if not print_opts or print_opts.verbose:
+    if not print_opts or not print_opts.quiet or print_opts.verbose:
         indent = '\t' * indent
-        print(f"{indent}ERROR '{e}'...")
+        print(f"{indent}ERROR \"{e}\"...")
 
 
 def extract_file(input_file: str, output_path: str, extractor: ChunkyExtractor, extractor_args: Dict = None, print_opts: PrintOptions = None, indent_level: int = 0, exts: Union[str, List[str]] = None, magic: bool = False):
@@ -89,10 +70,12 @@ def extract_file(input_file: str, output_path: str, extractor: ChunkyExtractor, 
             chunky = read_chunky(in_handle)
         extractor(output_path, chunky, **extractor_args)
         _print_wrote(input_file, indent_level + 1, print_opts)
+    except KeyboardInterrupt:
+        raise  # NEVER BLOCK KEYBOARD INTERRUPT
     except BaseException as e:
         if not print_opts or print_opts.error_fail:
             raise
-        _print_error(e, print_opts=print_opts)
+        _print_error(e, print_opts=print_opts, indent=indent_level + 1)
 
 
 def extract_dir(input_path: str, output_path: str, extractor: ChunkyExtractor, extractor_args: Dict = None, print_opts: PrintOptions = None, recursive: bool = False, exts: Union[str, List[str]] = None, magic: bool = False):
@@ -117,7 +100,7 @@ def get_runner(extractor: ChunkyExtractor, extractor_args_getter: Callable[[argp
         if run_args.output:
             outputs.extend(run_args.output)
 
-        print_opts = PrintOptions(run_args.error, run_args.squelch, run_args.error, run_args.verbose)
+        print_opts = PrintOptions(run_args.strict, run_args.squelch, run_args.error, run_args.verbose)
         map_in2out = run_args.multi
         recursive = run_args.recursive
         extractor_args = extractor_args_getter(run_args)
@@ -130,8 +113,10 @@ def get_runner(extractor: ChunkyExtractor, extractor_args_getter: Callable[[argp
                     if not print_opts.quiet:
                         _print_reading(i_path)
                     extract_dir(i_path, o_path, extractor, extractor_args, print_opts, recursive=recursive, exts=exts, magic=magic)
+            except KeyboardInterrupt:
+                raise
             except BaseException as e:
-                if not print_opts or print_opts.strict:
+                if not print_opts or print_opts.error_fail:
                     raise
                 _print_error(e, print_opts=print_opts)
 
@@ -144,11 +129,17 @@ def get_runner(extractor: ChunkyExtractor, extractor_args_getter: Callable[[argp
         else:
             main_output = os.path.abspath("")
 
+        if not print_opts.quiet:
+            print(f"Operating on '{len(inputs)}' files/directories, please wait...")
+
         if map_in2out:
             for in_path, out_path in zip(inputs, outputs):
                 do(in_path, out_path)
         else:
             for in_path in inputs:
                 do(in_path, main_output)
+
+        if not print_opts.quiet:
+            print(f"\tDone!")
 
     return run_extract

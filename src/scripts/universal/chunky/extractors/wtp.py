@@ -4,7 +4,8 @@ from typing import Dict
 from relic.chunky import GenericRelicChunky
 from relic.chunky_formats.wtp.wtp import WtpChunky
 from relic.chunky_formats.wtp.writer import write_wtp
-from scripts.universal.chunky.extractors.common import SharedExtractorParser, get_runner
+from scripts.universal.chunky.extractors.common import get_runner
+from scripts.universal.common import SharedExtractorParser
 
 
 def add_args(parser: argparse.ArgumentParser):
@@ -13,7 +14,7 @@ def add_args(parser: argparse.ArgumentParser):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="WTP 2 Image", description="Convert Relic WTP (Default Texture) files to Images.", parents=SharedExtractorParser)
+    parser = argparse.ArgumentParser(prog="WTP 2 Image", description="Convert Relic WTP (Default Texture) files to Images.", parents=[SharedExtractorParser])
     add_args(parser)
     return parser
 

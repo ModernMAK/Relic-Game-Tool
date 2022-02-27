@@ -3,7 +3,8 @@ from typing import Dict
 
 from relic.chunky import GenericRelicChunky
 from relic.chunky_formats.rtx import RtxChunky, write_rtx
-from scripts.universal.chunky.extractors.common import SharedExtractorParser, get_runner
+from scripts.universal.chunky.extractors.common import get_runner
+from scripts.universal.common import SharedExtractorParser
 
 
 def add_args(parser: argparse.ArgumentParser):
@@ -12,7 +13,7 @@ def add_args(parser: argparse.ArgumentParser):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="RTX 2 Image", description="Convert Relic RTX (Default Texture) files to Images.", parents=SharedExtractorParser)
+    parser = argparse.ArgumentParser(prog="RTX 2 Image", description="Convert Relic RTX (Default Texture) files to Images.", parents=[SharedExtractorParser])
     add_args(parser)
     return parser
 

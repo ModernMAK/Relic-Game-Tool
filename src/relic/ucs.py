@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from os import PathLike, walk
 import re
+from os import PathLike, walk
 from collections import UserDict
 from os.path import join, splitext, split
 from pathlib import Path

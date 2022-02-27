@@ -1,12 +1,11 @@
 import argparse
 
-from ...common import func_print_help, func_not_implemented
-from .common import SharedExtractorParser
 from .fda import Runner as ExtractFDA, add_args as add_fda_args
 from .rsh import Runner as ExtractRSH, add_args as add_rsh_args
 from .rtx import Runner as ExtractRTX, add_args as add_rtx_args
-from .wtp import Runner as ExtractWTP, add_args as add_wtp_args
 from .whm import Runner as ExtractWHM, add_args as add_whm_args
+from .wtp import Runner as ExtractWTP, add_args as add_wtp_args
+from ...common import func_print_help, SharedExtractorParser
 
 ArgumentSubParser = argparse._SubParsersAction
 

@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 from relic.chunky import GenericRelicChunky, GenericDataChunk, FolderChunk, AbstractChunk
-from scripts.universal.chunky.extractors.common import get_runner, SharedExtractorParser
+from scripts.universal.chunky.extractors.common import get_runner
+from scripts.universal.common import SharedExtractorParser
 
 
 class DataclassJsonEncoder(JSONEncoder):
@@ -59,7 +60,7 @@ def add_args(_: argparse.ArgumentParser):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="Relic 2 Binary", description="Convert Relic Chunky files to Binary.", parents=SharedExtractorParser)
+    parser = argparse.ArgumentParser(prog="Relic 2 Binary", description="Convert Relic Chunky files to Binary.", parents=[SharedExtractorParser])
     add_args(parser)
     return parser
 

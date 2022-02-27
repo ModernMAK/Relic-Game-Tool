@@ -3,8 +3,8 @@ from typing import Dict
 
 from relic.chunky import GenericRelicChunky
 from relic.chunky_formats.rsh import RshChunky, write_rsh
-from scripts.universal.chunky.extractors.common import SharedExtractorParser, get_runner
-
+from scripts.universal.chunky.extractors.common import get_runner
+from scripts.universal.common import SharedExtractorParser
 
 def add_args(parser: argparse.ArgumentParser):
     parser.add_argument("-f", "--fmt", "--format", default=None, choices=["png", "tga", "dds"], type=str.lower,  help="Choose what format to convert textures to.")

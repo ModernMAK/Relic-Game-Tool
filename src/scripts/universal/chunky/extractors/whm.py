@@ -5,7 +5,8 @@ from relic.chunky import GenericRelicChunky
 from relic.chunky_formats.whm.whm import WhmChunky
 from relic.chunky_formats.whm.obj_writer import write_whm as write_whm_obj
 from relic.chunky_formats.whm.json_writer import write_whm as write_whm_json
-from scripts.universal.chunky.extractors.common import SharedExtractorParser, get_runner
+from scripts.universal.chunky.extractors.common import get_runner
+from scripts.universal.common import SharedExtractorParser
 
 
 def add_args(parser: argparse.ArgumentParser):
@@ -14,7 +15,7 @@ def add_args(parser: argparse.ArgumentParser):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="WHM 2 Mesh", description="Convert Relic WHM files to Meshes.", parents=SharedExtractorParser)
+    parser = argparse.ArgumentParser(prog="WHM 2 Mesh", description="Convert Relic WHM files to Meshes.", parents=[SharedExtractorParser])
     add_args(parser)
     return parser
 
@@ -24,7 +25,7 @@ def extract_whm(output_path: str, chunky: GenericRelicChunky, out_format: str) -
     if out_format == "obj":
         write_whm_obj(output_path, whm)
     elif out_format == "json":
-        with open(output_path, "w") as in_handle:
+        with open(output_path + ".meshdata.json", "w") as in_handle:
             write_whm_json(in_handle, whm)
     else:
         raise NotImplementedError(out_format)
