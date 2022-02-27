@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, TextIO
 import json
 import math
+import os
 # BLENDER ONLY
 import bpy
 import mathutils
@@ -175,6 +176,9 @@ def create_armature(data: RawBone, rotation=None):
 
 
 def create_skel_groups(skel, mesh, data: RawMesh):
+    if len(skel.bones) == 0:
+        return
+
     name2index = {}
     for i, b in enumerate(skel.bones):
         _ = mesh.vertex_groups.new(name=b.name)  # Ensure all bones exist
@@ -205,23 +209,68 @@ def build_from_stream(stream: TextIO):
     json_data = json.load(stream)
     name, meshes, bones = rebuild_from_json(json_data)
     root_rot = mathutils.Quaternion([1, 0, 0], math.radians(90.0))
+
     skel_obj = create_armature(bones, root_rot)
     skel_obj.name = name
+
+    root_obj = bpy.data.objects.new(name, None)
+    root_obj.parent = skel_obj  # Parent root to armature
+    bpy.context.collection.objects.link(root_obj)
+
     for mesh_data in meshes:
         mesh = create_mesh(mesh_data, root_rot)
-        mesh.parent = skel_obj  # Parent to Armature
+        mesh.parent = root_obj  # Parent to root
         create_skel_groups(skel_obj.data, mesh, mesh_data)
         armature_mod = mesh.modifiers.new("Armature", "ARMATURE")  # name is 'Armature' (Default when using ui), class is 'ARMATURE'
         armature_mod.object = skel_obj
+    return skel_obj
+
+
+def spiral():
+    # Stolen for time
+    # https://stackoverflow.com/questions/398299/looping-in-a-spiral
+    x = y = 0
+    dx = 0
+    dy = -1
+    while True:
+        yield x, y
+        if x == y or (x < 0 and x == -y) or (x > 0 and x == 1 - y):
+            dx, dy = -dy, dx
+        x, y = x + dx, y + dy
 
 
 def build(context, filepath):
-    print("Reading WHM Dumped JSON")
-    with open(filepath, 'r') as handle:
-        build_from_stream(handle)
-    return {'FINISHED'}
+    if os.path.isfile(filepath):
+        print("Reading WHM Dumped JSON")
+        with open(filepath, 'r') as handle:
+            build_from_stream(handle)
+        return {'FINISHED'}
+    else:
+        print("Reading WHM Dumped JSONs")
+        s = spiral()
+        for root, _, files in os.walk(filepath):
+            _[:] = []
+            for file in files:
+                a, x = os.path.splitext(file)
+                if x != ".json":
+                    continue
+                b, x = os.path.splitext(a)
+                if x != ".meshdata":
+                    continue
+                #                if "aa_" in file:
+                #                    continue
+                subfilepath = os.path.join(root, file)
+                print(f"\t{subfilepath}")
+                with open(subfilepath, 'r') as handle:
+                    OFFSET = 10.0
+                    x, y = next(s)
+                    r = build_from_stream(handle)
 
-
+                    l = r.location
+                    l[0] += x * OFFSET
+                    l[1] += y * OFFSET
+                    r.location = l
+        return {'FINISHED'}
 
 
 class ImportWHM(Operator, ImportHelper):
