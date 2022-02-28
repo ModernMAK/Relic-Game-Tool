@@ -35,8 +35,9 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     for v in chunk.vertexes:
         stream.write("\t")
         writer.write_vertex_position(*v.position)
-        stream.write("\t")
-        writer.write_vertex_normal(*v.normal)
+        if v.normal:
+            stream.write("\t")
+            writer.write_vertex_normal(*v.normal)
         stream.write("\t")
         writer.write_vertex_uv(*v.uv)
         stream.write("\n")
@@ -50,7 +51,7 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
         tri = chunk.indexes[3 * index], chunk.indexes[3 * index + 1], chunk.indexes[3 * index + 2]
         writer.write_index_face(*tri, offset=v_offset, zero_based=True)
 
-    return v_offset + len(chunk.vertexes)
+    return len(chunk.vertexes)
 
 
 def write_mtllib_to_obj(stream: TextIO, mtl_path: str):
@@ -86,6 +87,14 @@ class TextureType(Enum):
     DamageDiffuse = "damageDiffuseTex"
     Scar = "scarTexture"
     Overlay = 'overlayTex'
+
+    CoarseNormal = 'normalMapCoarseTex'
+    FineNormal = 'normalMapFineTex'
+
+    WaterTurbulenceMask = 'waterTurbulenceMaskTex'
+    WaterColor = 'waterColourTex'
+    WaterTurbulence = 'waterTurbulenceTex'
+    WaterFoamNormal = 'normalMapFoamTex'
 
     # Prob shouldn't do this; not as obvious as the Version Enum's
     #   This performs a VALUE comparison against the enum
@@ -131,7 +140,8 @@ def fetch_textures_from_mtrl(chunk: MtrlChunk) -> Iterable[Tuple[TextureType, st
     if chunk.info.shader_name in [SupportedShaders.Dow2_Unit, SupportedShaders.Dow2_Unit_2Uv]:
         return fetch_textures_from_dow2_unit(chunk.var)
     else:
-        return fetch_textures_from_dow2_unit(chunk.var)
+        return [] # I kinda wanted to start
+        # return fetch_textures_from_dow2_unit(chunk.var)
         # raise NotImplementedError(chunk.info.shader_name)
 
 
@@ -171,6 +181,20 @@ def write_mtrl_to_mtl(stream: TextIO, chunk: MtrlChunk, texture_root: str = None
             mtl_writer.write_unsupported_texture(full_texture, "Scar")
         elif tex_type == TextureType.Overlay:
             mtl_writer.write_unsupported_texture(full_texture, "Overlay")
+        elif tex_type == TextureType.WaterTurbulence:
+            mtl_writer.write_unsupported_texture(full_texture, "Water Turbulence")
+        elif tex_type == TextureType.WaterTurbulenceMask:
+            mtl_writer.write_unsupported_texture(full_texture, "Water Turbulence Mask")
+        elif tex_type == TextureType.WaterFoamNormal:
+            mtl_writer.write_unsupported_texture(full_texture, "Water Foam Normal")
+        elif tex_type == TextureType.WaterColor:
+            mtl_writer.write_unsupported_texture(full_texture, "Water Color")
+        elif tex_type == TextureType.CoarseNormal:
+            mtl_writer.write_unsupported_texture(full_texture, "Coarse Normal")
+        elif tex_type == TextureType.FineNormal:
+            mtl_writer.write_unsupported_texture(full_texture, "Fine Normal")
+        elif tex_type == TextureType.FineNormal:
+            mtl_writer.write_unsupported_texture(full_texture, "Fine Normal")
         # Supported
         elif tex_type == TextureType.Diffuse:
             mtl_writer.write_texture_diffuse(full_texture)

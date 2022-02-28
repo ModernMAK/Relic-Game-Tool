@@ -63,18 +63,40 @@ class TrimVertex:
         return nx / cls.INT_16_MAX, ny / cls.INT_16_MAX, nz / cls.INT_16_MAX
 
 
-    LAYOUT_68 = Struct("< 3f 42s 3h 2f") # NOT CONFIRMED
+    LAYOUT_76 = Struct("< 3f 50s 3h 2f")  # NOT CONFIRMED
 
     @classmethod
-    def __parse_68(cls, data: bytes) -> TrimVertex:
+    def __parse_76(cls, data: bytes) -> TrimVertex:
         with BytesIO(data) as stream:
-            px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_48.unpack_stream(stream)
+            px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_76.unpack_stream(stream)
             pos = px, py, pz
             normal = cls.__fix_norm(nx, ny, nz)
             uv = u, v
             return cls(pos, normal, uv, unks)
 
-    LAYOUT_48 = Struct("< 3f 22s 3h 2f") # NOT CONFIRMED
+    LAYOUT_68 = Struct("< 3f 42s 3h 2f")  # NOT CONFIRMED
+
+    @classmethod
+    def __parse_68(cls, data: bytes) -> TrimVertex:
+        with BytesIO(data) as stream:
+            px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_68.unpack_stream(stream)
+            pos = px, py, pz
+            normal = cls.__fix_norm(nx, ny, nz)
+            uv = u, v
+            return cls(pos, normal, uv, unks)
+
+    LAYOUT_60 = Struct("< 3f 34s 3h 2f")  # NOT CONFIRMED
+
+    @classmethod
+    def __parse_60(cls, data: bytes) -> TrimVertex:
+        with BytesIO(data) as stream:
+            px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_60.unpack_stream(stream)
+            pos = px, py, pz
+            normal = cls.__fix_norm(nx, ny, nz)
+            uv = u, v
+            return cls(pos, normal, uv, unks)
+
+    LAYOUT_48 = Struct("< 3f 22s 3h 2f")  # NOT CONFIRMED
 
     @classmethod
     def __parse_48(cls, data: bytes) -> TrimVertex:
@@ -112,7 +134,7 @@ class TrimVertex:
     @classmethod
     def __parse_24(cls, data: bytes) -> 'TrimVertex':
         with BytesIO(data) as stream:
-            px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_24.unpack_stream(stream)
+            px, py, pz, unks, u, v = cls.LAYOUT_24.unpack_stream(stream)
             pos = px, py, pz
             normal = None
             uv = u, v
@@ -129,6 +151,10 @@ class TrimVertex:
         elif len(data) == 48:
             return cls.__parse_48(data)
         elif len(data) == 68:
+            return cls.__parse_68(data)
+        elif len(data) == 60:
+            return cls.__parse_60(data)
+        elif len(data) == 76:
             return cls.__parse_68(data)
         else:
             raise NotImplementedError(len(data), data)
@@ -250,7 +276,7 @@ class ImodMeshChunk(AbstractChunk):
 class NodeChunk(AbstractChunk):
     CHUNK_TYPE = ChunkType.Data
     CHUNK_ID = "NODE"
-    VERSIONS = [3]
+    VERSIONS = [2, 3] # 3 is common
 
     data: bytes
 
@@ -290,6 +316,7 @@ class MaterialVarType(Enum):
     OcclusionFlagMaybe = 0
     MatrixRow = 5
     Color = 4  # Prop is 'Colour'
+    Water = 3 # Idk about this one 3:'WaterReflection_WindDirection' # PROBABLY WATER VARS?!
 
 
 @dataclass
@@ -349,7 +376,11 @@ class VarChunk(AbstractChunk):
         with BytesIO(chunk.raw_bytes) as stream:
             prop, var_type, buffer = cls.LAYOUT.unpack_stream(stream)
             prop = prop.decode("ascii")
-            var_type = MaterialVarType(var_type)  # 4 has prop as colour
+            try:
+                var_type = MaterialVarType(var_type)  # 4 has prop as colour
+            except ValueError:
+                print(prop)
+                raise
             # This acts as a soft assertion; if the buffer is too small, we'll get an unpack error
             # if either exceess has extra bytes, then somethings probably wrong, but I don't check for it
             # T-o-d-o check for it ~ archive_tools VStruct will make sure the buffer does not have any missing bytes (still does not check for excess tho)
@@ -471,12 +502,13 @@ class MrksChunk(AbstractChunk):
 class ImodDataChunk(AbstractChunk):
     CHUNK_TYPE = ChunkType.Data
     CHUNK_ID = "DATA"
-    VERSIONS = [1]
+    VERSIONS = [9]
 
     data: bytes
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk):
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
         return cls(chunk.header, chunk.raw_bytes)
 
 
@@ -486,7 +518,7 @@ class ImodChunk(AbstractChunk):
     CHUNK_ID = "IMOD"
     VERSIONS = [1, 4]
 
-    data: ImodDataChunk
+    data: Optional[ImodDataChunk]
     mesh: List[ImodMeshChunk]
 
     @classmethod
@@ -494,9 +526,9 @@ class ImodChunk(AbstractChunk):
         assert chunk.header.version in cls.VERSIONS, chunk.header.version
         converted = ImodChunkConverter.convert_many(chunk.chunks)
         x = ChunkCollectionX.list2col(converted)
-        data = x.find(ImodDataChunk)
-        mesh = x.find(ImodMeshChunk, True)
-        assert len(chunk.chunks) == 1 + len(mesh)
+        data = x.find(ImodDataChunk)  # TODO check if data does not exist if version is 1
+        mesh = x.find(ImodMeshChunk, True) # TODO check if only 1 mesh is allowed for version 1
+        assert len(chunk.chunks) == (1 if data else 0) + len(mesh), [c.header.id for c in chunk.chunks]
         return cls(chunk.header, data, mesh)
 
 
@@ -530,8 +562,8 @@ class ImdgChunk(AbstractChunk):
         assert chunk.header.version in cls.VERSIONS, chunk.header.version
         converted = ImdgChunkConverter.convert_many(chunk.chunks)
         x = ChunkCollectionX.list2col(converted)
-        mesh = x.find(ImdgMeshChunk,True)
-        assert len(chunk.chunks) ==len(mesh), [c.header.id for c in chunk.chunks]
+        mesh = x.find(ImdgMeshChunk, True)
+        assert len(chunk.chunks) == len(mesh), [c.header.id for c in chunk.chunks]
         return cls(chunk.header, mesh)
 
 
@@ -552,15 +584,28 @@ class MgrpMeshChunk(AbstractChunk):
         imdg = x.find(ImdgChunk)
         return MgrpMeshChunk(chunk.header, imdg)
 
+@dataclass
+class FlgsChunk(AbstractChunk):
+    CHUNK_TYPE = ChunkType.Data
+    CHUNK_ID = "FLGS"
+    VERSIONS = [2]
+
+    data: bytes
+
+    @classmethod
+    def convert(cls, chunk: GenericDataChunk):
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
+        return cls(chunk.header, chunk.raw_bytes)
 
 @dataclass
 class MgrpChunk(AbstractChunk):  # MGRP is probably Mesh GROUP
     CHUNK_TYPE = ChunkType.Folder
     CHUNK_ID = "MGRP"
-    VERSIONS = [3]
+    VERSIONS = [2, 3] # 3 is common, 2 also occurs
 
     node: List[NodeChunk]
     mesh: List[MgrpMeshChunk]
+    flgs: Optional[FlgsChunk] # ONLY in v2
 
     @classmethod
     def convert(cls, chunk: FolderChunk):
@@ -569,9 +614,10 @@ class MgrpChunk(AbstractChunk):  # MGRP is probably Mesh GROUP
         x = ChunkCollectionX.list2col(converted)
         node = x.find(NodeChunk, True)
         mesh = x.find(MgrpMeshChunk, True)
-        assert len(chunk.chunks) == len(node) + len(mesh), [c.header.id for c in chunk.chunks]
+        flgs = x.find(FlgsChunk)
+        assert len(chunk.chunks) == len(node) + len(mesh) + (1 if flgs else 0), [c.header.id for c in chunk.chunks]
         assert len(node) == len(mesh), (len(node), len(mesh))  # Just an assumption
-        return cls(chunk.header, node, mesh)
+        return cls(chunk.header, node, mesh, flgs)
 
 
 @dataclass
@@ -677,6 +723,63 @@ class DtbpChunk(AbstractChunk):
         assert chunk.header.version in cls.VERSIONS, chunk.header.version
         return cls(chunk.header, chunk.raw_bytes)
 
+@dataclass
+class TsetDataChunk(AbstractChunk):
+    CHUNK_TYPE = ChunkType.Data
+    CHUNK_ID = "DATA"
+    VERSIONS = [3]
+
+    data: bytes
+
+    @classmethod
+    def convert(cls, chunk: GenericDataChunk):
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
+        return cls(chunk.header, chunk.raw_bytes)
+
+@dataclass
+class TsetChunk(AbstractChunk):
+    CHUNK_TYPE = ChunkType.Folder
+    CHUNK_ID = "TSET"
+    VERSIONS = [1]
+
+    data : TsetDataChunk
+
+    @classmethod
+    def convert(cls, chunk: FolderChunk) -> TsetChunk:
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
+        assert len(chunk.chunks) == 1, [(c.header.type,c.header.id) for c in chunk.chunks]
+        converted = TsetChunkConverter.convert_many(chunk.chunks)
+        x = ChunkCollectionX.list2col(converted)
+        data = x.find(TsetDataChunk)
+        return cls(chunk.header, data)
+
+@dataclass
+class LsdChunk(AbstractChunk):
+    CHUNK_TYPE = ChunkType.Data
+    CHUNK_ID = "LSD "
+    VERSIONS = [2]
+    raw:bytes
+    @classmethod
+    def convert(cls, chunk: GenericDataChunk) -> LsdChunk:
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
+        return cls(chunk.header, chunk.raw_bytes)
+
+@dataclass
+class LsbpChunk(AbstractChunk):
+    CHUNK_TYPE = ChunkType.Folder
+    CHUNK_ID = "LSBP"
+    VERSIONS = [1]
+
+    lsd:LsdChunk
+
+    @classmethod
+    def convert(cls, chunk: FolderChunk) -> LsbpChunk:
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
+        assert len(chunk.chunks) == 1, [(c.header.type, c.header.id) for c in chunk.chunks]
+        converted = ModelChunkConverter.convert_many(chunk.chunks)
+        x = ChunkCollectionX.list2col(converted)
+        lsd = x.find(LsdChunk)
+        return cls(chunk.header, lsd)
 
 @dataclass
 class ModlChunk(AbstractChunk):
@@ -690,6 +793,8 @@ class ModlChunk(AbstractChunk):
     msbp: MsbpChunk
     dtbp: DtbpChunk
     mrks: MrksChunk
+    tset: List[TsetChunk]
+    lsbp: Optional[LsbpChunk]
 
     @classmethod
     def convert(cls, chunk: FolderChunk):
@@ -702,8 +807,10 @@ class ModlChunk(AbstractChunk):
         msbp = x.find(MsbpChunk)
         dtbp = x.find(DtbpChunk)
         mrks = x.find(MrksChunk)
-        assert len(chunk.chunks) == len(mtrl) + 4 + (1 if skel else 0), (len(chunk.chunks), [c.header.id for c in chunk.chunks])
-        return ModlChunk(chunk.header, mtrl, mesh, skel, msbp, dtbp, mrks)
+        lsbp = x.find(LsbpChunk)
+        tset = x.find(TsetChunk,True)
+        assert len(chunk.chunks) == len(mtrl) + len(tset) + 4 + (1 if skel else 0) + (1 if lsbp else 0), (len(chunk.chunks), [c.header.id for c in chunk.chunks])
+        return ModlChunk(chunk.header, mtrl, mesh, skel, msbp, dtbp, mrks, tset, lsbp)
 
 
 @dataclass
@@ -742,11 +849,15 @@ ModelChunkConverter.register(MsbpChunk)
 ModelChunkConverter.register(MsdChunk)
 ModelChunkConverter.register(CnbpChunk)
 ModelChunkConverter.register(DtbpChunk)
+ModelChunkConverter.register(TsetChunk)
+ModelChunkConverter.register(LsbpChunk)
+ModelChunkConverter.register(LsdChunk)
 
 MgrpChunkConverter = ChunkConverterFactory()
 MgrpChunkConverter.register(NodeChunk)
 MgrpChunkConverter.register(MgrpMeshChunk)
 MgrpChunkConverter.register(ImdgChunk)
+MgrpChunkConverter.register(FlgsChunk)
 
 ImdgChunkConverter = ChunkConverterFactory()
 ImdgChunkConverter.register(ImdgMeshChunk)
@@ -765,3 +876,6 @@ TrimChunkConverter.register(MrfmChunk)
 SkelChunkConverter = ChunkConverterFactory()
 SkelChunkConverter.register(SkelInfoChunk)
 SkelChunkConverter.register(BoneChunk)
+
+TsetChunkConverter = ChunkConverterFactory()
+TsetChunkConverter.register(TsetDataChunk)
