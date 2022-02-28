@@ -24,7 +24,7 @@ class SshrChunk(AbstractChunk):
     CHUNK_TYPE = ChunkType.Data
     CHUNK_ID = "SSHR"
     LAYOUT = VStruct("v")
-    name: str
+    name: str  # IBB's IChunky Viewer says this is shader path? Maybe in CoH, but DoW; this looks like a texture name
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> SshrChunk:
@@ -592,11 +592,12 @@ class AnimChunk(AbstractChunk):
 class RsgmChunk(AbstractChunk):
     CHUNK_ID = "RSGM"
     CHUNK_TYPE = ChunkType.Folder
+    VERSIONS = [1, 3]
 
 
 @dataclass
 class RsgmChunkV1(UnimplementedFolderChunk):
-    VERSION = 1
+    _VERSION = 1
 
     # @classmethod
     # def convert(cls, chunk:FolderChunk) -> RsgmChunkV1:
@@ -605,7 +606,7 @@ class RsgmChunkV1(UnimplementedFolderChunk):
 
 @dataclass
 class RsgmChunkV3(RsgmChunk):
-    VERSION = 3
+    _VERSION = 3
 
     anim: List[AnimChunk]
     txtr: List[TxtrChunk]
@@ -618,6 +619,7 @@ class RsgmChunkV3(RsgmChunk):
 
     @classmethod
     def convert(cls, chunk: FolderChunk) -> RsgmChunkV3:
+        assert chunk.header.version == cls._VERSION
         converted = WhmChunkConverter.convert_many(chunk.chunks)
         col = ChunkCollectionX.list2col(converted)
 
@@ -674,7 +676,7 @@ class RsgmChunkFactory:
     CHUNK_TYPE = ChunkType.Folder
     __MAP = {
         # RsgmChunkV1.VERSION: RsgmChunkV1,
-        RsgmChunkV3.VERSION: RsgmChunkV3,
+        RsgmChunkV3._VERSION: RsgmChunkV3,
     }
     VERSIONS = [k for k in __MAP.keys()]
 

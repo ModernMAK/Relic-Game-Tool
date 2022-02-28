@@ -73,17 +73,18 @@ class ConvertableChunky(Protocol):
         raise NotImplementedError
 
 
-class SelfIdentifyingChunk(Protocol):
+class ChunkDefinition(Protocol):
     CHUNK_ID: ClassVar[str]
     CHUNK_TYPE: ClassVar[ChunkType]
+    VERSIONS: ClassVar[List[int]]
 
 
-class SelfIdConvertableFolderChunk(SelfIdentifyingChunk, ConvertableFolderChunk, ABC):
+class SelfIdConvertableFolderChunk(ChunkDefinition, ConvertableFolderChunk, ABC):
     pass
 
 
 # noinspection DuplicatedCode
-class SelfIdConvertableDataChunk(SelfIdentifyingChunk, ConvertableDataChunk, ABC):
+class SelfIdConvertableDataChunk(ChunkDefinition, ConvertableDataChunk, ABC):
     pass
 
 
@@ -122,7 +123,7 @@ class ChunkCollectionX:
     def folder_chunks(self) -> Iterable[AbstractChunk]:
         return self.get_chunks_by_type(ChunkType.Folder)
 
-    def find(self, chunk: Type[SelfIdentifyingChunk], many: bool = False) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
+    def find(self, chunk: Type[ChunkDefinition], many: bool = False) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         return self.get(chunk.CHUNK_ID, chunk.CHUNK_TYPE, many=many)
 
     def find_and_convert(self, id_converter: Union[ClassVar[SelfIdConvertableDataChunk], ClassVar[SelfIdConvertableDataChunk]], many: bool = False) -> Union[Optional[AbstractChunk], List[AbstractChunk]]:
@@ -136,10 +137,10 @@ class ChunkCollectionX:
             else:
                 return None
 
-    def find_chunk(self, chunk: Type[SelfIdentifyingChunk]) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
+    def find_chunk(self, chunk: Type[ChunkDefinition]) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         return self.get_chunk(chunk.CHUNK_ID, chunk.CHUNK_TYPE)
 
-    def find_chunks(self, chunk: Type[SelfIdentifyingChunk]) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
+    def find_chunks(self, chunk: Type[ChunkDefinition]) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
         return self.get_chunks(chunk.CHUNK_ID, chunk.CHUNK_TYPE)
 
     def get(self, chunk_id: str, chunk_type: ChunkType, many: bool = False) -> Union[List[AbstractChunk], Optional[AbstractChunk]]:
@@ -228,7 +229,7 @@ class ChunkConverterFactory(UserDict[Tuple[ChunkType, str], Type[Union[Convertab
     def register(self, convertable: Union[Type[SelfIdConvertableDataChunk], Type[SelfIdConvertableFolderChunk]]):
         self.add_converter(convertable.CHUNK_TYPE, convertable.CHUNK_ID, convertable)
 
-    def register_sub_factory(self, chunk: SelfIdentifyingChunk, converter: ChunkConverterFactory):
+    def register_sub_factory(self, chunk: ChunkDefinition, converter: ChunkConverterFactory):
         self.add_converter(chunk.CHUNK_TYPE, chunk.CHUNK_ID, converter)
 
     def add_data_converter(self, chunk_id: str, convertable: Type[ConvertableDataChunk]):
