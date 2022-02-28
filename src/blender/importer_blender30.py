@@ -159,8 +159,9 @@ def create_mesh(data: RawMesh, root_rotation=None, root_scale=None, flip_winding
     uvs = data.uvs
     uv_layer = mesh.uv_layers.new()
     for i in range(len(positions)):
-        for loop in vert2loops[i]:
-            uv_layer.data[loop].uv = uvs[i]
+        if i in vert2loops:  # THIS COULD BE A BUG! OR STRAY VERTEX?!
+            for loop in vert2loops[i]:
+                uv_layer.data[loop].uv = uvs[i]
 
     face_lookup = {}
     for mat_name, tris in data.sub_meshes.items():
@@ -172,7 +173,6 @@ def create_mesh(data: RawMesh, root_rotation=None, root_scale=None, flip_winding
     for face in mesh.polygons:
         f_key = frozenset(face.vertices)
         face.material_index = face_lookup[f_key]
-
     obj = bpy.data.objects.new(data.name, mesh)
     bpy.context.collection.objects.link(obj)
     return obj
@@ -183,8 +183,8 @@ def create_bone(armature, data: RawBone, parent_mat=None, final_scale=None, pare
 
     is_small = "bip" in bone.name
     BIG_SIZE = 1
-    MID_SIZE = .5
     SMALL_SIZE = 0.25
+    MID_SIZE = .375
     bone_size = SMALL_SIZE if is_small else (MID_SIZE if parent_small else BIG_SIZE)
     parent_small |= is_small
     bone.tail = mathutils.Vector([0, bone_size, 0])
@@ -197,7 +197,7 @@ def create_bone(armature, data: RawBone, parent_mat=None, final_scale=None, pare
         bone_mat = parent_mat @ mat
     final_mat = bone_mat
 
-    const_rotation = mathutils.Quaternion([0, 0, 1], math.radians(90.0))  # Orient bones outward in direction of
+    const_rotation = mathutils.Quaternion([0, 1, 0], math.radians(90.0))  # Orient bones outward in direction of
     final_mat = rotate_matrix(final_mat, const_rotation)
     if final_scale:
         final_mat = scale_matrix(final_mat, final_scale)
@@ -251,25 +251,27 @@ def create_skel_groups(skel, mesh, data: RawMesh):
         _ = mesh.vertex_groups.new(name=b.name)  # Ensure all bones exist
         name2index[b.name] = i
 
-    print(data.bone_weights, data.has_implied_bone, data.name, [n for n in name2index], "\n")
-
     if data.bone_weights:
-        print("A")
         for vi, bw_data in enumerate(data.bone_weights):
             for bi, bw in bw_data:
                 mesh.vertex_groups[bi].add([vi], bw, 'REPLACE')
     elif data.has_implied_bone:
-        if "_obj_" in data.name:  # IG Marauder has this and no bone weights
-            print("X", data.name)
-            name = data.name.replace("_obj_", "_")
-        else:
-            print("Y", data.name)
-            name = data.name
-        print(name)
-        print("B")
+        name = data.name
+        alt_name = None
+        if "_obj_" in name:  # IG Marauder has this and no bone weights
+            name = name.replace("_obj_", "_")
+        # HACK for tanks
+        if "tread_l" in name:
+            alt_name = "left_tread"
+        elif "tread_r" in name:
+            alt_name = "right_tread"
+
+        bwi = None
         if name in name2index:
-            print("C")
             bwi = name2index[name]
+        elif alt_name and alt_name in name2index:
+            bwi = name2index[alt_name]
+        if bwi:
             vgroup = mesh.vertex_groups[bwi]
             for i in range(len(data.positions)):
                 vgroup.add([i], 1.0, 'REPLACE')
