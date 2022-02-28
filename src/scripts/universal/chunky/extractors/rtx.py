@@ -2,7 +2,7 @@ import argparse
 from typing import Dict
 
 from relic.chunky import GenericRelicChunky
-from relic.chunky_formats.rtx import RtxChunky, write_rtx
+from relic.chunky_formats.dow.rtx import RtxChunky, write_rtx
 from scripts.universal.chunky.extractors.common import get_runner
 from scripts.universal.common import SharedExtractorParser
 

@@ -3,7 +3,7 @@ import argparse
 import sys
 from typing import List
 
-from scripts.universal.chunky.extractors.extractor import add_extractor
+from scripts.universal.chunky.extract import add_extract
 from scripts.universal.common import func_print_help, SharedExtractorParser
 from scripts.universal.chunky.dump import Runner as ExtractChunkyBin
 
@@ -20,7 +20,7 @@ def add_chunky_sub_commands(sub_parser: ArgumentSubParser):
     repacker_parser = sub_parser.add_parser("repack", help="Repacks a Relic Chunky.")
     repacker_parser.set_defaults(func=func_print_help(repacker_parser))
 
-    add_extractor(sub_parser)
+    add_extract(sub_parser)
 
 
 def add_chunky(sub_parser: ArgumentSubParser):

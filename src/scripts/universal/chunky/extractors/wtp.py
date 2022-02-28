@@ -2,8 +2,8 @@ import argparse
 from typing import Dict
 
 from relic.chunky import GenericRelicChunky
-from relic.chunky_formats.wtp.wtp import WtpChunky
-from relic.chunky_formats.wtp.writer import write_wtp
+from relic.chunky_formats.dow.wtp.wtp import WtpChunky
+from relic.chunky_formats.dow.wtp.writer import write_wtp
 from scripts.universal.chunky.extractors.common import get_runner
 from scripts.universal.common import SharedExtractorParser
 

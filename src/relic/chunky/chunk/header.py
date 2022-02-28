@@ -126,7 +126,8 @@ class ChunkHeaderV0101(ChunkHeader):
 
 @dataclass
 class ChunkHeaderV0301(ChunkHeader):
-    LAYOUT = VStruct("< 4s 4s 2L v 2L")
+    LAYOUT = VStruct("< 4s 4s 3L 2l")  # 2L v 2L")
+
     unk_a: int
     unk_b: int
 
@@ -136,13 +137,11 @@ class ChunkHeaderV0301(ChunkHeader):
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ChunkHeader:
-        args = cls.LAYOUT.unpack_stream(stream)
-        chunk_type = ChunkType(args[0].decode("ascii"))
-        chunk_id = args[1].decode("ascii").strip("\x00")
-        version, size = args[2:4]
-        name = args[4].decode("ascii").rstrip("\x00")
-        unks = args[5:6]
-        return cls(chunk_type, chunk_id, version, size, name, *unks)
+        chunk_type, chunk_id, version, size, name_size, unk_a, unk_b = cls.LAYOUT.unpack_stream(stream)
+        chunk_type = ChunkType(chunk_type.decode("ascii"))
+        chunk_id = chunk_id.decode("ascii").strip("\x00")
+        name = stream.read(name_size).decode("ascii").rstrip("\00")
+        return cls(chunk_type, chunk_id, version, size, name, *(unk_a,unk_b))
 
     def _pack(self, stream: BinaryIO) -> int:
         args = self.type.value, self.id, self.chunky_version, self.size, self.name, self.unk_a, self.unk_b

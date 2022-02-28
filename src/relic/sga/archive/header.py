@@ -77,7 +77,7 @@ class ArchiveHeader:
 
 
 def _gen_md5_checksum(stream: BinaryIO, eigen: bytes, buffer_size: int = 64 * KiB, ptr: Ptr = None):
-    hasher = md5(eigen)
+    hasher = md5(eigen) if eigen else md5()
     ptr = ptr or StreamPtr(stream)  # Quick way to preserve stream integrity
     with ptr.stream_jump_to(stream) as handle:
         for buffer in iter_read(handle, buffer_size):
@@ -137,6 +137,8 @@ class DowIIArchiveHeader(ArchiveHeader):
     # hash, name, hash (repeated), TOC_SIZE, DATA_OFFSET, TOC_POS, RESERVED:1, RESERVED:0?, UNK???
     LAYOUT = Struct(f"< 16s {_NAME_BYTE_SIZE}s 16s 3L 3L")
     # Copied from DowI, may be different; praying it isn't
+    # UGH THIER DIFFERENT! Or the way to calculate them is different
+    # First, let's try no eigen # (None, None)  # HAH TROLLED MYSELF, forgot to conert checksum to hex
     MD5_EIGENVALUES = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
     toc_ptr: WindowPtr
     checksums: Tuple[bytes, bytes]
@@ -145,6 +147,7 @@ class DowIIArchiveHeader(ArchiveHeader):
     # This may not mirror DowI one-to-one, until it's verified, it stays here
     # noinspection DuplicatedCode
     def validate_checksums(self, stream: BinaryIO, *, fast: bool = True, _assert: bool = True):
+        # return True
         ptrs = [Ptr(self.toc_ptr.offset), self.toc_ptr]
         valid = True
         indexes = (1,) if fast else (0, 1)
@@ -159,6 +162,7 @@ class DowIIArchiveHeader(ArchiveHeader):
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> 'DowIIArchiveHeader':
         csum_a, name, csum_b, toc_size, data_offset, toc_pos, rsv_1, rsv_0, unk = cls.LAYOUT.unpack_stream(stream)
+        csum_a, csum_b = csum_a.hex(), csum_b.hex()
 
         assert rsv_1 == 1
         assert rsv_0 == 0

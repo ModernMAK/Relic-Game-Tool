@@ -14,7 +14,9 @@ ChunkyVersionLayout = Struct("< 2L")
 class ChunkyVersion(VersionEnum):
     Unsupported = None
     v0101 = Version(1, 1)
+    Dow = v0101  # ALIAS for Prettiness
     v0301 = Version(3, 1)
+    Dow2 = v0301  # ALIAS for Prettiness
     v4010 = Version(4, 1)
 
     @classmethod

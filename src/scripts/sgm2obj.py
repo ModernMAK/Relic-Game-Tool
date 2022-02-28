@@ -5,8 +5,8 @@ from os import path
 from os.path import splitext, join, basename
 from relic.chunky import ChunkyMagic
 from relic.chunky.serializer import read_chunky
-from relic.chunky_formats.sgm.sgm import SgmChunky
-from relic.chunky_formats.sgm.obj_writer import write_sgm
+from relic.chunky_formats.dow.sgm.sgm import SgmChunky
+from relic.chunky_formats.dow.sgm.obj_writer import write_sgm
 
 
 

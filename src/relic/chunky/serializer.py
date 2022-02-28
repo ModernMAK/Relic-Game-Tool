@@ -20,7 +20,7 @@ def write_chunky(chunky: GenericRelicChunky, stream: BinaryIO) -> int:
 
 
 def read_folder_chunk(stream: BinaryIO, header: ChunkHeader) -> FolderChunk:
-    with BinaryWindow.slice(stream,header.size) as window:
+    with BinaryWindow.slice(stream, header.size) as window:  # TODO, remove, redundant, read_chunky enters a window
         chunks = read_all_chunks(window, header.chunky_version)
         return FolderChunk(chunks, header)
 

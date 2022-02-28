@@ -2,9 +2,9 @@ import argparse
 from typing import Dict
 
 from relic.chunky import GenericRelicChunky
-from relic.chunky_formats.dow.whm.whm import WhmChunky
-from relic.chunky_formats.dow.whm.obj_writer import write_whm as write_whm_obj
-from relic.chunky_formats.dow.whm.json_writer import write_whm as write_whm_json
+from relic.chunky_formats.dow2.model.obj_writer import write_model as write_model_obj
+from relic.chunky_formats.dow2.model.json_writer import write_model as write_model_json
+from relic.chunky_formats.dow2.model.model import ModelChunky
 from scripts.universal.chunky.extractors.common import get_runner
 from scripts.universal.common import SharedExtractorParser
 
@@ -15,18 +15,18 @@ def add_args(parser: argparse.ArgumentParser):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="WHM 2 Mesh", description="Convert Relic WHM files to Meshes.", parents=[SharedExtractorParser])
+    parser = argparse.ArgumentParser(prog="MODEL 2 Mesh", description="Convert Relic Model files to Meshes.", parents=[SharedExtractorParser])
     add_args(parser)
     return parser
 
 
-def extract_whm(output_path: str, chunky: GenericRelicChunky, out_format: str) -> None:
-    whm = WhmChunky.convert(chunky)
+def extract_model(output_path: str, chunky: GenericRelicChunky, out_format: str) -> None:
+    model = ModelChunky.convert(chunky)
     if out_format == "obj":
-        write_whm_obj(output_path, whm)
+        write_model_obj(output_path, model)
     elif out_format == "json":
         with open(output_path + ".meshdata.json", "w") as in_handle:
-            write_whm_json(in_handle, whm)
+            write_model_json(in_handle, model)
     else:
         raise NotImplementedError(out_format)
 
@@ -36,7 +36,7 @@ def extract_args(args: argparse.Namespace) -> Dict:
     # return {'out_format': args.fmt, 'texconv_path': args.conv}
 
 
-Runner = get_runner(extract_whm, extract_args, ["whm"], True)
+Runner = get_runner(extract_model, extract_args, ["model"], True)
 
 if __name__ == "__main__":
     p = build_parser()
