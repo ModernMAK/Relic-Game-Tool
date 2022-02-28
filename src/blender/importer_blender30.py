@@ -251,16 +251,28 @@ def create_skel_groups(skel, mesh, data: RawMesh):
         _ = mesh.vertex_groups.new(name=b.name)  # Ensure all bones exist
         name2index[b.name] = i
 
+    print(data.bone_weights, data.has_implied_bone, data.name, [n for n in name2index], "\n")
+
     if data.bone_weights:
+        print("A")
         for vi, bw_data in enumerate(data.bone_weights):
             for bi, bw in bw_data:
                 mesh.vertex_groups[bi].add([vi], bw, 'REPLACE')
-
-    elif data.has_implied_bone and data.name in name2index:
-        bwi = name2index[data.name]
-        vgroup = mesh.vertex_groups[bwi]
-        for i in range(len(data.positions)):
-            vgroup.add([i], 1.0, 'REPLACE')
+    elif data.has_implied_bone:
+        if "_obj_" in data.name:  # IG Marauder has this and no bone weights
+            print("X", data.name)
+            name = data.name.replace("_obj_", "_")
+        else:
+            print("Y", data.name)
+            name = data.name
+        print(name)
+        print("B")
+        if name in name2index:
+            print("C")
+            bwi = name2index[name]
+            vgroup = mesh.vertex_groups[bwi]
+            for i in range(len(data.positions)):
+                vgroup.add([i], 1.0, 'REPLACE')
 
 
 def rebuild_from_json(data: Dict) -> Tuple[str, List[RawMesh], RawBone]:
