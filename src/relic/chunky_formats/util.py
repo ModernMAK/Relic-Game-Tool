@@ -11,7 +11,7 @@ from relic.chunky_formats.protocols import ChunkDefinition
 def DEBUG_WRITE_TO_BIN(data: bytes, name: str = None):
     name = name or r"debug_dump"
     name += ".bin"
-    print("\n",os.path.abspath(f".\\{name}"))
+    print("\n", os.path.abspath(f".\\{name}"))
     with open(name, "wb") as h:
         h.write(data)
 

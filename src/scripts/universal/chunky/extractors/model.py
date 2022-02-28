@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 from typing import Dict
 
 from relic.chunky import GenericRelicChunky
@@ -21,8 +22,10 @@ def build_parser():
 
 
 def extract_model(output_path: str, chunky: GenericRelicChunky, out_format: str) -> None:
+    p = Path(output_path)
     model = ModelChunky.convert(chunky)
     if out_format == "obj":
+        p.parent.mkdir(parents=True,exist_ok=True)
         write_model_obj(output_path, model)
     elif out_format == "json":
         with open(output_path + ".meshdata.json", "w") as in_handle:

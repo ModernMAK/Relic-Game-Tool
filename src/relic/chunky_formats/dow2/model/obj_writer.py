@@ -2,7 +2,7 @@ from enum import Enum
 from os.path import split, splitext, join
 from typing import TextIO, Iterable, List, Tuple
 
-from relic.chunky_formats.dow2.model.model import MtrlChunk, ModelChunky, TrimDataChunk, VarChunk, MaterialVarType
+from relic.chunky_formats.dow2.model.model import MtrlChunk, ModelChunky, TrimDataChunk, VarChunk, MaterialVarType, TextureVar
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
 
 
@@ -60,8 +60,10 @@ def write_mtllib_to_obj(stream: TextIO, mtl_path: str):
 
 def write_model_to_obj(stream: TextIO, chunk: ModelChunky) -> int:
     v_offset = 0
-    for i, mesh in enumerate(chunk.modl.mesh.mgrp.mesh.imdg.mesh.imod.meshs):
-        v_offset += write_trim_data_to_obj(stream, mesh.trim.data, v_offset=v_offset)
+    for mgrp_mesh in chunk.modl.mesh.mgrp.mesh:
+        for imdg_mesh in mgrp_mesh.imdg.mesh:
+            for mesh in imdg_mesh.imod.mesh:
+                v_offset += write_trim_data_to_obj(stream, mesh.trim.data, v_offset=v_offset)
 
     return v_offset
 
@@ -78,6 +80,13 @@ class TextureType(Enum):
     Occlusion = "occlusionTex"
     Gloss = "glossTex"
 
+    # TODO check if normal and specular exist when these are present
+    DamageNormal = "damageNormalTex"
+    DamageSpecular = "damageSpecTex"
+    DamageDiffuse = "damageDiffuseTex"
+    Scar = "scarTexture"
+    Overlay = 'overlayTex'
+
     # Prob shouldn't do this; not as obvious as the Version Enum's
     #   This performs a VALUE comparison against the enum
     def __eq__(self, other):
@@ -92,10 +101,10 @@ class TextureType(Enum):
 
 def fetch_textures_from_dow2_unit(chunks: List[VarChunk]) -> Iterable[Tuple[TextureType, str]]:
     for chunk in chunks:
-        if chunk.var_type != MaterialVarType.Texture:
+        if not isinstance(chunk.property_data, TextureVar):
             continue
         type = TextureType(chunk.property_name)
-        path = chunk.args
+        path = chunk.property_data.texture
         yield type, path
 
 
@@ -122,15 +131,15 @@ def fetch_textures_from_mtrl(chunk: MtrlChunk) -> Iterable[Tuple[TextureType, st
     if chunk.info.shader_name in [SupportedShaders.Dow2_Unit, SupportedShaders.Dow2_Unit_2Uv]:
         return fetch_textures_from_dow2_unit(chunk.var)
     else:
-        raise NotImplementedError(chunk.info.shader_name)
+        return fetch_textures_from_dow2_unit(chunk.var)
+        # raise NotImplementedError(chunk.info.shader_name)
 
 
-def write_mtrl_to_mtl(stream: TextIO, chunk: MtrlChunk, texture_root: str = None, texture_ext: str = None,
-                      force_valid: bool = True) -> int:
+def write_mtrl_to_mtl(stream: TextIO, chunk: MtrlChunk, texture_root: str = None, texture_ext: str = None, force_valid: bool = True) -> int:
     texture_ext = texture_ext or ""
     start = stream.tell()
     mtl_writer = MtlWriter(stream)
-    mtl_writer.write_default_texture(chunk.name)
+    mtl_writer.write_default_texture(chunk.header.name)
     for tex_type, texture in fetch_textures_from_mtrl(chunk):
         full_texture = join(texture_root, texture) if texture_root else texture
         full_texture += texture_ext
@@ -152,6 +161,16 @@ def write_mtrl_to_mtl(stream: TextIO, chunk: MtrlChunk, texture_root: str = None
             mtl_writer.write_unsupported_texture(full_texture, "Occlusion")
         elif tex_type == TextureType.Gloss:
             mtl_writer.write_unsupported_texture(full_texture, "Gloss")
+        elif tex_type == TextureType.DamageNormal:
+            mtl_writer.write_unsupported_texture(full_texture, "Damage Normal")
+        elif tex_type == TextureType.DamageSpecular:
+            mtl_writer.write_unsupported_texture(full_texture, "Damage Specular")
+        elif tex_type == TextureType.DamageDiffuse:
+            mtl_writer.write_unsupported_texture(full_texture, "Damage Diffuse")
+        elif tex_type == TextureType.Scar:
+            mtl_writer.write_unsupported_texture(full_texture, "Scar")
+        elif tex_type == TextureType.Overlay:
+            mtl_writer.write_unsupported_texture(full_texture, "Overlay")
         # Supported
         elif tex_type == TextureType.Diffuse:
             mtl_writer.write_texture_diffuse(full_texture)
@@ -161,7 +180,7 @@ def write_mtrl_to_mtl(stream: TextIO, chunk: MtrlChunk, texture_root: str = None
         elif tex_type == TextureType.Specular:
             mtl_writer.write_texture_specular(full_texture)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(tex_type)
     return stream.tell() - start
 
 
@@ -172,8 +191,7 @@ def write_model_to_mtl(stream: TextIO, chunk: ModelChunky, texture_root: str, te
     return written
 
 
-def dump_model_as_obj(chunk: ModelChunky, mtl_path: str, obj_stream: TextIO, mtl_stream: TextIO, texture_root: str,
-                      texture_ext: str):
+def dump_model_as_obj(chunk: ModelChunky, mtl_path: str, obj_stream: TextIO, mtl_stream: TextIO, texture_root: str, texture_ext: str):
     write_mtllib_to_obj(obj_stream, mtl_path)
     write_model_to_obj(obj_stream, chunk)
 
@@ -186,4 +204,8 @@ def dump_model_as_obj(chunk: ModelChunky, mtl_path: str, obj_stream: TextIO, mtl
 #     with open(mtl, "w") as mtl_handle:
 #         write_msgr_to_mtl(mtl_handle, chunk, texture_root, texture_ext)
 def write_model(output_path: str, model: ModelChunky):
-    raise NotImplementedError
+    obj_path = output_path + ".obj"
+    mtl_path = output_path + ".mtl"
+    with open(obj_path, "w") as obj_file:
+        with open(mtl_path, "w") as mtl_file:
+            dump_model_as_obj(model, mtl_path, obj_file, mtl_file, None, ".dds")

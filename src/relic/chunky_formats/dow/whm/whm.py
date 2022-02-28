@@ -664,9 +664,9 @@ class ShdrChunk(AbstractChunk):
     def convert(cls, chunk: FolderChunk) -> ShdrChunk:
         assert chunk.header.version in cls.VERSIONS, chunk.header.version
         converted = WhmChunkConverter.convert_many(chunk.chunks)
-        coll = ChunkCollectionX.list2col(converted)
-        info = coll.find(ShdrInfoChunk)
-        chan = coll.find(ChanChunk, True)
+        x = ChunkCollectionX.list2col(converted)
+        info = x.find(ShdrInfoChunk)
+        chan = x.find(ChanChunk, True)
         assert len(chunk.chunks) == 1 + len(chan)
         return cls(chunk.header, info, chan)
 
