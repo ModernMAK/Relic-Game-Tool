@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from io import BytesIO
 from math import sqrt
-from typing import List, Tuple, Optional, BinaryIO, Set, Union, Any
+from typing import List, Tuple, Optional, BinaryIO, Union, Any
 
 from archive_tools.ioutil import has_data
 from archive_tools.structx import Struct
@@ -91,122 +91,6 @@ class TrimVertex:
         sqm = sum(_ ** 2 for _ in v)
         return sqrt(sqm)
 
-    # POS_LAYOUT = Struct("< 3f")
-    # UV_LAYOUT = Struct("< 2f")
-
-    #
-    # LAYOUT_76 = Struct("< 3f 50s 3h 2f")  # NOT CONFIRMED
-    #
-    # @classmethod
-    # def __parse_76(cls, data: bytes) -> TrimVertex:
-    #     with BytesIO(data) as stream:
-    #         px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_76.unpack_stream(stream)
-    #         pos = px, py, pz
-    #         normal = cls.__fix_norm(nx, ny, nz)
-    #         uv = u, v
-    #         return cls(pos, normal, uv, unks)
-    #
-    # LAYOUT_68 = Struct("< 3f 42s 3h 2f")  # NOT CONFIRMED
-    #
-    # @classmethod
-    # def __parse_68(cls, data: bytes) -> TrimVertex:
-    #     with BytesIO(data) as stream:
-    #         px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_68.unpack_stream(stream)
-    #         pos = px, py, pz
-    #         normal = cls.__fix_norm(nx, ny, nz)
-    #         uv = u, v
-    #         return cls(pos, normal, uv, unks)
-    #
-    # LAYOUT_60 = Struct("< 3f 34s 3h 2f")  # NOT CONFIRMED
-    #
-    # @classmethod
-    # def __parse_60(cls, data: bytes) -> TrimVertex:
-    #     with BytesIO(data) as stream:
-    #         px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_60.unpack_stream(stream)
-    #         pos = px, py, pz
-    #         normal = cls.__fix_norm(nx, ny, nz)
-    #         uv = u, v
-    #         return cls(pos, normal, uv, unks)
-    #
-    # LAYOUT_48 = Struct("<5f 2f")  # NOT CONFIRMED
-    #
-    # @classmethod
-    # def __parse_48(cls, data: bytes) -> TrimVertex:
-    #     layout = cls.LAYOUT_48
-    #     SIZE = 48
-    #     SHARED_SIZE = cls.POS_LAYOUT.size + cls.UV_LAYOUT.size
-    #     assert layout.size + SHARED_SIZE == SIZE, (layout.size, SHARED_SIZE, SIZE)
-    #     assert len(data) == SIZE, len(data)
-    #     with BytesIO(data) as stream:
-    #         pos = cls.POS_LAYOUT.unpack_stream(stream)
-    #         normal = None
-    #         unks = layout.unpack_stream(stream)
-    #         # Look like okay floats, but only 2, maybe xz and y implicit?
-    #         n = unks[-2:]
-    #         nx, nz = n
-    #         ns = nx ** 2 + nz ** 2
-    #         try:
-    #             if ns > 1:
-    #                 ny = -sqrt(ns-1)
-    #             else:
-    #                 ny = sqrt(1-ns)
-    #         except:
-    #             raise
-    #         normal = (nx,ny,nz)
-    #         uv = cls.UV_LAYOUT.unpack_stream(stream)
-    #         return cls(pos, normal, uv, unks)
-    #
-    # LAYOUT_40 = Struct("< 20s")  # Struct("< 3f 14s 3h 2f")
-    #
-    # @classmethod
-    # def __parse_40(cls, data: bytes) -> TrimVertex:
-    #
-    #     layout = cls.LAYOUT_40
-    #     SIZE = 40
-    #     SHARED_SIZE = cls.POS_LAYOUT.size + cls.UV_LAYOUT.size
-    #     assert layout.size + SHARED_SIZE == SIZE, (layout.size, SHARED_SIZE, SIZE)
-    #     assert len(data) == SIZE, len(data)
-    #     with BytesIO(data) as stream:
-    #         pos = cls.POS_LAYOUT.unpack_stream(stream)
-    #         # rsv = cls.LAYOUT_40_C.unpack_stream(stream)
-    #         normal = None
-    #         unks = layout.unpack_stream(stream)
-    #         # = unks[0:4]
-    #         # n = cls.LAYOUT_40_N.unpack_stream(stream)
-    #         # norm = cls.__fix_norm(*n)
-    #         # nsqr = (norm[0] ** 2) + (norm[1] ** 2) + (norm[2] ** 2)
-    #         # n2 = cls.LAYOUT_40_N.unpack_stream(stream)  # unks[4:]
-    #         # norm2 = cls.__fix_norm(*n2)
-    #         # nsqr2 = (norm2[0] ** 2) + (norm2[1] ** 2) + (norm2[2] ** 2)
-    #         # assert rsv == (1, 0, 0, 255), rsv
-    #         # nsqrsum = nsqr + nsqr2
-    #         uv = cls.UV_LAYOUT.unpack_stream(stream)
-    #         # normal = norm
-    #         # unks = norm2
-    #         return cls(pos, normal, uv, unks)
-    #
-    # LAYOUT_32 = Struct("< 3f 6s  2f")
-    #
-    # @classmethod
-    # def __parse_32(cls, data: bytes) -> 'TrimVertex':
-    #     with BytesIO(data) as stream:
-    #         px, py, pz, unks, nx, ny, nz, u, v = cls.LAYOUT_32.unpack_stream(stream)
-    #         pos = px, py, pz
-    #         # normal = cls.__fix_norm(nx, ny, nz)
-    #         uv = u, v
-    #         return cls(pos, normal, uv, unks)
-    #
-    # LAYOUT_24 = Struct("< 3f 4s 2f")
-    #
-    # @classmethod
-    # def __parse_24(cls, data: bytes) -> 'TrimVertex':
-    #     with BytesIO(data) as stream:
-    #         px, py, pz, unks, u, v = cls.LAYOUT_24.unpack_stream(stream)
-    #         pos = px, py, pz
-    #         normal = None
-    #         uv = u, v
-    #         return cls(pos, normal, uv, unks)
-
     LAYOUT_FLOAT3 = Struct("3f")
     LAYOUT_FLOAT2 = Struct("2f")
     LAYOUT_BYTE4 = Struct("4b")
@@ -217,14 +101,15 @@ class TrimVertex:
             return cls.LAYOUT_FLOAT3.unpack_stream(stream)
         elif layout == VertexPropertyLayout.Float2:
             return cls.LAYOUT_FLOAT2.unpack_stream(stream)
-        elif layout == VertexPropertyLayout.SnormByte4:
+        elif layout == VertexPropertyLayout.Byte4:
             return cls.LAYOUT_BYTE4.unpack_stream(stream)
         elif layout == VertexPropertyLayout.Unk14:
             return tuple(b for b in stream.read(4))
         else:
             raise NotImplementedError(layout)
 
-    def __read_property(self, stream: BinaryIO, property: VertexProperty, layout: VertexPropertyLayout):
+    def __read_property(self, stream: BinaryIO, property: VertexProperty, vpl: Tuple[VertexPropertyLayout, int]):
+        layout, version = vpl
         data = self.read_layout(stream, layout)
         if property == VertexProperty.Position:
             assert len(data) == 3, len(data)
@@ -282,149 +167,25 @@ class TrimVertex:
         except Exception as e:
             raise
         return result
-        # Pos, Unk1(unk14), Unk2(Snorm), Normal, Tangent, Bitangent, Unk6 (Snorm), Uv
-        # _1 = stream.tell()
-        # if VertexProperty.Position in layout:
-        #     pos = cls.POS_LAYOUT.unpack_stream(stream)
-        # # 3,4,5,8 have 20 bytes between them, (4),(4),(4),(8)?
-        # # 0,1,2,3,4,5,8,   => 40 bytes
-        # #   0 => 12, 8 => 8, 3 => 4, 4 => 4, 5 => 4 ===> 32
-        # #   1,2 both (4)?
-        # # 0,1,2,3,4,5,8 =
-        # # 0,1,2,3,4,5,8,9, => 48 bytes
-        # #   9 = 8 bytes
-        # if VertexProperty.Unk1 in layout:
-        #     _ = stream.read(4)
-        #     unks[VertexProperty.Unk1] = _
-        # if VertexProperty.Unk2 in layout:
-        #     _ = stream.read(4)
-        #     unks[VertexProperty.Unk2] = _
-        # if VertexProperty.NormProb in layout:
-        #     _ = stream.read(4)
-        #     assert _[3] == 0
-        #     # BYTE UNORM, SNORM?
-        #     _s = TrimVertex.from_unorm(_[0], _[1], _[2], 8)
-        #     _sm = cls.DEBUG_MAG(_s)
-        #     _u = TrimVertex.from_snorm(_[0], _[1], _[2], 8, True)
-        #     # UNORM is 1?
-        #     # Def S byte... SO WHICH IS NORMAL?!?! #Norm,Tan,Bitan?!
-        #     _um = cls.DEBUG_MAG(_u)
-        #     unks[VertexProperty.NormProb] = _  # TODO, renomralize rounding maybe?
-        # if VertexProperty.TanProb in layout:
-        #     _ = stream.read(4)
-        #     assert _[3] == 0
-        #     # BYTE UNORM, SNORM?
-        #     _s2 = TrimVertex.from_unorm(_[0], _[1], _[2], 8)
-        #     _u2 = TrimVertex.from_snorm(_[0], _[1], _[2], 8, True)
-        #     _sm2 = cls.DEBUG_MAG(_s2)
-        #     _um2 = cls.DEBUG_MAG(_u2)
-        #     # _sm and _um both 1, u is 'closer' by a factor of 10 (1.008 vs 1.06)
-        #     # Def S byte... SO WHICH IS NORMAL?!?!
-        #     unks[VertexProperty.TanProb] = _
-        # if VertexProperty.BitanProb in layout:
-        #     _ = stream.read(4)
-        #     assert _[3] == 0
-        #     # BYTE UNORM, SNORM?
-        #     _s3 = TrimVertex.from_unorm(_[0], _[1], _[2], 8)
-        #     _u3 = TrimVertex.from_snorm(_[0], _[1], _[2], 8, True)
-        #     _sm3 = cls.DEBUG_MAG(_s3)
-        #     _um3 = cls.DEBUG_MAG(_u3)
-        #     # _sm and _um both 1, u is 'closer' by a factor of 10 (1.005 vs 0.95)
-        #     # Def S byte... SO WHICH IS NORMAL?!?!
-        #     unks[VertexProperty.BitanProb] = _
-        # if VertexProperty.Uv in layout:
-        #     uv = cls.UV_LAYOUT.unpack_stream(stream)
-        # if VertexProperty.DetailUvMaybe in layout:  # Same size as UV and its after UV,
-        #     _ = stream.read(8)
-        #     unks[VertexProperty.DetailUvMaybe] = _
-
-        # _2 = stream.tell()
-        try:
-            assert _1 + v_size == _2, (_2 - _1, v_size)
-        except Exception as e:
-            raise
-        return cls(pos, norm, uv, unks)
-
-    @classmethod
-    def parse(cls, data: bytes):
-        v_size = len(data)
-        with BytesIO(data) as stream:
-            pos = cls.POS_LAYOUT.unpack_stream(stream)
-            UNK_SIZE = v_size - (cls.POS_LAYOUT.size + cls.UV_LAYOUT.size)
-            unks = stream.read(UNK_SIZE)
-            S = 16
-            SB = True
-            C = {(32, True): "i", (32, False): "I", (16, True): "h", (16, False): "H"}
-            sr = Struct(f"<{UNK_SIZE // (S // 8)}{C[(S, True)]}").unpack(unks)
-            ur = Struct(f"<{UNK_SIZE // (S // 8)}{C[(S, False)]}").unpack(unks)
-            if S == 32:
-                r = sr
-                sn = cls.from_snorm(r[0], r[1], r[2], 32)
-                sn_m = cls.DEBUG_MAG(sn)
-                r = ur
-                un = cls.from_unorm(r[0], r[1], r[2], 32)
-                un_m = cls.DEBUG_MAG(un)
-            elif S == 16:
-                r = sr
-                sn0 = cls.from_snorm(r[0], r[1], r[2], 16)
-                sn1 = cls.from_snorm(r[3], r[4], r[5], 16)
-                sn0_m = cls.DEBUG_MAG(sn0)
-                sn1_m = cls.DEBUG_MAG(sn1)
-
-                r = ur
-                un0 = cls.from_unorm(r[0], r[1], r[2], 16)
-                un1 = cls.from_unorm(r[3], r[4], r[5], 16)
-                un0_m = cls.DEBUG_MAG(un0)
-                un1_m = cls.DEBUG_MAG(un1)
-
-            uv = cls.UV_LAYOUT.unpack_stream(stream)
-            return cls(pos, None, uv, unks)
-        # if len(data) == 24:
-        #     return cls.__parse_24(data)
-        # elif len(data) == 32:
-        #     return cls.__parse_32(data)
-        # elif len(data) == 40:
-        #     return cls.__parse_40(data)
-        # elif len(data) == 48:
-        #     return cls.__parse_48(data)
-        # elif len(data) == 68:
-        #     return cls.__parse_68(data)
-        # elif len(data) == 60:
-        #     return cls.__parse_60(data)
-        # elif len(data) == 76:
-        #     return cls.__parse_76(data)
-        # else:
-        #     raise NotImplementedError(len(data), data)
 
 
 class VertexPropertyLayout(Enum):
-    SnormByte4 = 2  # I got confused, everwhere I say UNORM is closer; I meant snorm; i swapped the var names by acident, so; to clarify 'SNORM BYTE 4' is correct
+    Byte4 = 2  # I got confused, everwhere I say UNORM is closer; I meant snorm; i swapped the var names by acident, so; to clarify 'SNORM BYTE 4' is correct
     Float2 = 3
     Float3 = 4
     Unk14 = 14  # IDK
 
 
-class VertexProperty(Enum):  # Maybe a tuple enum?
-    # 3_3, 4_2, 5_2, 8_3 are most common (same # as position)
-    # One of those has to be UVS
-    #   Positional? Pos is 0 (same as  buffer), and UV is last (to my knowledge), could be 8, but then what would 9 be?
-    #   IF UV is 8, 9 could be detail! Water Foam Tex (or whatever those were when I was meticulously doing that) probably has a seperate uv for that!
-    #       BUT, I'd need to look at that again. Ive only gont 1 '9_3' to work with, and I don't think it has a shdr var for that
-
-    # First is probably Type
-    # 2nd is Layout
-    #   2 => UNorm Byte4 (4th is 0)
-    #   3 => Float2
-    #   4 => Float3
-    Position = 0  # (0, 4)
-    Unk1 = 1  # (1, 14)
-    Unk2 = 2  # (2, 2)
-    Normal = 3  # (3, 2)
-    Tangent = 4  # (4, 2)
-    BiTangent = 5  # (5, 2)
+class VertexProperty(Enum):
+    Position = 0
+    Unk1 = 1
+    Unk2 = 2
+    Normal = 3
+    Tangent = 4
+    BiTangent = 5
     Unk6 = 6
-    Uv = 8  # (8, 3)
-    DetailUvMaybe = 9  # (9, 3)
+    Uv = 8
+    DetailUvMaybe = 9
 
     @classmethod
     def property_order(cls) -> List[VertexProperty]:
@@ -500,7 +261,7 @@ class TrimDataChunk(AbstractChunk):
     __int2_layout = Struct("< 2L")
     __int3_Layout = Struct("< 3L")
     __int4_Layout = Struct("< 4L ")
-    __unk_skel_layout = Struct("< 24f")
+    __unk_skel_layout = Struct("< 24f") # DOH, I was thinking bytes; 24 floats is 6 x 4, so 2x3x4? Local and World Matrix (3x4 or 4x3, which evers the right one)
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk):
@@ -521,6 +282,9 @@ class TrimDataChunk(AbstractChunk):
             vertexes = [TrimVertex.unpack(stream, v_size, vert_layout) for _ in range(v_count)]
             unk_b, index_count, unk_c, index_count_2 = cls.__int4_Layout.unpack_stream(stream)
             assert index_count == index_count_2
+            assert unk_b == 1
+            assert unk_c == 3
+            # assert unk_b == unk_c, (unk_b, unk_c)
             indexes = [cls.__short_layout.unpack_stream(stream)[0] for _ in range(index_count)]
             name_size = cls.__int_layout.unpack_stream(stream)[0]
             name = stream.read(name_size).decode("ascii")
