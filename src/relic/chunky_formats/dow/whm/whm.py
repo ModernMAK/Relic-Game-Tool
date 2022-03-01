@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+# A MODEL SPECIFICATION. ish...
+#   "https://web.archive.org/web/20141003211026/http://forums.relicnews.com/showthread.php?89094-Specs-for-models-to-be-used-in-DoW"
+#   HA, nice for some
+
 from dataclasses import dataclass
 from io import BytesIO
-from typing import BinaryIO, Tuple, Any
+from typing import BinaryIO, Tuple, Any, Dict
 from typing import List, Optional
 
+from archive_tools.ioutil import has_data
 from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
@@ -351,7 +356,9 @@ class MslcDataChunk(AbstractChunk):
     bones: List[MslcBoneInfo]
     vertex_data: MslcVertexData
     sub_meshes: List[MslcSubmeshData]
-    trailing_data: bytes  # LIKELY EMBEDDED TEXTURES, No magic so TGA? Or relic's wierd no-magic DDS
+    unk_a: List[bytes]
+    unk_b: List[bytes]
+    unk_c: List[bytes]
 
     UNK2TEX = {}
     _EX = []
@@ -425,8 +432,15 @@ class MslcDataChunk(AbstractChunk):
                     sub_mesh = MslcSubmeshData.unpack(stream)
                     index_buffers.append(sub_mesh)
 
-                baked_textures_maybe = stream.read()
-            return cls(chunk.header, header, (vertex_size_id,), bones, vertex_data, index_buffers, baked_textures_maybe)
+                aaa = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+                aaa_data = [stream.read(12) for _ in range(aaa)]
+                aab = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+                aab_data = [stream.read(24) for _ in range(aab)]
+                aac = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+                aac_data = [stream.read(40) for _ in range(aac)]
+                assert not has_data(stream), stream.read()
+
+            return cls(chunk.header, header, (vertex_size_id,), bones, vertex_data, index_buffers, aaa_data, aab_data, aac_data)
         except Exception as e:
             raise
 
@@ -562,9 +576,150 @@ class AnbvChunk(UnimplementedDataChunk):
 
 
 @dataclass
-class AnimDataChunk(UnimplementedDataChunk):
+class AnimDataBoneFrameInfo:
+    name: str
+    positions: Dict[int, Tuple]
+    rotations: Dict[int, Tuple]
+    # According to "https://forums.revora.net/topic/116206-tutorial-install-and-set-up-3ds-max-2008/"
+    #    'It should also say that all the bones are stale=yes so the vis file doesn't block other animations from playing.'
+    stale: bool  # I have no idea how I'm going to emulate this in blender
+    # Also lists how meshes are chosen when multiple are given
+    # '''You can also group motions together and have the game choose one randomly when the unit spawns. For example:
+    # Create 3 vis animations, each one makes a different head visible.
+    # Then make 3 motions, one for each head.
+    # Then put those in a motion group, and the game will randomize the heads.'''
+    # Really neat way of abusing their animation engine to add variety
+    #   IMO, you could go so far as adding completely different models (Say for example; a tyranid pack)
+    #       Yes, I'm aware of the tyranid mod, but since they explicitly state not to dump their models, I haven't looked at em, but if they aren't doing this, they are missing out.
+    #           Although it may be a problem if the engine still is calculating them, which would be a massive oversight imo; since they made this random mesh choice a feature
+    NAME_LAYOUT = VStruct("v")
+    COUNT_LAYOUT = Struct("i")
+    POS_KEYFRAME_LAYOUT = Struct("4f")
+    ROT_KEYFRAME_LAYOUT = Struct("5f")
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO, frame_count: int) -> AnimDataBoneFrameInfo:
+        name = cls.NAME_LAYOUT.unpack_stream(stream)[0]
+        name = name.decode("ascii")
+        pos_frames = {}
+        rot_frames = {}
+        # POS
+        key_pos_frames = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        for _ in range(key_pos_frames):
+            frame, kf_x, kf_y, kf_z = cls.POS_KEYFRAME_LAYOUT.unpack_stream(stream)
+            pos_frames[frame] = (frame, kf_x, kf_y, kf_z)
+        # ROT
+        key_rot_frames = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        for _ in range(key_rot_frames):
+            frame, kf_x, kf_y, kf_z, kf_w = cls.ROT_KEYFRAME_LAYOUT.unpack_stream(stream)
+            rot_frames[frame] = (frame, kf_x, kf_y, kf_z, kf_w)
+        # FLAG
+        unk = stream.read(1)
+        assert unk in [b'\00', b'\01'], unk
+        flag = (b'\01' == unk)
+        return cls(name, pos_frames, rot_frames, flag)
+
+
+@dataclass
+class AnimDataMeshFrameInfo:
+    NAME_LAYOUT = VStruct("v")
+    MESH_UNKS_LAYOUT = Struct("3i")
+    COUNT_LAYOUT = Struct("i")
+    VISIBILITY_LAYOUT = Struct("2f")
+    name: str
+    mode: int
+    unks: Tuple[int, int, int, int]
+    visibility: Dict[int, Tuple]
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO, frame_count: int) -> AnimDataMeshFrameInfo:
+        name = cls.NAME_LAYOUT.unpack_stream(stream)[0]
+        name = name.decode("ascii")
+        unks = cls.MESH_UNKS_LAYOUT.unpack_stream(stream)
+        mode = unks[0]
+        try:
+            assert mode in [0, 2], mode
+        except Exception as e:
+            raise
+        frame_count = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        if mode == 2:
+            frame_count -= 1  # Meshes have an extra frame?
+            unk2 = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+            assert unk2 == 0
+            unk3 = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        else:
+            unk2, unk3 = None, None
+
+        visibility = {}
+        for _ in range(frame_count):
+            frame, value = cls.VISIBILITY_LAYOUT.unpack_stream(stream)
+            visibility[frame] = (frame, value)
+
+        return cls(name, mode, (unks[1], unks[2], unk2, unk3), visibility)
+
+
+@dataclass
+class AnimDataUnkFrameInfo:
+    name: str
+    positions: Dict[int, Tuple]
+    rotations: Dict[int, Tuple]
+
+    NAME_LAYOUT = VStruct("v")
+    COUNT_LAYOUT = Struct("i")
+    POS_KEYFRAME_LAYOUT = Struct("4f")
+    ROT_KEYFRAME_LAYOUT = Struct("5f")
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO, frame_count: int) -> AnimDataUnkFrameInfo:
+        name = cls.NAME_LAYOUT.unpack_stream(stream)[0]
+        name = name.decode("ascii")
+        pos_frames = {}
+        rot_frames = {}
+        # POS
+        key_pos_frames = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        for _ in range(key_pos_frames):
+            frame, kf_x, kf_y, kf_z = cls.POS_KEYFRAME_LAYOUT.unpack_stream(stream)
+            pos_frames[frame] = (frame, kf_x, kf_y, kf_z)
+        # ROT
+        key_rot_frames = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+        for _ in range(key_rot_frames):
+            frame, kf_x, kf_y, kf_z, kf_w = cls.ROT_KEYFRAME_LAYOUT.unpack_stream(stream)
+            rot_frames[frame] = (frame, kf_x, kf_y, kf_z, kf_w)
+        return cls(name, pos_frames, rot_frames)
+
+
+@dataclass
+class AnimDataChunk(AbstractChunk):
     CHUNK_ID = "DATA"
     CHUNK_TYPE = ChunkType.Data
+    VERSIONS = [2]
+
+    LAYOUT = Struct("i i i")
+    COUNT_LAYOUT = Struct("i")
+
+    bones: List[AnimDataBoneFrameInfo]
+    meshes: List[AnimDataMeshFrameInfo]
+    # Cams or markers, lacks stale flag, so it doens't support layering, which makes sense for cams (why turn it off, its not visible, and it shouldn't be stacking since it's technically just a point in space)
+    # Markers (TMK) are also just points in space, but they might need to be layered; like an FX which wiggles or something
+    unks: List[AnimDataUnkFrameInfo]
+
+    @classmethod
+    def convert(cls, chunk: GenericDataChunk) -> AnimDataChunk:
+        assert chunk.header.version in cls.VERSIONS, chunk.header.version
+        with BytesIO(chunk.raw_bytes) as stream:
+            frame_count, unk, bone_count = cls.LAYOUT.unpack_stream(stream)
+            bones = [AnimDataBoneFrameInfo.unpack(stream, frame_count) for _ in range(bone_count)]
+            # MESH
+            mesh_count = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+            mesh = [AnimDataMeshFrameInfo.unpack(stream, frame_count) for _ in range(mesh_count)]
+
+            unk_count = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
+            unks = [AnimDataUnkFrameInfo.unpack(stream, frame_count) for _ in range(unk_count)]
+            try:
+                assert not has_data(stream), stream.read()
+            except Exception as e:
+                raise
+            return cls(chunk.header, bones, mesh, unks)
 
 
 @dataclass
