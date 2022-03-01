@@ -32,15 +32,18 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     writer.write_object_name(name)
 
     stream.write("\t# Vertexes\n")
+    has_norm = chunk.vertexes[0].normal is not None
+    has_uv = chunk.vertexes[0].uv is not None
     for v in chunk.vertexes:
         stream.write("\t")
         writer.write_vertex_position(*v.position)
-        if v.normal:
+        if has_norm:
             stream.write("\t")
             writer.write_vertex_normal(*v.normal)
         stream.write("\t")
-        writer.write_vertex_uv(*v.uv)
-        stream.write("\n")
+        if has_uv:
+            writer.write_vertex_uv(*v.uv)
+            stream.write("\n")
 
     stream.write("# Material\n")
     writer.write_use_material(chunk.material_name)
@@ -49,7 +52,7 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     for index in range(int(len(chunk.indexes) // 3)):
         stream.write("\t")
         tri = chunk.indexes[3 * index], chunk.indexes[3 * index + 1], chunk.indexes[3 * index + 2]
-        writer.write_index_face(*tri, offset=v_offset, zero_based=True)
+        writer.write_index_face(*tri, offset=v_offset, zero_based=True, normal=has_norm,uv=has_uv)
 
     return len(chunk.vertexes)
 
