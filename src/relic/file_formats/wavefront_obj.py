@@ -17,9 +17,9 @@ class ObjWriter:
         repeat = 1 + (1 if normal else 0) + (1 if uv else 0)
         if normal and uv:
             part = "{}/{}/{}"
-        elif normal:
-            part = "{}/{}"
         elif uv:
+            part = "{}/{}"
+        elif normal:
             part = "{}//{}"
         else:
             part = "{}"
