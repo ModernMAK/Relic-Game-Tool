@@ -7,14 +7,14 @@ This project runs executables (pre-packaged) to encode/decode audio files.
 A tool for parsing and extracting assets from Relic Entertainment games; primarily Dawn of War I, DoW II, and DoW III. 
 
 ## Installation (Pip)
-###Installing from PyPI (Recommended)
+### Installing from PyPI (Recommended)
 ```
-pip install Relic-SGA-Tool-ModernMAK
+pip install relic-game-tool
 ```
-###Installing from GitHub<br>
+### Installing from GitHub
 For more information, see [pip VCS support](https://pip.pypa.io/en/stable/topics/vcs-support/#git)
 ```
-pip install git+https://github.com/ModernMAK/Relic-SGA-Tool
+pip install git+https://github.com/ModernMAK/Relic-Game-Tool
 ```
 
 ## Usage
@@ -31,13 +31,12 @@ To unpack SGA files, we can use the following command:
 ```
 relic sga unpack 'DoW directory' -o 'storage path' -r -b -e
 ```
-First, the path to the DoW game is specified, we only use one path to avoid extracting other game assets to the same output directory. 
-In the case of DoW, the latest game contains almost all assets of the previous releases. 
-The flag`-o` specifies the output directory, this is optional, but makes it easier to perform the next step, extracting assets. 
-The `-r` flag will search all files and folders within the directory. 
-The `-b` flag will not extract archives which contain certain keywords marking them as lower quality assets, this will prevent lower quality assets from overwriting higher quality ones.
-The `-e` flag will force the program to crash on an error; in most cases, the output is bad, and a bug report should be submitted.
-<br>
+First, the path to the DoW game is specified, we only use one path to avoid extracting other game assets to the same output directory.<br>
+In the case of DoW, the latest game contains almost all assets of the previous releases. <br>
+The flag`-o` specifies the output directory, this is optional, but makes it easier to perform the next step, extracting assets. <br>
+The `-r` flag will search all files and folders within the directory. <br>
+The `-b` flag will not extract archives which contain certain keywords marking them as lower quality assets, this will prevent lower quality assets from overwriting higher quality ones.<br>
+The `-e` flag will force the program to crash on an error; in most cases, the output is bad, and a bug report should be submitted.<br>
 ---
 After unpacking the SGA archives, we can extract assets from Relic Chunky files.
 ```
@@ -49,4 +48,4 @@ The flags `-o`, `-r`, and `-e` function the same as above.
 <br>
 ## Format Specifications
 I've compiled what I've learned on the [Wiki](https://github.com/ModernMAK/Relic-SGA-Archive-Tool/wiki).
-It may be lacking compared to the actual python code, and may wish to examine the `relic\sga`, `relic\chunky`, and `relic\chunky_formats` packages instead.
+It may be lacking compared to the actual python code; for more information, you may wish to examine the `relic\sga`, `relic\chunky`, and `relic\chunky_formats` sub-packages instead.
