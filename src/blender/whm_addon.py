@@ -163,20 +163,32 @@ class ImportRelicWHM(Operator, ImportHelper):
             name2index[b.name] = i
 
         bone_weights = mslc.data.vertex_data.bone_weights
-        if bone_weights:
+        if bone_weights is not None:
             for vi, bw_data in enumerate(bone_weights):
                 (w1, w2, w3), (i1, i2, i3, i4) = bw_data
                 w4 = 1 - (w1 + w2 + w3)
                 w = [w1, w2, w3, w4]
                 i = [i1, i2, i3, i4]
                 for bi, bw in zip(i, w):
-                    if bi in [-1, 255]:  # Only one should be right, but the other should never occur, not defensive programming, but idc enough right now
+                    if bi not in [-1, 255]:  # Only one should be right, but the other should never occur, not defensive programming, but idc enough right now
                         mesh_obj.vertex_groups[bi].add([vi], bw, 'REPLACE')
         elif len(skel.bones) > 0:
-            ...  # TODO special case
+            bwi = None
+            if mslc.header.name in name2index:
+                bwi = name2index[mslc.header.name]
+            # elif alt_name and alt_name in name2index:
+            #     bwi = name2index[alt_name]
+            if bwi:
+                vgroup = mesh_obj.vertex_groups[bwi]
+                for i in range(len(mslc.data.vertex_data.positions)):
+                    vgroup.add([i], 1.0, 'REPLACE')
+            
+        for group in mesh_obj.vertex_groups:
+            group.lock_weight = True
 
         armature_mod = mesh_obj.modifiers.new("Armature", "ARMATURE")  # name is 'Armature' (Default when using ui), class is 'ARMATURE'
         armature_mod.object = armature_obj
+        mesh_obj.parent = armature_obj
 
     def get_animation(self, name: str):
         if name in bpy.data.actions:
@@ -185,25 +197,32 @@ class ImportRelicWHM(Operator, ImportHelper):
             animation = bpy.data.actions.new(name=name)
         return animation
 
-    def generate_animation(self, armature_obj: Object, armature:Armature, anim: AnimChunk) -> Optional[Action]:
+    def generate_animation(self, armature_obj: Object, anim: AnimChunk) -> Optional[Action]:
         if len(anim.data.bones) == 0:
             return None  # Ignore, we don't support mesh vis currently
         if not any(len(b.positions) > 0 or len(b.rotations) > 0 for b in anim.data.bones):
             return None  # Ignore, we don't support mesh vis currently
         armature_obj.animation_data.action = self.get_animation(anim.header.name)
         for anim_bone in anim.data.bones:
-            bone:PoseBone = armature.pose.bones[anim_bone.name]
+            bone = armature_obj.pose.bones[anim_bone.name]
             if len(anim_bone.positions) > 0:
-                for f, v in anim_bone.positions.items():
+                for _, v in anim_bone.positions.items():
+                    # TODO, currently anim includes frame in v and doesn't convert to a frame number
+                    f = round(v[0] * (anim.data.key_frames - 1))
+                    v = v[1:]
+
                     bone.location = v
-                    armature.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].location', frame=f)
+                    armature_obj.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].location', frame=f)
             if len(anim_bone.rotations) > 0:
                 for f, v in anim_bone.rotations.items():
+                    # TODO, currently anim includes frame in v and doesn't convert to a frame number
+                    f = round(v[0] * (anim.data.key_frames - 1))
+                    v = v[1:]
                     x, y, z, w = v
                     v = Quaternion([w, x, y, z])
                     bone.rotation_quaternion = v
-                    armature.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].rotation_quaternion', frame=f)
-        for bone in armature.pose.bones:
+                    armature_obj.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].rotation_quaternion', frame=f)
+        for bone in armature_obj.pose.bones:
             bone.matrix_basis = Matrix()
 
     def import_whm(self, context, whm_chunky: WhmChunky):
@@ -225,7 +244,7 @@ class ImportRelicWHM(Operator, ImportHelper):
                     if not armature_obj.animation_data:
                         armature_obj.animation_data_create()
                     for anim in rsgm.anim:
-                        self.generate_animation(armature_obj, armature_obj.data, anim)
+                        self.generate_animation(armature_obj, anim)
         else:
             raise TypeError(rsgm.header)
 

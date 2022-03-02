@@ -44,7 +44,7 @@ class AnimDataBoneFrameInfo:
     ROT_KEYFRAME_LAYOUT = Struct("5f")
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> AnimDataBoneFrameInfo:
+    def unpack(cls, stream: BinaryIO, key_frames:int) -> AnimDataBoneFrameInfo:
         name = cls.NAME_LAYOUT.unpack_stream(stream)[0]
         name = name.decode("ascii")
         pos_frames = {}
@@ -53,12 +53,14 @@ class AnimDataBoneFrameInfo:
         key_pos_frames = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
         for _ in range(key_pos_frames):
             frame, kf_x, kf_y, kf_z = cls.POS_KEYFRAME_LAYOUT.unpack_stream(stream)
-            pos_frames[frame] = (frame, kf_x, kf_y, kf_z)
+            frame = round(frame * (key_frames-1))
+            pos_frames[frame] = (kf_x, kf_y, kf_z)
         # ROT
         key_rot_frames = cls.COUNT_LAYOUT.unpack_stream(stream)[0]
         for _ in range(key_rot_frames):
             frame, kf_x, kf_y, kf_z, kf_w = cls.ROT_KEYFRAME_LAYOUT.unpack_stream(stream)
-            rot_frames[frame] = (frame, kf_x, kf_y, kf_z, kf_w)
+            frame = round(frame * (key_frames-1))
+            rot_frames[frame] = (kf_x, kf_y, kf_z, kf_w)
         # FLAG
         unk = stream.read(1)
         assert unk in [b'\00', b'\01'], unk
