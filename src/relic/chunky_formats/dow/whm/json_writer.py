@@ -5,9 +5,13 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from json import JSONEncoder
+from math import floor
 from typing import TextIO, List, Any, Dict, Optional, Tuple
 
-from relic.chunky_formats.dow.whm.whm import MslcChunk, WhmChunky, RsgmChunkV3, Byte, SkelChunk, MsgrChunk
+from relic.chunky_formats.dow.whm.animation import AnimChunk, AnimDataBoneFrameInfo, AnimDataMeshFrameInfo
+from relic.chunky_formats.dow.whm.whm import WhmChunky, RsgmChunkV3, SkelChunk, MsgrChunk
+from relic.chunky_formats.dow.whm.shared import Byte
+from relic.chunky_formats.dow.whm.mesh import MslcChunk
 from relic.file_formats.mesh_io import Float3, Float2, Short3, Float4
 
 
@@ -98,6 +102,66 @@ class RawBone:
         return root
 
 
+def time_to_frame(frame_time: float, frame_count: int) -> int:
+    return round(frame_time * (frame_count - 1))
+
+
+@dataclass
+class RawAnimBone:
+    name: str
+    pos: Dict[int, Float3]
+    rot: Dict[int, Float4]
+    stale: bool
+
+    @classmethod
+    def convert(cls, data: AnimDataBoneFrameInfo, frame_count: int) -> RawAnimBone:
+        p = {time_to_frame(f, frame_count): v[1:] for f, v in data.positions.items()}
+        r = {time_to_frame(f, frame_count): v[1:] for f, v in data.rotations.items()}
+        return cls(data.name, p, r, data.stale)
+
+    @classmethod
+    def ignorable(cls, data: AnimDataBoneFrameInfo) -> bool:
+        return len(data.positions) + len(data.rotations) == 0
+
+
+@dataclass
+class RawAnimMesh:
+    name: str
+    mode: int
+    visibility: Dict[int, float]
+    unks: Tuple
+
+    @classmethod
+    def convert(cls, data: AnimDataMeshFrameInfo, frame_count: int) -> RawAnimMesh:
+        vis = {time_to_frame(f, frame_count): v[1:] for f, v in data.visibility.items()}
+        return cls(data.name, data.mode, vis, data.unks)  # one of those unks is probably stale... ? But why mark it stale in the vis, where it should be implied?
+
+    @classmethod
+    def ignorable(cls, data: AnimDataMeshFrameInfo) -> bool:
+        return len(data.visibility) + len(data.visibility) == 0
+
+
+@dataclass
+class RawAnim:
+    name: str
+    key_frames: int  # used to init animaition
+    bones: List[RawAnimBone]
+    meshes: List[RawAnimMesh]
+
+    # Since idk what unks animates, i've ignored it
+
+    @classmethod
+    def convert_from_anim(cls, anim: AnimChunk) -> RawAnim:
+        d = anim.data
+        bones = [RawAnimBone.convert(b, d.key_frames) for b in d.bones if not RawAnimBone.ignorable(b)]
+        meshes = [RawAnimMesh.convert(m, d.key_frames) for m in d.meshes if not RawAnimMesh.ignorable(m)]
+        return cls(anim.header.name, d.key_frames, bones, meshes)
+
+    @classmethod
+    def convert_from_anim_list(cls, anims: List[AnimChunk]) -> List[RawAnim]:
+        return [cls.convert_from_anim(a) for a in anims]
+
+
 class SimpleJsonEncoder(JSONEncoder):
     def default(self, o: Any) -> Any:
         if dataclasses.is_dataclass(o):
@@ -109,6 +173,8 @@ class SimpleJsonEncoder(JSONEncoder):
 
 
 def write_whm(stream: TextIO, whm: WhmChunky, pretty: bool = True):
+    # After browsing some of those old forums on the Way Back Machine (wish i'd remembered captured the url)
+    #   Something about Tread L and Tread R being special bones; those meshes likely auto weight themselves to their special bone?
     # Putting this here since this is the 'best' place I can think of
     #   Some objects have skel's but no bones (vehicles do this alot)
     #       I thought that maybe it was hidden elsewhere, but I decided ot play SS to look at the animations
@@ -120,7 +186,8 @@ def write_whm(stream: TextIO, whm: WhmChunky, pretty: bool = True):
         meshes = RawMesh.convert_from_msgr(whm.rsgm.msgr)
         skel = RawBone.convert_from_skel(whm.rsgm.skel) if whm.rsgm.skel else None
         name = whm.rsgm.header.name
-        d = {'name': name, 'skel': skel, 'meshes': meshes}
+        anim = RawAnim.convert_from_anim_list(whm.rsgm.anim)
+        d = {'name': name, 'skel': skel, 'meshes': meshes, 'animations': anim}
         try:
             json.dump(d, stream, indent=(4 if pretty else None), cls=SimpleJsonEncoder)
         except Exception as e:

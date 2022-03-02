@@ -10,7 +10,7 @@ from relic.chunky_formats.dow.common_chunks.fbif import FbifChunk
 from relic.chunky_formats.util import find_chunks, find_chunk, UnimplementedDataChunk
 from relic.chunky_formats.dow.events import EvctChunk
 from relic.chunky_formats.dow.rml import MtreChunk, ModlChunk
-from relic.chunky_formats.dow.whm.whm import AnimChunk, AnbvChunk
+from relic.chunky_formats.dow.whm.animation import AnbvChunk, AnimChunk
 
 
 @dataclass
