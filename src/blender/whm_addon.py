@@ -1,3 +1,4 @@
+import math
 from os.path import basename
 from typing import Tuple, List, Optional
 
@@ -12,6 +13,7 @@ from relic.chunky.serializer import read_chunky
 from relic.chunky_formats.dow.whm.animation import AnimChunk
 from relic.chunky_formats.dow.whm.mesh import MslcChunk
 from relic.chunky_formats.dow.whm.whm import WhmChunky, RsgmChunkV3, SkelChunk
+from relic.file_formats.mesh_io import Float4, Float3
 
 bl_info = {
     "name": "Relic WHM Importer",
@@ -52,6 +54,20 @@ class ImportRelicWHM(Operator, ImportHelper):
             mat = bpy.data.materials.new(name=name)
         return mat
 
+    @staticmethod
+    def whm_vector_to_blend_vector(v: Float3) -> Vector:
+        x, y, z = -v[0], -v[2], v[1]
+        return Vector([x, y, z])  # Blender wants w first
+
+    @staticmethod
+    def whm_quat_to_blend_quat(q: Float4) -> Quaternion:
+        # negate x => negate w
+        # swap y,z => negate w
+        # negate y => negate w
+        #   Final w is negated [ (-1)^3 ]
+        qx, qy, qz, qw = -q[0], -q[2], q[1], -q[3]
+        return Quaternion([qw, qx, qy, qz])  # Blender wants w first
+
     def generate_mesh(self, mslc: MslcChunk) -> Object:
         mesh_data = mslc.data
 
@@ -60,6 +76,10 @@ class ImportRelicWHM(Operator, ImportHelper):
         normals = mesh_data.vertex_data.normals
         uvs = mesh_data.vertex_data.uvs
         triangles = self.calculate_triangles(mslc)
+        # Apply Axis fixes:
+        for i in range(len(positions)):
+            positions[i] = self.whm_vector_to_blend_vector(positions[i])
+            normals[i] = self.whm_vector_to_blend_vector(normals[i])
 
         # Make Mesh
         mesh = bpy.data.meshes.new(mslc.header.name)
@@ -90,8 +110,7 @@ class ImportRelicWHM(Operator, ImportHelper):
         bpy.context.collection.objects.link(obj)
         return obj
 
-    @staticmethod
-    def generate_armature(skel: SkelChunk) -> Object:
+    def generate_armature(self, skel: SkelChunk) -> Object:
         BIP_BONE_SIZE = 0.25
         DEF_BONE_SIZE = 1.0
         # Preserve state after running script
@@ -119,9 +138,9 @@ class ImportRelicWHM(Operator, ImportHelper):
                 bone.tail = Vector([-bone_size, 0, 0])
                 bones.append(bone)
 
-                pos = Vector(transform.pos)
-                qx, qy, qz, qw = transform.quaternion
-                rot = Quaternion([qw, qx, qy, qz])  # Blender wants w first
+                pos = self.whm_vector_to_blend_vector(transform.pos)
+                rot = self.whm_quat_to_blend_quat(transform.quaternion)
+
                 matrix = Matrix.LocRotScale(pos, rot, Vector([1, 1, 1]))
                 local_matrix.append(matrix)
             # Assemble Hierarchy
@@ -182,7 +201,7 @@ class ImportRelicWHM(Operator, ImportHelper):
                 vgroup = mesh_obj.vertex_groups[bwi]
                 for i in range(len(mslc.data.vertex_data.positions)):
                     vgroup.add([i], 1.0, 'REPLACE')
-            
+
         for group in mesh_obj.vertex_groups:
             group.lock_weight = True
 
@@ -210,17 +229,25 @@ class ImportRelicWHM(Operator, ImportHelper):
                     # TODO, currently anim includes frame in v and doesn't convert to a frame number
                     f = round(v[0] * (anim.data.key_frames - 1))
                     v = v[1:]
+                    if bone.parent is None:
+                        bone.location = self.whm_vector_to_blend_vector(v)
+                    else:
+                        bone.location = [-v[0], v[1], v[2]]
 
-                    bone.location = v
                     armature_obj.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].location', frame=f)
             if len(anim_bone.rotations) > 0:
-                for f, v in anim_bone.rotations.items():
+                for f, q in anim_bone.rotations.items():
                     # TODO, currently anim includes frame in v and doesn't convert to a frame number
-                    f = round(v[0] * (anim.data.key_frames - 1))
-                    v = v[1:]
-                    x, y, z, w = v
-                    v = Quaternion([w, x, y, z])
-                    bone.rotation_quaternion = v
+                    f = round(q[0] * (anim.data.key_frames - 1))
+                    q = q[1:]
+                    if bone.parent is None:
+                        bone.rotation_quaternion = self.whm_quat_to_blend_quat(q)
+                    else:
+                        # rot_90x = Quaternion([1,0,0], math.radians(90))
+                        rot = Quaternion([q[3],q[0],q[1],q[2]])
+                        # mat:Matrix = rot_90x.to_matrix() @ rot.to_matrix()
+                        # f_rot = mat.to_quaternion()
+                        bone.rotation_quaternion = rot
                     armature_obj.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].rotation_quaternion', frame=f)
         for bone in armature_obj.pose.bones:
             bone.matrix_basis = Matrix()
