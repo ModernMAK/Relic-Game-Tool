@@ -11,7 +11,7 @@ from scripts.universal.common import SharedExtractorParser
 
 
 def add_args(parser: argparse.ArgumentParser):
-    parser.add_argument("-f", "--fmt", "--format", default="obj", choices=["obj", "json", "raw"], type=str.lower,  help="Choose what format to convert models to.")
+    parser.add_argument("-f", "--fmt", "--format", default="obj", choices=["obj", "json", "raw"], type=str.lower, help="Choose what format to convert models to.")
     # parser.add_argument("-c", "-t", "--conv", "--converter", "--texconv", help="Path to texconv.exe to use.")
 
 
@@ -25,7 +25,7 @@ def extract_model(output_path: str, chunky: GenericRelicChunky, out_format: str)
     p = Path(output_path)
     model = ModelChunky.convert(chunky)
     if out_format == "obj":
-        p.parent.mkdir(parents=True,exist_ok=True)
+        p.parent.mkdir(parents=True, exist_ok=True)
         write_model_obj(output_path, model)
     elif out_format == "json":
         with open(output_path + ".meshdata.json", "w") as in_handle:

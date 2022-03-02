@@ -45,6 +45,7 @@ class SshrChunk(AbstractChunk):
             assert len(chunk.raw_bytes) == len(name) + cls.LAYOUT.min_size
             return SshrChunk(chunk.header, name)
 
+
 @dataclass
 class MsgrName:
     LAYOUT = VStruct("v <l")

@@ -141,7 +141,7 @@ class ChunkHeaderV0301(ChunkHeader):
         chunk_type = ChunkType(chunk_type.decode("ascii"))
         chunk_id = chunk_id.decode("ascii").strip("\x00")
         name = stream.read(name_size).decode("ascii").rstrip("\00")
-        return cls(chunk_type, chunk_id, version, size, name, *(unk_a,unk_b))
+        return cls(chunk_type, chunk_id, version, size, name, *(unk_a, unk_b))
 
     def _pack(self, stream: BinaryIO) -> int:
         args = self.type.value, self.id, self.chunky_version, self.size, self.name, self.unk_a, self.unk_b

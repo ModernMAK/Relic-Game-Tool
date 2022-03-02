@@ -5,14 +5,13 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from json import JSONEncoder
-from math import floor
 from typing import TextIO, List, Any, Dict, Optional, Tuple
 
-from relic.chunky_formats.dow.whm.animation import AnimChunk, AnimDataBoneFrameInfo, AnimDataMeshFrameInfo
-from relic.chunky_formats.dow.whm.whm import WhmChunky, RsgmChunkV3, SkelChunk, MsgrChunk
-from relic.chunky_formats.dow.whm.shared import Byte
-from relic.chunky_formats.dow.whm.mesh import MslcChunk
-from relic.file_formats.mesh_io import Float3, Float2, Short3, Float4
+from .animation import AnimChunk, AnimDataBoneFrameInfo, AnimDataMeshFrameInfo
+from .mesh import MslcChunk
+from .shared import Byte
+from .whm import WhmChunky, RsgmChunkV3, SkelChunk, MsgrChunk
+from ....file_formats.mesh_io import Float3, Float2, Short3, Float4
 
 
 def flip_float3(v: Float3, flip_x: bool = False, flip_y: bool = False, flip_z: bool = False) -> Float3:

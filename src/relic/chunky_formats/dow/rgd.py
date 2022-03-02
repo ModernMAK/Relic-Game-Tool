@@ -7,7 +7,7 @@ from relic.chunky_formats.util import find_chunk
 
 @dataclass
 class AegdChunk(AbstractChunk):
-    raw: bytes # TODO
+    raw: bytes  # TODO
 
     @classmethod
     def convert(cls, chunk: GenericDataChunk) -> AegdChunk:

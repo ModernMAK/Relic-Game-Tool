@@ -12,6 +12,7 @@ from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
 from relic.chunky import FolderChunk, GenericDataChunk, RelicChunky, ChunkyVersion, GenericRelicChunky, ChunkType, AbstractChunk, ChunkHeaderV0301
+from relic.chunky.serializer import read_chunky
 from relic.chunky_formats.convertable import ChunkConverterFactory
 from relic.chunky_formats.util import ChunkCollectionX
 from relic.file_formats.mesh_io import Float3, Float2
@@ -931,7 +932,7 @@ if __name__ == "__main__":
     # path = r"D:\Dumps\DOW_II\full_dump\art\race_ig\troops_wargear\heads\general\general_head.model"
     path = r"D:\Dumps\DOW_II\full_dump\art\race_ig\troops_wargear\armour\cadian_armour\cadian_armour.model"
     with open(path, "rb") as handle:
-        chunky = RelicChunky._unpack(handle)
+        chunky = read_chunky(handle)
         model = ModelChunky.convert(chunky)
         print(model)
 

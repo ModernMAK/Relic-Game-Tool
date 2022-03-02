@@ -8,7 +8,7 @@ from archive_tools.walkutil import blacklisted
 from relic.sga import ArchiveMagicWord
 from scripts.universal.common import print_error, print_wrote, print_reading, PrintOptions, SharedExtractorParser
 
-SharedSgaParser = argparse.ArgumentParser(parents=[SharedExtractorParser],add_help=False)
+SharedSgaParser = argparse.ArgumentParser(parents=[SharedExtractorParser], add_help=False)
 # SharedSgaParser.add_argument()
 SharedSgaParser.add_argument("-b", "--best", action="store_true", help="Only unpack the best quality assets.")
 

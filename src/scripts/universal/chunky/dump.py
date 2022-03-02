@@ -47,7 +47,6 @@ def dump_chunk_col(output_dir: Path, chunks: List[AbstractChunk]):
             raise NotImplementedError(chunk)
 
 
-
 def add_args(_: argparse.ArgumentParser):
     pass
     # parser.add_argument("-f", "--fmt", "--format", default="bin", choices=["bin"], type=str.lower, help="Choose what format to convert audio to.")

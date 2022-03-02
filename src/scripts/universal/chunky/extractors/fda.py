@@ -7,6 +7,7 @@ from relic.chunky_formats.dow.fda.audio_converter import FdaAudioConverter
 from scripts.universal.chunky.extractors.common import get_runner
 from scripts.universal.common import SharedExtractorParser
 
+
 def add_args(parser: argparse.ArgumentParser):
     parser.add_argument("-f", "--fmt", "--format", default="wav", choices=["aiff", "wav"], type=str.lower, help="The desired output format.")
     # parser.add_argument("-c", "-t", "--conv", "--converter", "--texconv", help="Path to texconv.exe to use.")

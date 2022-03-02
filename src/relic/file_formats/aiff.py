@@ -154,7 +154,7 @@ class Mark:
 class Comm:
     COMM_MAGIC = MagicWord(Struct("> 4s"), "COMM".encode("ascii"))
     # byte size, channels, sample_frames, sample_size, sample_rate, compression 4cc, desc string (byte vlen)
-    LAYOUT = VStruct("> l h L h 10s 4s >p >x") # The most infuriating thing I've ever seen; a pascal string that is null terminated, but the terminal isn't included?
+    LAYOUT = VStruct("> l h L h 10s 4s >p >x")  # The most infuriating thing I've ever seen; a pascal string that is null terminated, but the terminal isn't included?
     LEN_SHIFT = LAYOUT.min_size - 4  # -4 for len # INCLUDE PAD IN SIZE
 
     channels: int

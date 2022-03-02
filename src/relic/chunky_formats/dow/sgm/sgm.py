@@ -4,11 +4,11 @@ from dataclasses import dataclass
 
 from archive_tools.structx import Struct
 
-from relic.chunky import RelicChunky, AbstractChunk, FolderChunk, GenericDataChunk
-from relic.chunky.chunk import ChunkType
-from relic.chunky.chunky import GenericRelicChunky
-from relic.chunky_formats.dow.common_chunks.imag import ImagChunk
-from relic.chunky_formats.util import find_chunk, UnimplementedFolderChunk, UnimplementedDataChunk
+from ....chunky import RelicChunky, AbstractChunk, FolderChunk, GenericDataChunk
+from ....chunky.chunk import ChunkType
+from ....chunky.chunky import GenericRelicChunky
+from ..common_chunks.imag import ImagChunk
+from ...util import find_chunk, UnimplementedFolderChunk, UnimplementedDataChunk
 
 
 @dataclass

@@ -2,7 +2,7 @@ from enum import Enum
 from os.path import split, splitext, join
 from typing import TextIO, Iterable, List, Tuple
 
-from relic.chunky_formats.dow2.model.model import MtrlChunk, ModelChunky, TrimDataChunk, VarChunk, MaterialVarType, TextureVar
+from relic.chunky_formats.dow2.model.model import MtrlChunk, ModelChunky, TrimDataChunk, VarChunk, TextureVar
 from relic.file_formats.wavefront_obj import ObjWriter, MtlWriter
 
 
@@ -52,7 +52,7 @@ def write_trim_data_to_obj(stream: TextIO, chunk: TrimDataChunk, name: str = Non
     for index in range(int(len(chunk.indexes) // 3)):
         stream.write("\t")
         tri = chunk.indexes[3 * index], chunk.indexes[3 * index + 1], chunk.indexes[3 * index + 2]
-        writer.write_index_face(*tri, offset=v_offset, zero_based=True, normal=has_norm,uv=has_uv)
+        writer.write_index_face(*tri, offset=v_offset, zero_based=True, normal=has_norm, uv=has_uv)
 
     return len(chunk.vertexes)
 
@@ -143,7 +143,7 @@ def fetch_textures_from_mtrl(chunk: MtrlChunk) -> Iterable[Tuple[TextureType, st
     if chunk.info.shader_name in [SupportedShaders.Dow2_Unit, SupportedShaders.Dow2_Unit_2Uv]:
         return fetch_textures_from_dow2_unit(chunk.var)
     else:
-        return [] # I kinda wanted to start
+        return []  # I kinda wanted to start
         # return fetch_textures_from_dow2_unit(chunk.var)
         # raise NotImplementedError(chunk.info.shader_name)
 

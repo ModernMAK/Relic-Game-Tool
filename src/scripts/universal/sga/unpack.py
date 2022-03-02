@@ -43,7 +43,7 @@ def unpack_archive(in_path: str, out_path: str, print_opts: PrintOptions = None,
 
                         rel_out_path /= relative_file_path
 
-                        rel_out_path.parent.mkdir(parents=True,exist_ok=True)
+                        rel_out_path.parent.mkdir(parents=True, exist_ok=True)
                         print_any(f"Reading \"{relative_file_path}\"...", indent_level + 1, print_opts)
                         with open(rel_out_path, "wb") as out_handle:
                             data = file.read_data(data_stream, True)
@@ -59,4 +59,3 @@ def unpack_archive(in_path: str, out_path: str, print_opts: PrintOptions = None,
 
 
 Runner = get_runner(unpack_archive, extract_args)
-

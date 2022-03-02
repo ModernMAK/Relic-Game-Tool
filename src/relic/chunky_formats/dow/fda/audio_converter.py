@@ -8,11 +8,12 @@ from typing import BinaryIO
 
 from .chunky import FdaChunky, FdaChunk, FdaDataChunk, FdaInfoChunk
 from ..common_chunks.fbif import FbifChunk
-from relic.file_formats.aiff import Aiff, Marker, Comm, Ssnd
+from ....file_formats.aiff import Aiff, Marker, Comm, Ssnd
 
 __ROOT_PATH = dirname(__file__)
-DECODER_PATH = __ROOT_PATH+"/conv/dec.exe"
-ENCODER_PATH = __ROOT_PATH+"/conv/enc.exe"
+DECODER_PATH = __ROOT_PATH + "/conv/dec.exe"
+ENCODER_PATH = __ROOT_PATH + "/conv/enc.exe"
+
 
 class FdaAudioConverter:
 

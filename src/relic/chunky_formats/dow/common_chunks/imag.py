@@ -5,9 +5,9 @@ from enum import Enum
 
 from archive_tools.structx import Struct
 
-from relic.chunky_formats.util import find_chunk
-from relic.chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
-from relic.chunky.chunk.header import ChunkType
+from ...util import find_chunk
+from ....chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
+from ....chunky.chunk.header import ChunkType
 
 
 class ImageFormat(Enum):

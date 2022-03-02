@@ -1,6 +1,5 @@
 import argparse
 import os
-from dataclasses import dataclass
 from os import path
 from os.path import splitext, join
 from typing import List, Union, Dict, Callable, Protocol

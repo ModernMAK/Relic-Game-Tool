@@ -9,7 +9,6 @@ from relic.chunky_formats.dow.sgm.sgm import SgmChunky
 from relic.chunky_formats.dow.sgm.obj_writer import write_sgm
 
 
-
 def build_parser():
     parser = argparse.ArgumentParser(prog="SGM 2 OBJ", description="Convert Relic SGM (Model?) files to wavefront OBJ files.")
     parser.add_argument("input_path", nargs="*", type=str, help="The file(s) or directory(s) to read from.")

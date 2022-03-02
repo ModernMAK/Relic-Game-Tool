@@ -7,9 +7,9 @@ from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
 from ..common_chunks.fbif import FbifChunk
-from relic.chunky_formats.convertable import ChunkConverterFactory
+from ...convertable import ChunkConverterFactory
 from ...util import ChunkCollectionX
-from relic.chunky import DataChunk, GenericDataChunk, ChunkType, RelicChunky, GenericRelicChunky, ChunkyVersion, AbstractChunk, FolderChunk
+from ....chunky import DataChunk, GenericDataChunk, ChunkType, RelicChunky, GenericRelicChunky, ChunkyVersion, AbstractChunk, FolderChunk
 
 
 @dataclass

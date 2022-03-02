@@ -6,8 +6,9 @@ from relic.chunky_formats.dow.rsh import RshChunky, write_rsh
 from scripts.universal.chunky.extractors.common import get_runner
 from scripts.universal.common import SharedExtractorParser
 
+
 def add_args(parser: argparse.ArgumentParser):
-    parser.add_argument("-f", "--fmt", "--format", default=None, choices=["png", "tga", "dds"], type=str.lower,  help="Choose what format to convert textures to.")
+    parser.add_argument("-f", "--fmt", "--format", default=None, choices=["png", "tga", "dds"], type=str.lower, help="Choose what format to convert textures to.")
     parser.add_argument("-c", "-t", "--conv", "--converter", "--texconv", help="Path to texconv.exe to use.")
 
 
@@ -27,7 +28,6 @@ def extract_args(args: argparse.Namespace) -> Dict:
 
 
 Runner = get_runner(extract_rsh, extract_args, ["rsh"], True)
-
 
 if __name__ == "__main__":
     p = build_parser()

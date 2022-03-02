@@ -19,6 +19,7 @@ def build_shared_extractor_parser():
 
 SharedExtractorParser = build_shared_extractor_parser()
 
+
 @dataclass
 class PrintOptions:
     strict: bool = False
@@ -31,6 +32,7 @@ def print_any(f: str, indent: int = 0, print_opts: PrintOptions = None):
     if not print_opts or not print_opts.quiet:
         indent = '\t' * indent
         print(f"{indent}{f}")
+
 
 def print_reading(f: str, indent: int = 0, print_opts: PrintOptions = None):
     if not print_opts or not print_opts.quiet:
@@ -49,6 +51,7 @@ def print_error(e: BaseException, indent: int = 0, print_opts: PrintOptions = No
         indent = '\t' * indent
         print(f"{indent}ERROR \"{e}\"...")
 
+
 def func_print_help(arg_parser: argparse.ArgumentParser, exit_code: int = 0) -> Callable[[argparse.Namespace], None]:
     def wrapper(_: argparse.Namespace):
         arg_parser.print_help()
@@ -60,4 +63,5 @@ def func_print_help(arg_parser: argparse.ArgumentParser, exit_code: int = 0) -> 
 def func_not_implemented(arg_parser: argparse.ArgumentParser = None):
     def wrapper(_: argparse.Namespace) -> None:
         raise NotImplementedError(arg_parser.prog if arg_parser else None)
+
     return wrapper

@@ -156,7 +156,7 @@ class RawAnim:
     bones: List[RawAnimBone]
     meshes: List[RawAnimMesh]
 
-    # Since idk what unks animates, i've ignored it
+    # Since IDK what unks animates, I've ignored it
 
     @classmethod
     def rebuild(cls, d: Dict) -> RawAnim:
@@ -473,7 +473,7 @@ def build(context, filepath):
 
 class ImportWHM(Operator, ImportHelper):
     """Convert WHM data to mesh"""
-    bl_idname = "importer.whm"  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = "importer.whm"  # important since It's how bpy.ops.import_test.some_data is constructed
     bl_label = "open"
 
     # ImportHelper mixin class uses this

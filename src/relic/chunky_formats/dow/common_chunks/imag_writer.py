@@ -6,8 +6,8 @@ from os.path import dirname, splitext, exists
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO, Optional
 
-from relic.chunky_formats.dow.common_chunks.imag import ImagChunk
-from relic.file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC, build_dow_tga_gray_header
+from .imag import ImagChunk
+from ....file_formats.dxt import get_full_dxt_header, build_dow_tga_color_header, DDS_MAGIC, build_dow_tga_gray_header
 
 TEX_CONV = "texconv.exe"
 DEFAULT_LOCAL_TEX_CONV = os.path.abspath(fr".\{TEX_CONV}")
@@ -56,12 +56,13 @@ class ImagConverter:
                 pass
 
     @classmethod
-    def ConvertStream(cls, input_stream: BinaryIO, output_stream: BinaryIO, out_format: str, input_ext: str=None, perform_dds_fix: bool = False, *, texconv_path: str = None):  # An option to fix the dds inversion to avoid redoing a temp file
+    def ConvertStream(cls, input_stream: BinaryIO, output_stream: BinaryIO, out_format: str, input_ext: str = None, perform_dds_fix: bool = False, *, texconv_path: str = None):  # An option to fix the dds inversion to avoid redoing a temp file
         def get_texconv_fmt_ext() -> str:
             lookup = {
                 'png': ".PNG",
             }
             return lookup[out_format.lower()]
+
         input_ext = input_ext or "." + out_format
 
         try:
@@ -112,12 +113,12 @@ class ImagConverter:
     # Less of a conversion
     # writes the imag as an image to the stream, raw will not perform a DDS fix (or any other fixes)
     @classmethod
-    def Imag2Stream(cls, imag: ImagChunk, stream: BinaryIO, out_format: str = None, raw: bool = False, *, texconv_path: str = None, color_tga:bool=True):
+    def Imag2Stream(cls, imag: ImagChunk, stream: BinaryIO, out_format: str = None, raw: bool = False, *, texconv_path: str = None, color_tga: bool = True):
         if raw:  # Regardless of type, don't perform any fixes
-            cls.Imag2StreamRaw(imag, stream,color_tga=color_tga)
+            cls.Imag2StreamRaw(imag, stream, color_tga=color_tga)
         elif out_format:
             with BytesIO() as temp:
-                cls.Imag2StreamRaw(imag, temp,color_tga=color_tga)
+                cls.Imag2StreamRaw(imag, temp, color_tga=color_tga)
                 # We have to check needs fixing otherwise non-dds images will be dds_fixed
                 perform_dds_fix = not raw and imag.attr.image_format.is_dxt
                 temp.seek(0, 0)
@@ -125,10 +126,8 @@ class ImagConverter:
         else:
             if imag.attr.image_format.is_dxt:
                 with BytesIO() as temp:
-                    cls.Imag2StreamRaw(imag, temp,color_tga=color_tga)
+                    cls.Imag2StreamRaw(imag, temp, color_tga=color_tga)
                     temp.seek(0, 0)
                     cls.fix_dow_dds(temp, stream, texconv_path=texconv_path)
             else:  # TGA, no fixes
-                cls.Imag2StreamRaw(imag, stream,color_tga=color_tga)
-
-
+                cls.Imag2StreamRaw(imag, stream, color_tga=color_tga)

@@ -6,9 +6,9 @@ from typing import Union
 
 from archive_tools.vstruct import VStruct
 
-from relic.chunky import ChunkType, ChunkHeader
-from relic.chunky_formats.protocols import ConvertableDataChunk
-from relic.chunky.chunk.chunk import DataChunk, GenericDataChunk
+from ....chunky import ChunkType, ChunkHeader
+from ...protocols import ConvertableDataChunk
+from ....chunky.chunk.chunk import DataChunk, GenericDataChunk
 
 
 @dataclass

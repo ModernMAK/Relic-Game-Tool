@@ -11,12 +11,12 @@ __DDCAP = struct.Struct("< l l 8s")
 _DXT1 = "DXY1"
 _DXT3 = "DXT3"
 _DXT5 = "DXT5"
-_DEFAULT_FLAGS =    0x00001007
-_dwF_MIPMAP =       0x00020000
-_dwF_DEPTH =        0x00800000
-_dwF_PITCH =        0x00000008
-_dwF_LINEAR =       0x00080000
-_ddsF_FOURCC =      0x00000004
+_DEFAULT_FLAGS = 0x00001007
+_dwF_MIPMAP = 0x00020000
+_dwF_DEPTH = 0x00800000
+_dwF_PITCH = 0x00000008
+_dwF_LINEAR = 0x00080000
+_ddsF_FOURCC = 0x00000004
 # I'm under the assumption that I can specify mipmap and then set count to 0
 # I COULD alternatively flag when mips aren't present and then make a different constant
 # According to 'http://doc.51windows.net/directx9_sdk/graphics/reference/DDSFileReference/ddsfileformat.htm#surface_format_header'
@@ -25,7 +25,7 @@ _DOW_DXT_FLAGS = _DEFAULT_FLAGS | _dwF_MIPMAP | _dwF_LINEAR
 
 _ddscaps_F_TEXTURE = 0x1000
 _ddscaps_F_COMPLEX = 0x8
-_ddscaps_F_MIPMAP_S =  0x400000
+_ddscaps_F_MIPMAP_S = 0x400000
 _ddscaps_F_MIPMAP = _ddscaps_F_COMPLEX | _ddscaps_F_MIPMAP_S
 
 # Mipmap requires complex? (Acording to DirectXTex's dds.h)

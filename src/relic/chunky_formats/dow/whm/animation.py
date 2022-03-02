@@ -8,9 +8,9 @@ from archive_tools.ioutil import has_data
 from archive_tools.structx import Struct
 from archive_tools.vstruct import VStruct
 
-from relic.chunky import ChunkType, AbstractChunk, GenericDataChunk, FolderChunk
-from relic.chunky_formats.convertable import ChunkConverterFactory
-from relic.chunky_formats.util import UnimplementedDataChunk, ChunkCollectionX
+from ....chunky import ChunkType, AbstractChunk, GenericDataChunk, FolderChunk
+from ...convertable import ChunkConverterFactory
+from ...util import UnimplementedDataChunk, ChunkCollectionX
 
 
 @dataclass
@@ -139,7 +139,7 @@ class AnimDataUnkFrameInfo:
 class AnimDataChunk(AbstractChunk):
     CHUNK_ID = "DATA"
     CHUNK_TYPE = ChunkType.Data
-    VERSIONS = [1, 2] # ig\troops\battle_tank uses #1, basilisk uses #2, may use different anim layout?
+    VERSIONS = [1, 2]  # ig\troops\battle_tank uses #1, basilisk uses #2, may use different anim layout?
 
     LAYOUT = Struct("i i i")
     COUNT_LAYOUT = Struct("i")

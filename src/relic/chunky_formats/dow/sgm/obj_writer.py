@@ -2,11 +2,11 @@ from os.path import split, splitext, join, basename
 from pathlib import Path
 from typing import TextIO, BinaryIO, Optional
 
-from relic.chunky_formats.dow.common_chunks.imag import TxtrChunk
-from relic.chunky_formats.dow.common_chunks.imag_writer import ImagConverter
-from relic.chunky_formats.dow.sgm.sgm import SgmChunky, SgmRsgmChunk
-from relic.file_formats.mesh_io import Float3
-from relic.file_formats.wavefront_obj import ObjWriter
+from ..common_chunks.imag import TxtrChunk
+from ..common_chunks.imag_writer import ImagConverter
+from .sgm import SgmChunky, SgmRsgmChunk
+from ....file_formats.mesh_io import Float3
+from ....file_formats.wavefront_obj import ObjWriter
 
 
 def get_name_from_texture_path(path: str, strip_ext: bool = True) -> str:

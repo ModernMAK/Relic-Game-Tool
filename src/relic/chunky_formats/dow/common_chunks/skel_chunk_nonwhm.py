@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from relic.chunky.chunk.chunk import AbstractChunk, GenericDataChunk, FolderChunk
-from relic.chunky.chunk.header import ChunkType
-from relic.chunky_formats.util import find_chunks, find_chunk
+from ....chunky.chunk.chunk import AbstractChunk, GenericDataChunk, FolderChunk
+from ....chunky.chunk.header import ChunkType
+from ...util import find_chunks, find_chunk
 
 
 @dataclass
