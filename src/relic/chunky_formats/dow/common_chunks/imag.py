@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from archive_tools.structx import Struct
+from serialization_tools.structx import Struct
 
 from ...util import find_chunk
 from ....chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk

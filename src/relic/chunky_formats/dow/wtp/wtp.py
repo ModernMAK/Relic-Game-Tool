@@ -5,14 +5,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, List
 
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
-from relic.chunky.chunk.chunk import GenericDataChunk, AbstractChunk, FolderChunk
-from relic.chunky.chunk.header import ChunkType
-from relic.chunky.chunky.chunky import GenericRelicChunky, RelicChunky
-from relic.chunky_formats.dow.common_chunks.imag import ImagChunk
-from relic.chunky_formats.util import find_chunks, find_chunk
+from ....chunky.chunk.chunk import GenericDataChunk, AbstractChunk, FolderChunk
+from ....chunky.chunk.header import ChunkType
+from ....chunky.chunky.chunky import GenericRelicChunky, RelicChunky
+from ..common_chunks.imag import ImagChunk
+from ...util import find_chunks, find_chunk
 
 
 # Painted Team Layer Data?

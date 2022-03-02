@@ -9,8 +9,8 @@ from io import BytesIO
 from typing import BinaryIO
 from typing import List, Optional
 
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from .animation import AnimChunk
 from .mesh import MslcChunk

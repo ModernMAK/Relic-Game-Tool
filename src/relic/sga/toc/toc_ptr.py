@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import BinaryIO, Dict, Type, ClassVar, Tuple
 
-from archive_tools.ioutil import Ptr
-from archive_tools.structx import Struct
+from serialization_tools.ioutil import Ptr
+from serialization_tools.structx import Struct
 
 from ...common import VersionLike
 from ..archive import ArchiveVersion

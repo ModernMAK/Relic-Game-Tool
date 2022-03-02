@@ -4,12 +4,10 @@ from os.path import join, exists, abspath
 from pathlib import Path, PurePath
 from typing import Optional, Iterable, Tuple, Set
 
-import archive_tools.common_directories
-
-dll_folder = abspath(join(__file__, "..\\..\\..\\Required EXEs"))
-aifc_decoder_path = join(dll_folder, "dec.exe")
-aifc_encoder_path = join(dll_folder, "enc.exe")
-texconv_path = join(dll_folder, "texconv.exe")
+# dll_folder = abspath(join(__file__, "..\\..\\..\\Required EXEs"))
+# aifc_decoder_path = join(dll_folder, "dec.exe")
+# aifc_encoder_path = join(dll_folder, "enc.exe")
+# texconv_path = join(dll_folder, "texconv.exe")
 
 
 def get_path_to_steam_library(steam_directory: PathLike = None) -> Path:

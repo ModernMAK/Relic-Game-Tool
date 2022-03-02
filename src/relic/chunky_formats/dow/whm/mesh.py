@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import BinaryIO, List, Optional, Tuple, Any
 
-from archive_tools.ioutil import has_data
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.ioutil import has_data
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from relic.chunky import AbstractChunk, ChunkType, GenericDataChunk, FolderChunk
 from relic.chunky_formats.convertable import ChunkConverterFactory

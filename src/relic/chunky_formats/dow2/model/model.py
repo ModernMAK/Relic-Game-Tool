@@ -7,9 +7,9 @@ from io import BytesIO
 from math import sqrt
 from typing import List, Tuple, Optional, BinaryIO, Union, Any
 
-from archive_tools.ioutil import has_data
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.ioutil import has_data
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from relic.chunky import FolderChunk, GenericDataChunk, RelicChunky, ChunkyVersion, GenericRelicChunky, ChunkType, AbstractChunk, ChunkHeaderV0301
 from relic.chunky.serializer import read_chunky
@@ -474,7 +474,7 @@ class VarChunk(AbstractChunk):
                 raise
             # This acts as a soft assertion; if the buffer is too small, we'll get an unpack error
             # if either exceess has extra bytes, then somethings probably wrong, but I don't check for it
-            # T-o-d-o check for it ~ archive_tools VStruct will make sure the buffer does not have any missing bytes (still does not check for excess tho)
+            # T-o-d-o check for it ~ serialization_tools VStruct will make sure the buffer does not have any missing bytes (still does not check for excess tho)
             assert not has_data(stream), stream.read()
             # return cls(chunk.header, prop, var_type, buffer)
             var_data = UnimplementedVar(var_type, buffer)

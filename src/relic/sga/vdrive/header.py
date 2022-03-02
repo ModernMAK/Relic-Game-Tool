@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, BinaryIO, Dict, Type
 
-from archive_tools.structx import Struct
+from serialization_tools.structx import Struct
 
 from ...common import VersionLike
 from ..common import ArchiveVersion, ArchiveRange

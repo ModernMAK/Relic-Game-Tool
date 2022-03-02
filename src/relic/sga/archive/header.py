@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from hashlib import md5
 from typing import BinaryIO, Dict, Type, Tuple
 
-from archive_tools.ioutil import WindowPtr, Ptr, iter_read, StreamPtr
-from archive_tools.magic import MagicWordIO
-from archive_tools.size import KiB
-from archive_tools.structx import Struct
+from serialization_tools.ioutil import WindowPtr, Ptr, iter_read, StreamPtr
+from serialization_tools.magic import MagicWordIO
+from serialization_tools.size import KiB
+from serialization_tools.structx import Struct
 
 from ..common import ArchiveVersion
 from ...common import VersionLike

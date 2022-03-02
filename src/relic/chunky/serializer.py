@@ -1,6 +1,6 @@
 from typing import BinaryIO, List
 
-from archive_tools.ioutil import BinaryWindow, has_data
+from serialization_tools.ioutil import BinaryWindow, has_data
 from .chunk import AbstractChunk, FolderChunk, GenericDataChunk, ChunkHeader, ChunkType
 from .chunky import ChunkyVersion, ChunkyMagic, ChunkyHeader, GenericRelicChunky
 

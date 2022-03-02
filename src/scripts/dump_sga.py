@@ -3,7 +3,7 @@ from os.path import splitext, dirname, basename
 from pathlib import Path
 from typing import Iterable
 
-from archive_tools.walkutil import BlackList, WhiteList, filter_by_path, filter_by_file_extension, collapse_walk_on_files
+from serialization_tools.walkutil import BlackList, WhiteList, filter_by_path, filter_by_file_extension, collapse_walk_on_files
 
 from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
 

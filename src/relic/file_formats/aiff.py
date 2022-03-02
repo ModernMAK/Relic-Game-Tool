@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import BinaryIO, Tuple, Union, List, Optional
 
-from archive_tools.magic import MagicWord
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.magic import MagicWord
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 
 @dataclass
