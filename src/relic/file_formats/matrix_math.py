@@ -425,15 +425,15 @@ class Quaternion:
     def as_euler(self, use_deg: bool = True, round_places: int = 4) -> Float3:
         qx, qy, qz, qw = self.xyzw
 
-        roll = math.atan2(2 * (qx*qy+qz*qw), 1 - 2 * (qy ** 2 + qz **2))
+        roll = math.atan2(2 * (qx * qy + qz * qw), 1 - 2 * (qy ** 2 + qz ** 2))
         sin_term = 2 * (qx * qz - qw * qy)
         if sin_term >= 1.0:
             pitch = 90 * self._DEG2RAD
         elif sin_term <= -1.0:
-            pitch = -90*self._RAD2DEG
+            pitch = -90 * self._RAD2DEG
         else:
             pitch = math.asin(sin_term)
-        yaw = math.atan2(2 * (qx*qw+qy*qz), 1 - 2 * (qz ** 2 + qw **2))
+        yaw = math.atan2(2 * (qx * qw + qy * qz), 1 - 2 * (qz ** 2 + qw ** 2))
 
         # special = 2 * (qx * qy + qz * qw)
         # if special >= 1.0:

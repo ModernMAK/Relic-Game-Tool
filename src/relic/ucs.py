@@ -1,35 +1,75 @@
-import os
+from __future__ import annotations
+
+import json
 import re
+from os import PathLike, walk
+from collections import UserDict
 from os.path import join, splitext, split
-from typing import TextIO, Dict, Optional, Iterable
+from pathlib import Path
+from typing import TextIO, Optional, Iterable, Union, Mapping
 
-from relic.shared import filter_walk_by_extension, collapse_walk_on_files, \
-    filter_path_by_keyword
+# UCS probably stands for UnicodeString
+#   I personally think that's a horribly misleading name for this file
+from archive_tools.walkutil import filter_by_file_extension, collapse_walk_on_files, filter_by_path
+
+from relic.config import DowIIIGame, DowGame, DowIIGame, filter_latest_dow_game, get_dow_root_directories
 
 
-def read_ucs_file(input_filename: str) -> Dict[int, str]:
-    with open(input_filename, "r", encoding="utf-16") as handle:
-        return read_ucs(handle)
+class UcsDict(UserDict):
+    def write_stream(self, stream: TextIO, ordered: bool = False) -> int:
+        written = 0
+        items = self.data.items()
+        if ordered:
+            items = sorted(items)
+        for key, value in items:
+            written += stream.write(f"{key}\t{value}\n")
+        return written
+
+    def write(self, file: PathLike, ordered: bool = False) -> int:
+        with open(file, "w") as handle:
+            return self.write_stream(handle, ordered)
 
 
-def read_ucs(stream: TextIO) -> Dict[int, str]:
-    lookup = {}
-    for line in stream.readlines():
-        safe_line = line.lstrip()
-        parts = safe_line.split(maxsplit=1)
-        if len(parts) == 0:
-            continue
+class UnicodeStringFile(UcsDict):
+    @classmethod
+    def read(cls, file: PathLike) -> UnicodeStringFile:
+        with open(file, "r", encoding="utf-16") as handle:
+            return cls.read_stream(handle)
 
-        num_str = parts[0]
-        line_str = parts[1] if len(parts) >= 2 else "No Localisation"
+    @classmethod
+    def read_stream(cls, stream: TextIO) -> UnicodeStringFile:
+        ucs_file = UnicodeStringFile()
 
-        try:
-            num = int(num_str)
-        except ValueError:
-            continue
-        line_str = line_str.rstrip("\n")
-        lookup[num] = line_str
-    return lookup
+        # prev_num: int = None
+        # prev_str: str = None
+        for line in stream.readlines():
+            safe_line = line.lstrip()
+            parts = safe_line.split(maxsplit=1)
+
+            if len(parts) == 0:
+                continue
+            assert len(parts) <= 2
+
+            num_str = parts[0]
+            line_str = parts[1].rstrip("\n") if len(parts) >= 2 else ''
+            try:
+                num = int(num_str)
+            except ValueError:
+                raise
+                # num = prev_num
+                # prev_str = ucs_file[num]
+                # if prev_str is not None and line_str is not None:
+                #     line_str = ucs_file[num] + line_str
+                # else:  # at least one is None, try to use null coalescence to get a non-None
+                # line_str = prev_str or line_str
+
+            ucs_file[num] = line_str
+            prev_num = num
+        return ucs_file
+
+
+# Alias to make me feel less butt-hurt about UnicodeStringFile's name
+LangFile = UnicodeStringFile
 
 
 # TODO find a better solution
@@ -37,45 +77,59 @@ def lang_code_to_name(lang_code: str) -> Optional[str]:
     lang_code = lang_code.lower()
     lookup = {
         "en": "English",
-        # I could do what I did for EG and change language for get the Locale folders for each; but I wont.
+        # I could do what I did for EG and change language for get the Locale folders for each; but I won't.
         #   If somebody ever uses this; add it here
     }
     return lookup.get(lang_code)
 
 
-
-
-def walk_ucs(folder: str, lang_code: str = None) -> Iterable[str]:
-    walk = os.walk(folder)
-    walk = filter_walk_by_extension(walk, ".ucs")
-    walk = collapse_walk_on_files(walk)
-    # for r, _, files in walk:
-    #     for file in files:
-    #         print(r + "\\" + file)
-    # raise NotImplementedError()
-
+def walk_ucs(folder: PathLike, lang_code: str = None) -> Iterable[str]:
+    walk_result = walk(folder)
+    walk_result = filter_by_file_extension(walk_result, ".ucs")
+    walk_result = collapse_walk_on_files(walk_result)
     if lang_code:
         lang_name = lang_code_to_name(lang_code)
         if lang_name:
-            walk = (file for file in walk if filter_path_by_keyword(file, whitelist=["Locale"])) # Only files that have Locale
-            walk = (file for file in walk if filter_path_by_keyword(file, whitelist=[lang_name])) # From there, only files of the given language
+            walk_result = (file for file in walk_result if filter_by_path(file, whitelist=["Locale"]))  # Only files that have Locale
+            walk_result = (file for file in walk_result if filter_by_path(file, whitelist=[lang_name]))  # From there, only files of the given language
+    return walk_result
 
-    return walk
 
+class LangEnvironment(UcsDict):
+    def __init__(self, allow_replacement: bool = False, __dict: Mapping[int, str] = None, **kwargs):
+        super().__init__(__dict, **kwargs)
+        if allow_replacement:
+            self.__setitem__ = self.__setitem__noreplace
 
-def build_locale_environment(folder: str, lang_code: str = "en") -> Dict[int, str]:
-    master = {}
-    # for file in collapse_walk_on_files(walk_ucs(folder, lang_code)):
-    for path in walk_ucs(folder, lang_code):
-        # for file in files:
-        # path = join(root, file)
-        mapping = read_ucs_file(path)
-        master.update(mapping)
-    return master
+    def __setitem__noreplace(self, k, v):
+        try:
+            existing = self.__getitem__(k)
+            raise ValueError(f"Key '{k}' exists! Trying to replace '{existing}' with '{v}")
+        except KeyError:
+            super(UserDict, self).__setitem__(k, v)
+
+    @classmethod
+    def load_environment(cls, folder: PathLike, lang_code: str = None, allow_replacement: bool = False) -> LangEnvironment:
+        lang_env = LangEnvironment(allow_replacement=allow_replacement)
+        lang_env.read_all(folder, lang_code)
+        return lang_env
+
+    def read(self, file: PathLike):
+        lang_file = LangFile.read(file)
+        self.update(lang_file)
+
+    def read_stream(self, stream: TextIO):
+        lang_file = LangFile.read_stream(stream)
+        self.update(lang_file)
+
+    def read_all(self, folder: PathLike, lang_code: str = None):
+        for ucs_path in walk_ucs(folder, lang_code):
+            self.read(ucs_path)
 
 
 __safe_regex = re.compile(r"[^A-Za-z0-9_\- .]")
 _default_replacement = ""
+
 
 def _file_safe_string(word: str, replace: str = None) -> str:
     replace = replace or _default_replacement
@@ -84,7 +138,7 @@ def _file_safe_string(word: str, replace: str = None) -> str:
     return word
 
 
-def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str:
+def get_lang_string_for_file(environment: Union[LangEnvironment, LangFile], file_path: str) -> str:
     dir_path, f_path = split(file_path)
     file_name, ext = splitext(f_path)
     try:
@@ -101,11 +155,11 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
     if not replacement:
         return file_path
 
-    # The clips are long, a nd while we could say 'narration' or manually do it
+    # The clips are long, and while we could say 'narration' or manually do it
     #   By trimming it to at most
     MAX_LEN = 64
     MAX_TRIM = 8
-    chars = ".!?"#;:," # ORDERED SPECIFICALLY FOR THIS
+    chars = ".!?"  # ;:," # ORDERED SPECIFICALLY FOR THIS
     for c in chars:
         if len(replacement) > MAX_LEN:
             replacement = replacement.split(c, 1)[0] + c
@@ -114,8 +168,8 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
     # Some brute forcing
     if len(replacement) > MAX_LEN:
         for i in range(MAX_TRIM):
-            if replacement[MAX_LEN-i-1] == " ":
-                replacement = replacement[:MAX_LEN-i] + "..."
+            if replacement[MAX_LEN - i - 1] == " ":
+                replacement = replacement[:MAX_LEN - i] + "..."
     if len(replacement) > MAX_LEN:
         replacement = replacement[:MAX_LEN] + "..."
 
@@ -123,12 +177,31 @@ def get_lang_string_for_file(environment: Dict[int, str], file_path: str) -> str
     return join(dir_path, replacement + f" ~ Clip {num}" + ext)
 
 
-def print_ucs(ucs: Dict[int, str]):
-    for num, text in ucs.items():
-        print(f"{num} : {text}")
-
-
 if __name__ == "__main__":
-    ucs = read_ucs_file(
-        r"G:\Clients\Steam\Launcher\steamapps\common\Dawn of War Soulstorm\W40k\Locale\English\W40k.ucs")
-    print_ucs(ucs)
+    # A compromise between an automatic location and NOT the local directory
+    #   PyCharm will hang trying to reload the files (just to update the hierarchy, not update references)
+    #       To avoid that, we DO NOT use a local directory, but an external directory
+    #           TODO add a persistent_data path to archive tools
+    Root = Path(r"~\Appdata\Local\ModernMAK\ArchiveTools\Relic-SGA").expanduser()
+    dump_type = "UCS_DUMP"
+    path_lookup = {
+        DowIIIGame: Root / r"DOW_III",
+        DowIIGame: Root / r"DOW_II",
+        DowGame: Root / r"DOW_I"
+    }
+    series = DowGame
+    out_path = path_lookup[series] / dump_type
+    r = filter_latest_dow_game(get_dow_root_directories(), series=series)
+    if r:
+        game, in_path = r
+    else:
+        raise FileNotFoundError("Couldn't find any suitable DOW games!")
+
+    print("Loading Locale Environment...")
+    lang_env = LangEnvironment.load_environment(in_path)
+    print(f"\tReading from '{in_path}'")
+    out_path = out_path.with_suffix(".json")
+    with open(out_path, "w") as handle:
+        lang_env_sorted = dict(sorted(lang_env.items()))
+        json.dump(lang_env_sorted, handle, indent=4)
+        print(f"\tSaved to '{out_path}'")

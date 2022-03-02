@@ -1,4 +1,8 @@
-from os.path import split, join, abspath
+import os
+from os.path import split, join, abspath, splitext
+from typing import Iterable
+
+TF = (True, False)
 
 
 def _find_tests_root_folder() -> str:
@@ -17,7 +21,15 @@ def _find_tests_root_folder() -> str:
 
 def get_testdata_root_folder() -> str:
     tests_root = _find_tests_root_folder()
-    return abspath(join(tests_root, "..", "sample_data"))
+    return abspath(join(tests_root, "..", "test_data"))
+
+
+def get_sga_paths() -> Iterable[str]:
+    testdata_root = get_testdata_root_folder()
+    for root, _, files in os.walk(testdata_root):
+        for file in files:
+            if splitext(file)[1].lower() == "sga":
+                yield join(root, file)
 
 
 def get_testdata_path(relative_path: str):
@@ -25,9 +37,10 @@ def get_testdata_path(relative_path: str):
         relative_path = relative_path[1:]
     return join(get_testdata_root_folder(), relative_path)
 
+
 lorem_ipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." \
-                  " Malesuada fames ac turpis egestas. Accumsan lacus vel facilisis volutpat est velit." \
-                  " Turpis egestas pretium aenean pharetra magna ac placerat vestibulum lectus. Tellus cras adipiscing enim eu turpis egestas." \
-                  " Pellentesque adipiscing commodo elit at imperdiet dui accumsan sit. Massa enim nec dui nunc mattis." \
-                  " Gravida in fermentum et sollicitudin ac orci phasellus egestas." \
-                  " Eu volutpat odio facilisis mauris sit amet massa vitae. Diam quis enim lobortis scelerisque fermentum dui faucibus."
+              " Malesuada fames ac turpis egestas. Accumsan lacus vel facilisis volutpat est velit." \
+              " Turpis egestas pretium aenean pharetra magna ac placerat vestibulum lectus. Tellus cras adipiscing enim eu turpis egestas." \
+              " Pellentesque adipiscing commodo elit at imperdiet dui accumsan sit. Massa enim nec dui nunc mattis." \
+              " Gravida in fermentum et sollicitudin ac orci phasellus egestas." \
+              " Eu volutpat odio facilisis mauris sit amet massa vitae. Diam quis enim lobortis scelerisque fermentum dui faucibus."

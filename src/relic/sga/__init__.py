@@ -1,31 +1,19 @@
+from .archive import *
+from .file import *
+from .folder import *
+from .toc import *
+from .vdrive import *
+from . import common, hierarchy, writer
+from . import archive, file, folder, toc, vdrive
+
 __all__ = [
-    "Archive",
-    "ArchiveHeader",
-    "ArchiveInfo",
-    "ArchiveSubHeader",
-    "ArchiveTableOfContents",
-    "ArchiveToC",
-    "FilenameOffsetInfo",
-    "VirtualDriveHeader",
-    "VirtualDrive",
-    "dumper",
-    "FileHeader",
-    "File",
-    "AbstractDirectory",
-    "Folder",
-    "FolderHeader",
-    "ARCHIVE_MAGIC",
-    "ARCHIVE_MAGIC_WALKER",
-    "OffsetInfo",
-    "SparseArchive",
-    "Version",
-    "writer"
+    "common",
+    "hierarchy",
+    "writer",
 ]
 
-from relic.sga.archive import Archive, SparseArchive
-from relic.sga.archive_header import ArchiveHeader, ArchiveInfo, ArchiveSubHeader, ArchiveTableOfContents, ArchiveToC
-from relic.sga.file import File, FileHeader
-from relic.sga.file_collection import AbstractDirectory
-from relic.sga.folder import Folder, FolderHeader
-from relic.sga.shared import ARCHIVE_MAGIC, ARCHIVE_MAGIC_WALKER, OffsetInfo, FilenameOffsetInfo, Version
-from relic.sga.virtual_drive import VirtualDriveHeader, VirtualDrive
+__all__.extend(archive.__all__)
+__all__.extend(file.__all__)
+__all__.extend(folder.__all__)
+__all__.extend(toc.__all__)
+__all__.extend(vdrive.__all__)

@@ -1,23 +1,20 @@
-# Ignore all files in dump; these are files extracted from ASURA Resource files files
-# While no longer just asura, these should be ignored, we also include gen
-dump/
-unpack/
-repack/
-gen/
-
-
-## Custom content
-cc/
-
 # Ignore virtual environment
 venv/
 __pycache__/
+
 # Ignore Pycharm
 .idea/
-# Ignore 3rd party software
-depends/
+
 #Ignore pytest
 .pytest_cache/
 
-secrets/
-src/dll/texconv.exe
+# Ignore WIP EXE dumps
+/EXE Rev-Engineering
+
+# Ignore setup.py stuff
+src/**.egg-info/*
+dist/*
+
+# Ignore debug-dev dumped Binary files (Files saved to cwd for fast examination)
+src/scripts/*.bin
+ignore/texconv.exe
