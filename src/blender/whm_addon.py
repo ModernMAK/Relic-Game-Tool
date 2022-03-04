@@ -1,13 +1,14 @@
 import math
 from os.path import basename
+from os.path import basename
 from typing import Tuple, List, Optional
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
-from bpy.types import Operator, TOPBAR_MT_file_import, Object, Armature, Action, PoseBone
+from bpy.types import Operator, TOPBAR_MT_file_import, Object, Action
 from bpy.utils import unregister_class, register_class
 from bpy_extras.io_utils import ImportHelper
-from mathutils import Matrix, Vector, Quaternion
+from mathutils import Matrix, Vector, Quaternion, Euler
 
 from relic.chunky.serializer import read_chunky
 from relic.chunky_formats.dow.whm.animation import AnimChunk
@@ -66,6 +67,19 @@ class ImportRelicWHM(Operator, ImportHelper):
         # negate y => negate w
         #   Final w is negated [ (-1)^3 ]
         qx, qy, qz, qw = -q[0], -q[2], q[1], -q[3]
+        return Quaternion([qw, qx, qy, qz])  # Blender wants w first
+
+    @staticmethod
+    def whm_anim_quat_to_blend_quat(q: Float4) -> Quaternion:
+        # anim quat is rel?
+        # Bone X (R), Y (U), Z (F)
+        # BLEND (R), Y (B), Z (U)
+
+        # X axis unchanged (Rx -> Rx)
+        # Y axis = -bone Z (F -> B)
+        # Z Axis = bone Y (U - U)
+        # w same (negate axis and swap axis is one negate each, so it cancels)
+        qx, qy, qz, qw = q[0], q[1], q[2], q[3]
         return Quaternion([qw, qx, qy, qz])  # Blender wants w first
 
     def generate_mesh(self, mslc: MslcChunk) -> Object:
@@ -146,7 +160,8 @@ class ImportRelicWHM(Operator, ImportHelper):
             # Assemble Hierarchy
             for i, transform in enumerate(skel.bones):
                 if transform.parent_index == -1:  # ROOT
-                    world_matrix[i] = local_matrix[i]
+                    lm = local_matrix[i]
+                    world_matrix[i] = lm
                     continue
                 parent_bone = bones[transform.parent_index]
                 child_bone = bones[i]
@@ -165,7 +180,19 @@ class ImportRelicWHM(Operator, ImportHelper):
             # Apply Transforms (Could be merged but assemble is ugly enough as-is)
             for i in range(len(skel.bones)):
                 bone = bones[i]
-                bone.matrix = world_matrix[i]
+
+                wm = world_matrix[i]
+                q = Euler([0, 0, math.radians(-90)])
+                wt = wm.to_translation()
+                ws = wm.to_scale()
+                wq = wm.to_quaternion().to_matrix()
+                fq = wq @ q.to_matrix()
+                fm = Matrix.LocRotScale(wt, fq, ws)
+
+                bone.matrix = fm
+                bone.roll = 0
+
+
 
         finally:
             if old_obj:
@@ -225,33 +252,35 @@ class ImportRelicWHM(Operator, ImportHelper):
 
         for anim_bone in anim.data.bones:
             bone = armature_obj.pose.bones[anim_bone.name]
-            if len(anim_bone.positions) > 0:
+            if len(anim_bone.positions) > 0:  # skip
                 for _, v in anim_bone.positions.items():
                     # TODO, currently anim includes frame in v and doesn't convert to a frame number
                     f = round(v[0] * (anim.data.key_frames - 1))
                     v = v[1:]
-                    if bone.parent is None:
-                        bone.location = self.whm_vector_to_blend_vector(v)
-                    else:
-                        bone.location = [-v[0], v[1], v[2]]
-
+                    # if bone.parent is None:
+                    bone.location = self.whm_vector_to_blend_vector(v)
+                    # else:
+                    #     bone.location = [-v[0], v[1], v[2]]
                     armature_obj.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].location', frame=f)
+                    bone.matrix_basis = Matrix()
             if len(anim_bone.rotations) > 0:
                 for f, q in anim_bone.rotations.items():
                     # TODO, currently anim includes frame in v and doesn't convert to a frame number
                     f = round(q[0] * (anim.data.key_frames - 1))
                     q = q[1:]
-                    if bone.parent is None:
-                        bone.rotation_quaternion = self.whm_quat_to_blend_quat(q)
-                    else:
-                        # rot_90x = Quaternion([1,0,0], math.radians(90))
-                        rot = Quaternion([q[3], q[0], q[1], q[2]])
-                        # mat:Matrix = rot_90x.to_matrix() @ rot.to_matrix()
-                        # f_rot = mat.to_quaternion()
-                        bone.rotation_quaternion = rot
+                    # if bone.parent is None:
+                    bq = self.whm_quat_to_blend_quat(q)
+                    rq = Euler([0, 0, math.radians(-90)])
+                    bq.rotate(rq)
+                    bone.rotation_quaternion = bq
+                    # else:
+                    # rot_90x = Quaternion([1,0,0], math.radians(90))
+                    # rot = Quaternion([q[3], q[0], q[1], q[2]])
+                    # mat:Matrix = rot_90x.to_matrix() @ rot.to_matrix()
+                    # f_rot = mat.to_quaternion()
+                    # bone.rotation_quaternion = rot
                     armature_obj.keyframe_insert(data_path=f'pose.bones["{anim_bone.name}"].rotation_quaternion', frame=f)
-        for bone in armature_obj.pose.bones:
-            bone.matrix_basis = Matrix()
+                    bone.matrix_basis = Matrix()
 
     def import_whm(self, context, whm_chunky: WhmChunky):
         scene = context.scene
