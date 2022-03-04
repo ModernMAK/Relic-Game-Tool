@@ -222,6 +222,7 @@ class ImportRelicWHM(Operator, ImportHelper):
         if not any(len(b.positions) > 0 or len(b.rotations) > 0 for b in anim.data.bones):
             return None  # Ignore, we don't support mesh vis currently
         armature_obj.animation_data.action = self.get_animation(anim.header.name)
+
         for anim_bone in anim.data.bones:
             bone = armature_obj.pose.bones[anim_bone.name]
             if len(anim_bone.positions) > 0:
@@ -244,7 +245,7 @@ class ImportRelicWHM(Operator, ImportHelper):
                         bone.rotation_quaternion = self.whm_quat_to_blend_quat(q)
                     else:
                         # rot_90x = Quaternion([1,0,0], math.radians(90))
-                        rot = Quaternion([q[3],q[0],q[1],q[2]])
+                        rot = Quaternion([q[3], q[0], q[1], q[2]])
                         # mat:Matrix = rot_90x.to_matrix() @ rot.to_matrix()
                         # f_rot = mat.to_quaternion()
                         bone.rotation_quaternion = rot
@@ -257,6 +258,7 @@ class ImportRelicWHM(Operator, ImportHelper):
         rsgm = whm_chunky.rsgm
         armature_obj = None
         mesh_objs = []
+        root_obj = None
         if isinstance(rsgm, RsgmChunkV3):
             skel = rsgm.skel
             for mslc in rsgm.msgr.mslc:
@@ -274,6 +276,13 @@ class ImportRelicWHM(Operator, ImportHelper):
                         self.generate_animation(armature_obj, anim)
         else:
             raise TypeError(rsgm.header)
+
+        if not root_obj:
+            if armature_obj:
+                root_obj = armature_obj
+            else:
+                raise NotImplementedError
+        root_obj.name = rsgm.header.name
 
     def execute(self, context):
         try:
