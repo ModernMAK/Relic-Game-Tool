@@ -1,6 +1,5 @@
 import math
 from os.path import basename
-from os.path import basename
 from typing import Tuple, List, Optional
 
 import bpy
@@ -190,7 +189,22 @@ class ImportRelicWHM(Operator, ImportHelper):
                 fm = Matrix.LocRotScale(wt, fq, ws)
 
                 bone.matrix = fm
-                bone.roll = 0
+
+                # bone.roll = 0
+            # Prettify rig
+            for b in bones:
+                children = b.children
+                if len(children) == 1:
+                    b_dir: Vector = b.tail - b.head
+                    c_dir: Vector = children[0].head - b.head
+                    aligned = b_dir.normalized().dot(c_dir.normalized())
+                    ERR = 0.001
+                    if (1 - ERR) <= aligned <= (1 + ERR):  # Close enough, same direction
+                        b.tail = children[0].head
+
+
+
+
 
 
 
