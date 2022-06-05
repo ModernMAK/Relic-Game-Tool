@@ -4,7 +4,7 @@ from os.path import join, exists, abspath
 from pathlib import Path, PurePath
 from typing import Optional, Iterable, Tuple, Set
 
-import archive_tools.common_directories
+import serialization_tools.common_directories
 
 dll_folder = abspath(join(__file__, "..\\..\\..\\Required EXEs"))
 aifc_decoder_path = join(dll_folder, "dec.exe")

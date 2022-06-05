@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import BinaryIO, Dict, Type, Union
 
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from ..chunky.header import ChunkyVersion
 from ...common import VersionLike, VersionError

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, List
 
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from relic.chunky.chunk.chunk import GenericDataChunk, AbstractChunk, FolderChunk
 from relic.chunky.chunk.header import ChunkType

@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Dict, Tuple, BinaryIO, List
 
-from archive_tools.ioutil import has_data
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.ioutil import has_data
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from ....chunky import ChunkType, AbstractChunk, GenericDataChunk, FolderChunk
 from ...convertable import ChunkConverterFactory

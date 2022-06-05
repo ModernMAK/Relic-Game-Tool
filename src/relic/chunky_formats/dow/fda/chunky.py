@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from ..common_chunks.fbif import FbifChunk
 from ...convertable import ChunkConverterFactory

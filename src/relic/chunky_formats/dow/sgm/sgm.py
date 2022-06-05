@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from archive_tools.structx import Struct
+from serialization_tools.structx import Struct
 
 from ....chunky import RelicChunky, AbstractChunk, FolderChunk, GenericDataChunk
 from ....chunky.chunk import ChunkType

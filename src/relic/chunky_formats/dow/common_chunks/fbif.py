@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, date, time
 from typing import Union
 
-from archive_tools.vstruct import VStruct
+from serialization_tools.vstruct import VStruct
 
 from ....chunky import ChunkType, ChunkHeader
 from ...protocols import ConvertableDataChunk

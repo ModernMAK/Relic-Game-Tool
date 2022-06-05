@@ -7,9 +7,9 @@ from io import BytesIO
 from math import sqrt
 from typing import List, Tuple, Optional, BinaryIO, Union, Any
 
-from archive_tools.ioutil import has_data
-from archive_tools.structx import Struct
-from archive_tools.vstruct import VStruct
+from serialization_tools.ioutil import has_data
+from serialization_tools.structx import Struct
+from serialization_tools.vstruct import VStruct
 
 from relic.chunky import FolderChunk, GenericDataChunk, RelicChunky, ChunkyVersion, GenericRelicChunky, ChunkType, AbstractChunk, ChunkHeaderV0301
 from relic.chunky.serializer import read_chunky
