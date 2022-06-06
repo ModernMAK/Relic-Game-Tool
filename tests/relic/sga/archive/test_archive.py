@@ -1,6 +1,6 @@
 from typing import BinaryIO
 
-from helpers import get_sga_paths, TF
+from tests.helpers import get_sga_paths, TF
 from relic.sga.archive import Archive, ArchiveMagicWord
 
 archive_paths = get_sga_paths()
