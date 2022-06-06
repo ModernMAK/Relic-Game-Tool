@@ -3,7 +3,7 @@ import os
 from os.path import join, splitext
 from typing import Callable, Dict, Union, List
 
-from archive_tools.walkutil import blacklisted
+from serialization_tools.walkutil import blacklisted
 
 from relic.sga import ArchiveMagicWord
 from scripts.universal.common import print_error, print_wrote, print_reading, PrintOptions, SharedExtractorParser

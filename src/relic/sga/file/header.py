@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import BinaryIO, ClassVar, Type, Dict
 
-from archive_tools.ioutil import Ptr, WindowPtr
-from archive_tools.structx import Struct
+from serialization_tools.ioutil import Ptr, WindowPtr
+from serialization_tools.structx import Struct
 
 from ..common import ArchiveVersion
 from ...common import VersionLike

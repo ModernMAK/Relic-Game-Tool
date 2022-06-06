@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
-from archive_tools.structx import Struct
+from serialization_tools.structx import Struct
 
 from relic.chunky import AbstractChunk, ChunkType, GenericDataChunk
 from relic.file_formats.mesh_io import Float4

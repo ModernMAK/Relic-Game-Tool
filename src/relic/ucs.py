@@ -10,7 +10,7 @@ from typing import TextIO, Optional, Iterable, Union, Mapping
 
 # UCS probably stands for UnicodeString
 #   I personally think that's a horribly misleading name for this file
-from archive_tools.walkutil import filter_by_file_extension, collapse_walk_on_files, filter_by_path
+from serialization_tools.walkutil import filter_by_file_extension, collapse_walk_on_files, filter_by_path
 
 from relic.config import DowIIIGame, DowGame, DowIIGame, filter_latest_dow_game, get_dow_root_directories
 

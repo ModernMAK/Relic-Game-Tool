@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import BinaryIO, Dict, Type
 
-from archive_tools.magic import MagicWordIO, MagicWord
-from archive_tools.structx import Struct
+from serialization_tools.magic import MagicWordIO, MagicWord
+from serialization_tools.structx import Struct
 
 from relic.common import VersionEnum, Version, VersionLike, VersionError
 

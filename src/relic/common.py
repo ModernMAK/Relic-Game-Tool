@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Union, Optional, Type, List
 
-from archive_tools.structx import Struct
+from serialization_tools.structx import Struct
 
 
 class ListableEnum(Enum):
