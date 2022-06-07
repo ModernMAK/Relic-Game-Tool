@@ -155,6 +155,13 @@ class DowIIArchiveHeader(ArchiveHeader):
             valid &= _validate_md5_checksum(stream, ptrs[i], self.MD5_EIGENVALUES[i], self.checksums[i], _assert=_assert)
         return valid
 
+    def __eq__(self, other):
+        # TODO make issue to add equality to WindowPtr/Ptr
+        return self.name == other.name and self.unk == other.unk \
+            and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
+            and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
+            and self.version == other.version and self.checksums[0] == other.checksums[0] and self.checksums[1] == other.checksums[1]
+
     @property
     def version(self) -> VersionLike:
         return ArchiveVersion.Dow2
