@@ -49,15 +49,20 @@ def walk(collection: Union[DriveCollection, FolderCollection, FileCollection]) -
 
     drives = collection.drives if isinstance(collection, DriveCollection) else []
     sub_folders = collection.sub_folders if isinstance(collection, FolderCollection) else []
-    files = collection.files if isinstance(collection, FileCollection) else []
+    files = collection.files if isinstance(collection, FileCollection) and not isinstance(collection,VirtualDrive) else []
 
     root_drive = collection if isinstance(collection, VirtualDrive) else None
     root_folder = collection if isinstance(collection, Folder) else None
 
     # TODO optimize
     #   logically, we can only walk folder OR drive
-
-    yield root_drive, root_folder, sub_folders, files
+    if root_drive is None and root_folder is None and len(sub_folders) == 0 and len(files) == 0:
+        # I don't think we need to return ANYTHING if we won't be iterating over it
+        pass
+        # if len(drives) == 0: # We will only yield this item, so we return this to always iterate over something
+        #     yield root_drive, root_folder, sub_folders, files
+    else:
+        yield root_drive, root_folder, sub_folders, files # at least one of these isn't None/Empty so we yield iti
 
     for drive in drives:
         for d, f, folds, files, in walk(drive):
