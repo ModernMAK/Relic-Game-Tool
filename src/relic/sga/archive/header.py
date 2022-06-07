@@ -76,13 +76,13 @@ class ArchiveHeader:
         return written
 
 
-def _gen_md5_checksum(stream: BinaryIO, eigen: bytes, buffer_size: int = 64 * KiB, ptr: Ptr = None):
+def _gen_md5_checksum(stream: BinaryIO, eigen: bytes, buffer_size: int = 64 * KiB, ptr: Ptr = None) -> bytes:
     hasher = md5(eigen) if eigen else md5()
     ptr = ptr or StreamPtr(stream)  # Quick way to preserve stream integrity
     with ptr.stream_jump_to(stream) as handle:
         for buffer in iter_read(handle, buffer_size):
             hasher.update(buffer)
-    return hasher.hexdigest()
+    return bytes.fromhex(hasher.hexdigest())
 
 
 def _validate_md5_checksum(stream: BinaryIO, ptr: WindowPtr, eigen: bytes, expected: bytes, buffer_size: int = 1024 * 64, _assert: bool = True) -> bool:
@@ -118,7 +118,6 @@ class DowIArchiveHeader(ArchiveHeader):
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> 'DowIArchiveHeader':
         csum_a, name, csum_b, toc_size, data_offset = cls.LAYOUT.unpack_stream(stream)
-        csum_a, csum_b = csum_a.hex(), csum_b.hex()
 
         name = name.decode("utf-16-le").rstrip("\0")
         toc_ptr = WindowPtr(offset=stream.tell(), size=toc_size)
@@ -128,8 +127,15 @@ class DowIArchiveHeader(ArchiveHeader):
         return cls(name, toc_ptr, data_ptr, (csum_a, csum_b))
 
     def _pack(self, stream: BinaryIO) -> int:
-        args = self.checksums[0], self.name, self.checksums[1]
+        args = self.checksums[0], self.name.encode("utf-16-le"), self.checksums[1], self.toc_ptr.size, self.data_ptr.offset
         return self.LAYOUT.pack_stream(stream, *args)
+
+    def __eq__(self, other):
+        # TODO make issue to add equality to WindowPtr/Ptr
+        return self.name == other.name \
+               and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
+               and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
+               and self.version == other.version and self.checksums[0] == other.checksums[0] and self.checksums[1] == other.checksums[1]
 
 
 @dataclass
@@ -155,6 +161,13 @@ class DowIIArchiveHeader(ArchiveHeader):
             valid &= _validate_md5_checksum(stream, ptrs[i], self.MD5_EIGENVALUES[i], self.checksums[i], _assert=_assert)
         return valid
 
+    def __eq__(self, other):
+        # TODO make issue to add equality to WindowPtr/Ptr
+        return self.name == other.name and self.unk == other.unk \
+            and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
+            and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
+            and self.version == other.version and self.checksums[0] == other.checksums[0] and self.checksums[1] == other.checksums[1]
+
     @property
     def version(self) -> VersionLike:
         return ArchiveVersion.Dow2
@@ -162,7 +175,6 @@ class DowIIArchiveHeader(ArchiveHeader):
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> 'DowIIArchiveHeader':
         csum_a, name, csum_b, toc_size, data_offset, toc_pos, rsv_1, rsv_0, unk = cls.LAYOUT.unpack_stream(stream)
-        csum_a, csum_b = csum_a.hex(), csum_b.hex()
 
         assert rsv_1 == 1
         assert rsv_0 == 0
@@ -174,7 +186,7 @@ class DowIIArchiveHeader(ArchiveHeader):
         return cls(name, toc_ptr, data_ptr, (csum_a, csum_b), unk)
 
     def _pack(self, stream: BinaryIO) -> int:
-        args = self.checksums[0], self.name, self.checksums[1], self.toc_ptr.size, self.data_ptr.offset, self.toc_ptr.offset, 1, 0, self.unk
+        args = self.checksums[0], self.name.encode("utf-16-le"), self.checksums[1], self.toc_ptr.size, self.data_ptr.offset, self.toc_ptr.offset, 1, 0, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
 
@@ -200,11 +212,11 @@ class DowIIIArchiveHeader(ArchiveHeader):
 
     @property
     def version(self) -> VersionLike:
-        return ArchiveVersion.Dow2
+        return ArchiveVersion.Dow3
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ArchiveHeader:
-        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, rsv_0_b, unk = cls.LAYOUT.unpack_stream(stream)[0]
+        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, rsv_0_b, unk = cls.LAYOUT.unpack_stream(stream)
 
         assert rsv_1 == 1
         assert rsv_0_a == 0
@@ -217,9 +229,15 @@ class DowIIIArchiveHeader(ArchiveHeader):
         return cls(name, toc_ptr, data_ptr, unk)
 
     def _pack(self, stream: BinaryIO) -> int:
-        args = (self.name, self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, self.unk)
+        args = self.name.encode("utf-16-le"), self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, 0, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
+    def __eq__(self, other):
+        # TODO make issue to add equality to WindowPtr/Ptr
+        return self.name == other.name and self.unk == other.unk \
+               and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
+               and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
+               and self.version == other.version
 
 _HEADER_VERSION_MAP: Dict[VersionLike, Type[ArchiveHeader]] = {
     ArchiveVersion.Dow: DowIArchiveHeader,
