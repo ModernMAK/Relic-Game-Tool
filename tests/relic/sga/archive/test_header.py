@@ -29,7 +29,7 @@ class ArchiveHeaderTests:
         raise NotImplementedError
 
     @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_unpack(self, buffer: bytes, expected_cls: Type[ArchiveHeader], bad_magic_word: bool):
+    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
         for read_magic in TF:
             with BytesIO(buffer) as stream:
                 if not read_magic:
@@ -43,16 +43,22 @@ class ArchiveHeaderTests:
                     else:
                         raise e
                 else:
-                    assert expected_cls == unpacked.__class__
+                    assert expected.__class__ == unpacked.__class__
+                    assert expected == unpacked
 
     @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_pack(self, inst: ArchiveHeader, expected_written: int):
-        MAGIC_WORD_WRITE = ArchiveMagicWord.layout.size
+    def test_pack(self, inst: ArchiveHeader, expected: bytes):
+        magic_size = ArchiveMagicWord.layout.size
         for write_magic in TF:
             with BytesIO() as stream:
                 written = inst.pack(stream, write_magic)
-                expected = expected_written - (MAGIC_WORD_WRITE if not write_magic else 0)
-                assert expected == written
+                assert len(expected) == written - (0 if write_magic else magic_size)
+                stream.seek(0)
+                if write_magic:
+                    assert expected == stream.read()
+                else:
+                    stream.seek(magic_size)
+                    assert expected[magic_size:] == stream.read()
 
 
 _KNOWN_EIGEN = b'06BEF126-4E3C-48D3-8D2E-430BF125B54F'
@@ -113,7 +119,43 @@ class TestDowIArchiveHeader(ArchiveHeaderTests):
         raise NotImplementedError("Requires sample DowI Archive")
 
 
+def _gen_dow2_header_and_buffer(name: str, toc_size: int, data_offset: int, toc_pos: int, unk: int) -> Tuple[ArchiveHeader, bytes, bytes]:
+    version = b"\0\x05\0\0"
+    name_enc = name.encode("utf-16-le")
+    name_pad = b"\0" * (128 - len(name) * 2)
+    csum1 = b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0"
+    csum2 = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
+    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
+    data_offset_enc = int.to_bytes(data_offset, 4, "little", signed=False)
+    toc_pos_enc = int.to_bytes(toc_pos, 4, "little", signed=False)
+    RSV_1 = int.to_bytes(1, 4, "little", signed=False)
+    RSV_0 = int.to_bytes(0, 4, "little", signed=False)
+    unk_enc = int.to_bytes(unk, 4, "little", signed=False)
+    shared = version + csum1 + name_enc + name_pad + csum2 + toc_size_enc + data_offset_enc + toc_pos_enc + RSV_1 + RSV_0 + unk_enc
+
+    header = DowIIArchiveHeader(name, WindowPtr(toc_pos, toc_size), WindowPtr(data_offset), (csum1, csum2), unk)
+    good = "_ARCHIVE".encode("ascii") + shared
+    bad = f"garbage_".encode("ascii") + shared
+    return header, good, bad
+
+
+DOW2_HEADER, DOW2_HEADER_DATA, DOW2_HEADER_DATA_BAD_MAGIC = _gen_dow2_header_and_buffer("Dawn Of War 2 Test Header", 0, 120, 120, 0xff)
+
+
 class TestDowIIArchiveHeader(ArchiveHeaderTests):
+    @pytest.mark.parametrize(
+        ["buffer", "expected", "bad_magic_word"],
+        [(DOW2_HEADER_DATA, DowIIArchiveHeader, False), (DOW2_HEADER_DATA_BAD_MAGIC, DowIIArchiveHeader, True)],
+    )
+    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
+        super().test_unpack(buffer, expected, bad_magic_word)
+
+    @pytest.mark.parametrize(
+        ["inst", "expected"],
+        [(DOW2_HEADER, DOW2_HEADER_DATA)])
+    def test_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_pack(inst, expected)
+
     def test_validate_checksums(self):
         pass
 
@@ -125,12 +167,6 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
         pass
 
     def test_private_pack(self):
-        pass
-
-    def test_unpack(self):
-        pass
-
-    def test_pack(self):
         pass
 
 
