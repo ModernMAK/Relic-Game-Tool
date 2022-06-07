@@ -131,6 +131,13 @@ class DowIArchiveHeader(ArchiveHeader):
         args = self.checksums[0], self.name, self.checksums[1]
         return self.LAYOUT.pack_stream(stream, *args)
 
+    def __eq__(self, other):
+        # TODO make issue to add equality to WindowPtr/Ptr
+        return self.name == other.name \
+               and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
+               and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
+               and self.version == other.version and self.checksums[0] == other.checksums[0] and self.checksums[1] == other.checksums[1]
+
 
 @dataclass
 class DowIIArchiveHeader(ArchiveHeader):

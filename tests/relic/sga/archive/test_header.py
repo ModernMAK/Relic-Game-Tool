@@ -1,8 +1,7 @@
-import os
-import random
+from abc import abstractmethod
 from abc import abstractmethod
 from io import BytesIO
-from typing import BinaryIO, List, Tuple, Type
+from typing import List, Tuple
 
 import pytest
 from serialization_tools.ioutil import WindowPtr, Ptr
@@ -22,11 +21,19 @@ class ArchiveHeaderTests:
     def test_version(self, archive: ArchiveHeader, expected: Version):
         assert archive.version == expected
 
-    def test_private_unpack(self):
-        raise NotImplementedError
+    @abstractmethod  # Trick PyCharm into requiring us to redefine this
+    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        with BytesIO(buffer) as stream:
+            result = expected.__class__._unpack(stream)
+            assert result == expected
 
-    def test_private_pack(self):
-        raise NotImplementedError
+    @abstractmethod  # Trick PyCharm into requiring us to redefine this
+    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+        with BytesIO() as stream:
+            inst._pack(stream)
+            stream.seek(0)
+            result = stream.read()
+            assert result == expected
 
     @abstractmethod  # Trick PyCharm into requiring us to redefine this
     def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
@@ -105,25 +112,61 @@ def test_validate_md5_checksum(stream_data: bytes, eigen: bytes, md5_checksum: b
                     assert result
 
 
+def _gen_dow1_header_and_buffer(name: str, toc_size: int, data_offset: int, toc_pos: int = None) -> Tuple[ArchiveHeader, bytes, bytes]:
+    version = b"\x02\0\0\0"
+    name_enc = name.encode("utf-16-le")
+    name_pad = b"\0" * (128 - len(name) * 2)
+    csum1 = b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0"
+    csum2 = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
+    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
+    data_offset_enc = int.to_bytes(data_offset, 4, "little", signed=False)
+    TOC_POS = 180 if toc_pos is None else toc_pos
+    shared = version + csum1 + name_enc + name_pad + csum2 + toc_size_enc + data_offset_enc
+    header = DowIArchiveHeader(name, WindowPtr(TOC_POS, toc_size), WindowPtr(data_offset), (csum1, csum2))
+    good = "_ARCHIVE".encode("ascii") + shared
+    bad = f"garbage_".encode("ascii") + shared
+    return header, good, bad
+
+
+DOW1_HEADER, DOW1_HEADER_DATA, DOW1_HEADER_DATA_BAD_MAGIC = _gen_dow1_header_and_buffer("Dawn Of War 1 Test Header", 0, 120, toc_pos=180)
+DOW1_HEADER_INNER, DOW1_HEADER_INNER_DATA, _ = _gen_dow1_header_and_buffer("Dawn Of War 1 Test Header (Inner Pack)", 0, 120, toc_pos=168)  # By not writing Magic/Archive TOC-Pos must be changed in the generated DowIIArchiveHeader; the buffers (should be) identical given the same input
+
+
 class TestDowIArchiveHeader(ArchiveHeaderTests):
-    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
-        raise NotImplementedError("Requires sample DowI Archive")
-
-    def test_pack(self, inst: ArchiveHeader, expected: bytes):
-        raise NotImplementedError("Requires sample DowI Archive")
-
     def test_validate_checksums(self):
         raise NotImplementedError("Requires sample DowI Archive")
 
-    @pytest.mark.parametrize(["archive", "expected"], [(DowIArchiveHeader(None, None, None, None), ArchiveVersion.Dow)])
+    @pytest.mark.parametrize(
+        ["expected", "inst"],
+        [(DOW1_HEADER_INNER_DATA[12:], DOW1_HEADER_INNER)]
+    )
+    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_private_pack(inst, expected)
+
+    @pytest.mark.parametrize(
+        ["buffer", "expected"],
+        [(DOW1_HEADER_INNER_DATA[12:], DOW1_HEADER_INNER)]
+    )
+    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        super().test_private_unpack(buffer, expected)
+
+    @pytest.mark.parametrize(
+        ["buffer", "expected", "bad_magic_word"],
+        [(DOW1_HEADER_DATA, DOW1_HEADER, False),
+         (DOW1_HEADER_DATA_BAD_MAGIC, DOW1_HEADER, True)]
+    )
+    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
+        super().test_unpack(buffer, expected, bad_magic_word)
+
+    @pytest.mark.parametrize(
+        ["inst", "expected"],
+        [(DOW1_HEADER, DOW1_HEADER_DATA)])
+    def test_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_pack(inst, expected)
+
+    @pytest.mark.parametrize(["archive", "expected"], [(DOW1_HEADER, ArchiveVersion.Dow)])
     def test_version(self, archive: ArchiveHeader, expected: Version):
         super().test_version(archive, expected)
-
-    def test_private_unpack(self):
-        raise NotImplementedError("Requires sample DowI Archive")
-
-    def test_private_pack(self):
-        raise NotImplementedError("Requires sample DowI Archive")
 
 
 def _gen_dow2_header_and_buffer(name: str, toc_size: int, data_offset: int, toc_pos: int, unk: int) -> Tuple[ArchiveHeader, bytes, bytes]:
@@ -151,8 +194,23 @@ DOW2_HEADER, DOW2_HEADER_DATA, DOW2_HEADER_DATA_BAD_MAGIC = _gen_dow2_header_and
 
 class TestDowIIArchiveHeader(ArchiveHeaderTests):
     @pytest.mark.parametrize(
+        ["expected", "inst"],
+        [(DOW2_HEADER_DATA[12:], DOW2_HEADER)],
+    )
+    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_private_pack(inst, expected)
+
+    @pytest.mark.parametrize(
+        ["buffer", "expected"],
+        [(DOW2_HEADER_DATA[12:], DOW2_HEADER)],
+    )
+    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        super().test_private_unpack(buffer, expected)
+
+    @pytest.mark.parametrize(
         ["buffer", "expected", "bad_magic_word"],
-        [(DOW2_HEADER_DATA, DOW2_HEADER, False), (DOW2_HEADER_DATA_BAD_MAGIC, DOW2_HEADER, True)],
+        [(DOW2_HEADER_DATA, DOW2_HEADER, False),
+         (DOW2_HEADER_DATA_BAD_MAGIC, DOW2_HEADER, True)],
     )
     def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
         super().test_unpack(buffer, expected, bad_magic_word)
@@ -170,29 +228,64 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
     def test_version(self, archive: ArchiveHeader, expected: Version):
         super().test_version(archive, expected)
 
-    def test_private_unpack(self):
-        raise NotImplementedError("Requires sample DowII Archive")
 
-    def test_private_pack(self):
-        raise NotImplementedError("Requires sample DowII Archive")
+def _gen_dow3_header_and_buffer(name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int) -> Tuple[ArchiveHeader, bytes, bytes]:
+    version = b"\x09\0\0\0"
+    name_enc = name.encode("utf-16-le")
+    name_pad = b"\0" * (128 - len(name) * 2)
+    toc_offset_enc = int.to_bytes(toc_offset, 8, "little", signed=False)
+    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
+    data_offset_enc = int.to_bytes(data_offset, 8, "little", signed=False)
+    data_size_enc = int.to_bytes(data_size, 4, "little", signed=False)
+    RSV_0 = int.to_bytes(0, 4, "little", signed=False)
+    RSV_1 = int.to_bytes(1, 4, "little", signed=False)
+    unk = b"\xda" * 256
+    shared = version + name_enc + name_pad + toc_offset_enc + toc_size_enc + data_offset_enc + data_size_enc + RSV_0 + RSV_1 + RSV_0 + unk
+
+    header = DowIIIArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset, data_size), unk)
+    good = "_ARCHIVE".encode("ascii") + shared
+    bad = f"garbage_".encode("ascii") + shared
+    return header, good, bad
+
+
+DOW3_HEADER, DOW3_HEADER_DATA, DOW3_HEADER_DATA_BAD_MAGIC = _gen_dow3_header_and_buffer("Dawn Of War 3 Test Header", 180, 1, 181, 1)
 
 
 class TestDowIIIArchiveHeader(ArchiveHeaderTests):
-    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
-        raise NotImplementedError("Requires sample DowIII Archive")
-
-    def test_pack(self, inst: ArchiveHeader, expected: bytes):
-        raise NotImplementedError("Requires sample DowIII Archive")
-
     def test_validate_checksums(self):
-        raise NotImplementedError("Requires sample DowIII Archive")
+        for fast in TF:
+            for _assert in TF:
+                # HACK but if it fails it means logic has changed
+                assert DowIIIArchiveHeader.validate_checksums(None, None, fast=fast, _assert=_assert)
 
-    @pytest.mark.parametrize(["archive", "expected"], [(DowIIIArchiveHeader(None, None, None, None), ArchiveVersion.Dow3)])
+    @pytest.mark.parametrize(
+        ["expected", "inst"],
+        [(DOW3_HEADER_DATA[12:], DOW3_HEADER)],
+    )
+    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_private_pack(inst, expected)
+
+    @pytest.mark.parametrize(
+        ["buffer", "expected"],
+        [(DOW3_HEADER_DATA[12:], DOW3_HEADER)],
+    )
+    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        super().test_private_unpack(buffer, expected)
+
+    @pytest.mark.parametrize(
+        ["buffer", "expected", "bad_magic_word"],
+        [(DOW3_HEADER_DATA, DOW3_HEADER, False),
+         (DOW3_HEADER_DATA_BAD_MAGIC, DOW3_HEADER, True)],
+    )
+    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
+        super().test_unpack(buffer, expected, bad_magic_word)
+
+    @pytest.mark.parametrize(
+        ["inst", "expected"],
+        [(DOW3_HEADER, DOW3_HEADER_DATA)])
+    def test_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_pack(inst, expected)
+
+    @pytest.mark.parametrize(["archive", "expected"], [(DOW3_HEADER, ArchiveVersion.Dow3)])
     def test_version(self, archive: ArchiveHeader, expected: Version):
         super().test_version(archive, expected)
-
-    def test_private_unpack(self):
-        raise NotImplementedError("Requires sample DowIII Archive")
-
-    def test_private_pack(self):
-        raise NotImplementedError("Requires sample DowIII Archive")
