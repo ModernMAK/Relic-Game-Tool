@@ -1,90 +1,177 @@
-from typing import BinaryIO
+from abc import abstractmethod
+from io import BytesIO
 
-from tests.helpers import get_sga_paths, TF
+import pytest
+
 from relic.sga.archive import Archive, ArchiveMagicWord
-
-archive_paths = get_sga_paths()
-
-
-def sga_seek_to_start(stream: BinaryIO, include_magic: bool = True):
-    if include_magic:
-        stream.seek(0)
-    else:
-        stream.seek(ArchiveMagicWord.layout.size)
+from relic.sga.hierarchy import ArchiveWalk
+from tests.helpers import TF
+from tests.relic.sga.archive.datagen import full_gen_dow2_archive, full_gen_dow1_archive, full_gen_dow3_archive
 
 
-def test_archive_unpack():
-    for archive in archive_paths:
-        with open(archive, "rb") as handle:
+# archive_paths = get_sga_paths()
 
-            # Read from file, always assume we need to read magic
+#
+# def sga_seek_to_start(stream: BinaryIO, include_magic: bool = True):
+#     if include_magic:
+#         stream.seek(0)
+#     else:
+#         stream.seek(ArchiveMagicWord.layout.size)
+#
+#
+# def test_archive_unpack():
+#     for archive in archive_paths:
+#         with open(archive, "rb") as handle:
+#
+#             # Read from file, always assume we need to read magic
+#             for sparse in TF:
+#                 for read_magic in TF:
+#                     sga_seek_to_start(handle, read_magic)
+#                     _ = Archive.unpack(handle, read_magic=read_magic, sparse=sparse)
+
+
+class ArchiveTests:
+    def assert_equal(self, expected: Archive, result: Archive, sparse: bool):
+        assert expected.header == result.header
+        if sparse:
+            assert result._sparse
+        # TODO
+
+    @abstractmethod
+    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+        archive_walk = archive.walk()
+        for (a_vdrive, a_folder, a_folders, a_files), (e_vdrive, e_folder, e_folders, e_files) in zip(archive_walk, expected):
+            assert a_vdrive == e_vdrive
+            assert a_folder == e_folder
+            assert a_folders == e_folders
+            assert a_files == e_files
+
+    @abstractmethod
+    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
+        for sparse in TF:
+            with BytesIO(stream_data) as stream:
+                archive = expected.__class__._unpack(stream, expected.header, sparse)
+                assert expected.__class__ == archive.__class__
+                self.assert_equal(expected, archive, sparse)
+
+    @abstractmethod
+    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
+        for read_magic in TF:
             for sparse in TF:
-                for read_magic in TF:
-                    sga_seek_to_start(handle, read_magic)
-                    _ = Archive.unpack(handle, read_magic=read_magic, sparse=sparse)
-#
-#
-# @dataclass
-# class Archive(DriveCollection):
-#     header: ArchiveHeader
-#     """Sparse represents whether data was loaded on creation."""
-#     _sparse: bool
-#
-#     def __init__(self, header: ArchiveHeader, drives: List[VirtualDrive], _sparse: bool):
-#         self.header = header
-#         self._sparse = _sparse
-#         self.drives = drives
-#
-#     def walk(self) -> ArchiveWalk:
-#         return walk(self)
-#
-#     @classmethod
-#     def _unpack(cls, stream: BinaryIO, header: ArchiveHeader, sparse: bool = True):
-#         from ..toc import ArchiveTableOfContents, ArchiveTableOfContentsPtr, ArchiveTableOfContentsHeaders
-#         version = header.version
-#         with header.toc_ptr.stream_jump_to(stream) as handle:
-#             toc_ptr = ArchiveTableOfContentsPtr.unpack_version(handle, version)
-#             toc_headers = ArchiveTableOfContentsHeaders.unpack(handle, toc_ptr, version)
-#             toc = ArchiveTableOfContents.create(toc_headers)
-#
-#         toc.load_toc()
-#         toc.build_tree()  # ensures walk is unique; avoiding dupes and speeding things up
-#         if not sparse:
-#             with header.data_ptr.stream_jump_to(stream) as handle:
-#                 toc.load_data(handle)
-#
-#         return cls(header, toc.drives, sparse)
-#
-#     @classmethod
-#     def unpack(cls, stream: BinaryIO, read_magic: bool = True, sparse: bool = True) -> Archive:
-#         header = ArchiveHeader.unpack(stream, read_magic)
-#         class_type = _VERSION_MAP[header.version]
-#         return class_type._unpack(stream, header, sparse)  # Defer to subclass (ensures packing works as expected)
-#
-#     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-#         raise NotImplementedError
-#
-#
-# @dataclass(init=False)
-# class DowIArchive(Archive):
-#     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-#         pass
-#
-#
-# @dataclass(init=False)
-# class DowIIArchive(Archive):
-#     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-#         pass
-#
-#
-# @dataclass(init=False)
-# class DowIIIArchive(Archive):
-#     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-#         pass
-#
-#
-# _VERSION_MAP: Dict[VersionLike, Type[Archive]] = {
-#     ArchiveVersion.Dow: DowIArchive,
-#     ArchiveVersion.Dow2: DowIIArchive,
-#     ArchiveVersion.Dow3: DowIIIArchive
-# }
+                for validate in ([False] if not valid_checksums else TF):
+                    with BytesIO(stream_data) as stream:
+                        if not read_magic:
+                            stream.seek(ArchiveMagicWord.layout.size)
+                        archive = Archive.unpack(stream, read_magic, sparse, validate=validate)
+                        assert expected.__class__ == archive.__class__
+                        self.assert_equal(expected, archive, sparse)
+
+    @abstractmethod
+    def test_pack(self, archive: Archive, expected: bytes):
+        for write_magic in TF:
+            try:
+                with BytesIO() as stream:
+                    packed = archive.pack(stream, write_magic)
+            except NotImplementedError:
+                pass  # Currently not implemented; we'll expect this for now
+            else:
+                assert expected == packed
+
+
+DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED = full_gen_dow1_archive("Dow1 Test Archive", "Tests", "And Now For Something Completely Different.txt", b"Just kidding, it's Monty Python.")
+
+
+def DOW1_ARCHIVE_WALK() -> ArchiveWalk:
+    a = DOW1_ARCHIVE
+    d = a.drives[0]
+    sfs = d.sub_folders
+    yield d, None, sfs, []
+    yield d, sfs[0], [], sfs[0].files
+
+
+class TestDowIArchive(ArchiveTests):
+    @pytest.mark.parametrize(["stream_data", "expected"],
+                             [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE)])
+    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
+        super().test_inner_unpack(stream_data, expected)
+
+    @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
+                             [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE, True)])
+    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
+        super().test_unpack(stream_data, expected, valid_checksums)
+
+    @pytest.mark.parametrize(["archive", "expected"],
+                             [(DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED)])
+    def test_pack(self, archive: Archive, expected: bytes):
+        super().test_pack(archive, expected)
+
+    @pytest.mark.parametrize(["archive", "expected"],
+                             [(DOW1_ARCHIVE, DOW1_ARCHIVE_WALK())])
+    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+        super().test_walk(archive, expected)
+
+
+DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED = full_gen_dow2_archive("Dow2 Test Archive", "Tests", "A Favorite Guardsmen VL.txt", b"Where's that artillery!?")
+
+
+def DOW2_ARCHIVE_WALK() -> ArchiveWalk:
+    a = DOW2_ARCHIVE
+    d = a.drives[0]
+    sfs = d.sub_folders
+    yield d, None, sfs, []
+    yield d, sfs[0], [], sfs[0].files
+
+
+class TestDowIIArchive(ArchiveTests):
+    @pytest.mark.parametrize(["stream_data", "expected"],
+                             [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE)])
+    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
+        super().test_inner_unpack(stream_data, expected)
+
+    @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
+                             [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE, True)])
+    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
+        super().test_unpack(stream_data, expected, valid_checksums)
+
+    @pytest.mark.parametrize(["archive", "expected"],
+                             [(DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED)])
+    def test_pack(self, archive: Archive, expected: bytes):
+        super().test_pack(archive, expected)
+
+    @pytest.mark.parametrize(["archive", "expected"],
+                             [(DOW2_ARCHIVE, DOW2_ARCHIVE_WALK())])
+    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+        super().test_walk(archive, expected)
+
+
+DOW3_ARCHIVE, DOW3_ARCHIVE_PACKED = full_gen_dow3_archive("Dow3 Test Archive", "Tests", "Some Witty FileName.txt", b"NGL; I'm running out of dumb/clever test data.")
+
+
+def DOW3_ARCHIVE_WALK() -> ArchiveWalk:
+    a = DOW2_ARCHIVE
+    d = a.drives[0]
+    sfs = d.sub_folders
+    yield d, None, sfs, []
+    yield d, sfs[0], [], sfs[0].files
+
+
+class TestDowIIIArchive(ArchiveTests):
+    @pytest.mark.parametrize(["stream_data", "expected"],
+                             [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE)])
+    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
+        super().test_inner_unpack(stream_data, expected)
+
+    @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
+                             [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE, True)])
+    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
+        super().test_unpack(stream_data, expected, valid_checksums)
+
+    @pytest.mark.parametrize(["archive", "expected"],
+                             [(DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED)])
+    def test_pack(self, archive: Archive, expected: bytes):
+        super().test_pack(archive, expected)
+
+    @pytest.mark.parametrize(["archive", "expected"],
+                             [(DOW2_ARCHIVE, DOW2_ARCHIVE_WALK())])
+    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+        super().test_walk(archive, expected)

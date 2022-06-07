@@ -1,15 +1,15 @@
-import hashlib
 from abc import abstractmethod
 from io import BytesIO
-from typing import List, Tuple
+from typing import List
 
 import pytest
 from serialization_tools.ioutil import WindowPtr, Ptr
 from serialization_tools.size import KiB, MiB, GiB
 
+from tests.relic.sga.archive.datagen import gen_dow1_header_and_buffer, _gen_dow1_archive_toc, _gen_dow1_archive, gen_dow2_header_and_buffer, _gen_dow2_archive_toc, _gen_dow2_archive, gen_dow3_header_and_buffer
 from tests.helpers import TF
 from relic.common import Version
-from relic.sga import ArchiveHeader, DowIArchiveHeader, ArchiveVersion, DowIIArchiveHeader, DowIIIArchiveHeader, ArchiveMagicWord
+from relic.sga import ArchiveHeader, ArchiveVersion, DowIIIArchiveHeader, ArchiveMagicWord
 from relic.sga.archive import header
 
 
@@ -118,75 +118,12 @@ def test_validate_md5_checksum(stream_data: bytes, eigen: bytes, md5_checksum: b
                     assert result
 
 
-def _encode_and_pad(v: str, byte_size: int, encoding: str) -> bytes:
-    v_enc = v.encode(encoding)
-    v_pad = b"\0" * (byte_size - len(v_enc))
-    return v_enc + v_pad
-
-
-def _gen_dow1_header_and_buffer(name: str, toc_size: int, data_offset: int, toc_pos: int = None, csum1: bytes = None, csum2: bytes = None) -> Tuple[ArchiveHeader, bytes, bytes]:
-    version = b"\x02\0\0\0"
-    name_enc = _encode_and_pad(name, 128, "utf-16-le")
-    csum1 = b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0" if csum1 is None else csum1
-    csum2 = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" if csum2 is None else csum2
-    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
-    data_offset_enc = int.to_bytes(data_offset, 4, "little", signed=False)
-    TOC_POS = 180 if toc_pos is None else toc_pos
-    shared = version + csum1 + name_enc + csum2 + toc_size_enc + data_offset_enc
-    header = DowIArchiveHeader(name, WindowPtr(TOC_POS, toc_size), WindowPtr(data_offset), (csum1, csum2))
-    good = "_ARCHIVE".encode("ascii") + shared
-    bad = f"garbage_".encode("ascii") + shared
-    return header, good, bad
-
-
 # Not garunteed to be a valid header
-def _gen_dow1_archive_toc(vdrive: str, folder: str, file: str, file_uncomp_data: bytes):
-    def ushort(v) -> bytes:
-        return int.to_bytes(v, length=2, byteorder="little", signed=False)
-
-    def uint(v) -> bytes:
-        return int.to_bytes(v, length=4, byteorder="little", signed=False)
-
-    USHORT_ZERO = ushort(0)
-    USHORT_ONE = ushort(1)
-    UINT_ZERO = uint(0)
-    VDRIVE_UNK = b"\xde\xad"
-    vdrive_buf = _encode_and_pad("data", 64, "ascii") + _encode_and_pad(vdrive, 64, "ascii") + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE + VDRIVE_UNK
-    file_size_enc = uint(len(file_uncomp_data))
-    file_buf = uint(len(folder) + 1) + UINT_ZERO + UINT_ZERO + file_size_enc + file_size_enc
-    folder_buf = UINT_ZERO + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE
-    name_buf = _encode_and_pad(folder, len(folder) + 1, "ascii") + _encode_and_pad(file, len(file) + 1, "ascii")
-    toc_buf = vdrive_buf + folder_buf + file_buf + name_buf
-    PTR_OFF = 24  # 4 * (2 + 6)
-    vdrive_off = 0 + PTR_OFF
-    folder_off = vdrive_off + len(vdrive_buf)
-    file_off = folder_off + len(folder_buf)
-    name_off = file_off + len(folder_buf)
-    toc_ptr_buf = uint(vdrive_off) + USHORT_ONE + uint(folder_off) + USHORT_ONE + uint(file_off) + USHORT_ONE + uint(name_off) + USHORT_ONE
-
-    return toc_ptr_buf, toc_buf
 
 
-def _gen_dow1_archive(archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes) -> bytes:
-    ARCHIVE_HEADER_SIZE = 180
-    full_toc = toc_ptrs + toc
-    EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
-
-    def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
-        hasher = hashlib.md5(eigen)
-        hasher.update(buffer)
-        return bytes.fromhex(hasher.hexdigest())
-
-    csum2 = gen_csum(full_toc, EIGENS[1])
-    toc_and_data = full_toc + data
-    csum1 = gen_csum(toc_and_data, EIGENS[0])
-    _, archive_header_buf, _ = _gen_dow1_header_and_buffer(archive_name, len(full_toc), ARCHIVE_HEADER_SIZE + len(full_toc), csum1=csum1, csum2=csum2)
-    return archive_header_buf + toc_and_data
-
-
-DOW1_HEADER, DOW1_HEADER_DATA, DOW1_HEADER_DATA_BAD_MAGIC = _gen_dow1_header_and_buffer("Dawn Of War 1 Test Header", 0, 120, toc_pos=180)
-DOW1_HEADER_INNER, DOW1_HEADER_INNER_DATA, _ = _gen_dow1_header_and_buffer("Dawn Of War 1 Test Header (Inner Pack)", 0, 120,
-                                                                           toc_pos=168)  # By not writing Magic/Archive TOC-Pos must be changed in the generated DowIIArchiveHeader; the buffers (should be) identical given the same input
+DOW1_HEADER, DOW1_HEADER_DATA, DOW1_HEADER_DATA_BAD_MAGIC = gen_dow1_header_and_buffer("Dawn Of War 1 Test Header", 0, 120, toc_pos=180)
+DOW1_HEADER_INNER, DOW1_HEADER_INNER_DATA, _ = gen_dow1_header_and_buffer("Dawn Of War 1 Test Header (Inner Pack)", 0, 120,
+                                                                          toc_pos=168)  # By not writing Magic/Archive TOC-Pos must be changed in the generated DowIIArchiveHeader; the buffers (should be) identical given the same input
 _DOW1_ARCHIVE_DATA = b"You thought this was a test, but it was me, DIO!"
 _DOW1_ARCHIVE_TOC_PTR, _DOW1_ARCHIVE_TOC = _gen_dow1_archive_toc("Dawn Of War 1 Test Archive", "Tests", "Dow1 Header Tests.txt", _DOW1_ARCHIVE_DATA)
 DOW1_ARCHIVE = _gen_dow1_archive("Dawn Of War 1 Test Archive", _DOW1_ARCHIVE_TOC_PTR, _DOW1_ARCHIVE_TOC, _DOW1_ARCHIVE_DATA)
@@ -232,72 +169,10 @@ class TestDowIArchiveHeader(ArchiveHeaderTests):
         super().test_version(archive, expected)
 
 
-def _gen_dow2_header_and_buffer(name: str, toc_size: int, data_offset: int, toc_pos: int, unk: int, csum1: bytes = None, csum2: bytes = None) -> Tuple[ArchiveHeader, bytes, bytes]:
-    version = b"\x05\0\0\0"
-    name_enc = name.encode("utf-16-le")
-    name_pad = b"\0" * (128 - len(name) * 2)
-    csum1 = b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0" if csum1 is None else csum1
-    csum2 = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" if csum2 is None else csum2
-    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
-    data_offset_enc = int.to_bytes(data_offset, 4, "little", signed=False)
-    toc_pos_enc = int.to_bytes(toc_pos, 4, "little", signed=False)
-    RSV_1 = int.to_bytes(1, 4, "little", signed=False)
-    RSV_0 = int.to_bytes(0, 4, "little", signed=False)
-    unk_enc = int.to_bytes(unk, 4, "little", signed=False)
-    shared = version + csum1 + name_enc + name_pad + csum2 + toc_size_enc + data_offset_enc + toc_pos_enc + RSV_1 + RSV_0 + unk_enc
-
-    header = DowIIArchiveHeader(name, WindowPtr(toc_pos, toc_size), WindowPtr(data_offset), (csum1, csum2), unk)
-    good = "_ARCHIVE".encode("ascii") + shared
-    bad = f"garbage_".encode("ascii") + shared
-    return header, good, bad
-
-
 # Not garunteed to be a valid header
-def _gen_dow2_archive_toc(vdrive: str, folder: str, file: str, file_uncomp_data: bytes):
-    def ushort(v) -> bytes:
-        return int.to_bytes(v, length=2, byteorder="little", signed=False)
-
-    def uint(v) -> bytes:
-        return int.to_bytes(v, length=4, byteorder="little", signed=False)
-
-    USHORT_ZERO = ushort(0)
-    USHORT_ONE = ushort(1)
-    UINT_ZERO = uint(0)
-    VDRIVE_UNK = b"\xde\xad"
-    vdrive_buf = _encode_and_pad("data", 64, "ascii") + _encode_and_pad(vdrive, 64, "ascii") + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE + VDRIVE_UNK
-    file_size_enc = uint(len(file_uncomp_data))
-    file_buf = uint(len(folder) + 1) + UINT_ZERO + UINT_ZERO + file_size_enc + file_size_enc
-    folder_buf = UINT_ZERO + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE
-    name_buf = _encode_and_pad(folder, len(folder) + 1, "ascii") + _encode_and_pad(file, len(file) + 1, "ascii")
-    toc_buf = vdrive_buf + folder_buf + file_buf + name_buf
-    PTR_OFF = 24  # 4 * (2 + 6)
-    vdrive_off = 0 + PTR_OFF
-    folder_off = vdrive_off + len(vdrive_buf)
-    file_off = folder_off + len(folder_buf)
-    name_off = file_off + len(folder_buf)
-    toc_ptr_buf = uint(vdrive_off) + USHORT_ONE + uint(folder_off) + USHORT_ONE + uint(file_off) + USHORT_ONE + uint(name_off) + USHORT_ONE
-
-    return toc_ptr_buf, toc_buf
 
 
-def _gen_dow2_archive(archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes) -> bytes:
-    ARCHIVE_HEADER_SIZE = 196  # v5.0 has an extra 16 bytes
-    full_toc = toc_ptrs + toc
-    EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
-
-    def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
-        hasher = hashlib.md5(eigen)
-        hasher.update(buffer)
-        return bytes.fromhex(hasher.hexdigest())
-
-    csum2 = gen_csum(full_toc, EIGENS[1])
-    toc_and_data = full_toc + data
-    csum1 = gen_csum(toc_and_data, EIGENS[0])
-    _, archive_header_buf, _ = _gen_dow2_header_and_buffer(archive_name, len(full_toc), ARCHIVE_HEADER_SIZE + len(full_toc), toc_pos=ARCHIVE_HEADER_SIZE, csum1=csum1, csum2=csum2,                                                           unk=0x4d41dfff)  # UNK chosen to mostly match my knowledge of common archive files
-    return archive_header_buf + toc_and_data
-
-
-DOW2_HEADER, DOW2_HEADER_DATA, DOW2_HEADER_DATA_BAD_MAGIC = _gen_dow2_header_and_buffer("Dawn Of War 2 Test Header", 0, 120, 120, 0xff)
+DOW2_HEADER, DOW2_HEADER_DATA, DOW2_HEADER_DATA_BAD_MAGIC = gen_dow2_header_and_buffer("Dawn Of War 2 Test Header", 0, 120, 120, 0xff)
 _DOW2_ARCHIVE_DATA = b"By the Emperor, we're ready to unleash eleven barrels, m' lord, sir!"
 _DOW2_ARCHIVE_TOC_PTR, _DOW2_ARCHIVE_TOC = _gen_dow2_archive_toc("Dawn Of War 2 Test Archive", "Dow2 Tests", "Imperial Propoganda.txt", _DOW2_ARCHIVE_DATA)
 DOW2_ARCHIVE = _gen_dow2_archive("Dawn Of War 2 Test Archive", _DOW2_ARCHIVE_TOC_PTR, _DOW2_ARCHIVE_TOC, _DOW2_ARCHIVE_DATA)
@@ -344,26 +219,7 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
         super().test_version(archive, expected)
 
 
-def _gen_dow3_header_and_buffer(name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int) -> Tuple[ArchiveHeader, bytes, bytes]:
-    version = b"\x09\0\0\0"
-    name_enc = name.encode("utf-16-le")
-    name_pad = b"\0" * (128 - len(name) * 2)
-    toc_offset_enc = int.to_bytes(toc_offset, 8, "little", signed=False)
-    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
-    data_offset_enc = int.to_bytes(data_offset, 8, "little", signed=False)
-    data_size_enc = int.to_bytes(data_size, 4, "little", signed=False)
-    RSV_0 = int.to_bytes(0, 4, "little", signed=False)
-    RSV_1 = int.to_bytes(1, 4, "little", signed=False)
-    unk = b"\xda" * 256
-    shared = version + name_enc + name_pad + toc_offset_enc + toc_size_enc + data_offset_enc + data_size_enc + RSV_0 + RSV_1 + RSV_0 + unk
-
-    header = DowIIIArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset, data_size), unk)
-    good = "_ARCHIVE".encode("ascii") + shared
-    bad = f"garbage_".encode("ascii") + shared
-    return header, good, bad
-
-
-DOW3_HEADER, DOW3_HEADER_DATA, DOW3_HEADER_DATA_BAD_MAGIC = _gen_dow3_header_and_buffer("Dawn Of War 3 Test Header", 180, 1, 181, 1)
+DOW3_HEADER, DOW3_HEADER_DATA, DOW3_HEADER_DATA_BAD_MAGIC = gen_dow3_header_and_buffer("Dawn Of War 3 Test Header", 180, 1, 181, 1)
 
 
 class TestDowIIIArchiveHeader(ArchiveHeaderTests):

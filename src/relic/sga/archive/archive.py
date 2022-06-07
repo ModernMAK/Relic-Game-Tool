@@ -61,19 +61,19 @@ class Archive(DriveCollection):
 @dataclass(init=False)
 class DowIArchive(Archive):
     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-        pass
+        raise NotImplementedError
 
 
 @dataclass(init=False)
 class DowIIArchive(Archive):
     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-        pass
+        raise NotImplementedError
 
 
 @dataclass(init=False)
 class DowIIIArchive(Archive):
     def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-        pass
+        raise NotImplementedError
 
 
 _VERSION_MAP: Dict[VersionLike, Type[Archive]] = {

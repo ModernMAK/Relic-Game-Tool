@@ -63,6 +63,12 @@ class ArchiveTableOfContentsPtr:
         args = self._pack_tuple()
         return self.LAYOUT.pack_stream(stream, *args)
 
+    def __str__(self):
+        parts = [f"{k}={v}" for k,v in self.__dict__.items()]
+        return f"{self.__class__.__name__}({', '.join(parts)})"
+
+    def __repr__(self):
+        return str(self)
 
 # Alias
 ArchiveToCPtr = ArchiveTableOfContentsPtr
