@@ -6,28 +6,7 @@ import pytest
 from relic.sga.archive import Archive, ArchiveMagicWord
 from relic.sga.hierarchy import ArchiveWalk
 from tests.helpers import TF
-from tests.relic.sga.archive.datagen import full_gen_dow2_archive, full_gen_dow1_archive, full_gen_dow3_archive
-
-
-# archive_paths = get_sga_paths()
-
-#
-# def sga_seek_to_start(stream: BinaryIO, include_magic: bool = True):
-#     if include_magic:
-#         stream.seek(0)
-#     else:
-#         stream.seek(ArchiveMagicWord.layout.size)
-#
-#
-# def test_archive_unpack():
-#     for archive in archive_paths:
-#         with open(archive, "rb") as handle:
-#
-#             # Read from file, always assume we need to read magic
-#             for sparse in TF:
-#                 for read_magic in TF:
-#                     sga_seek_to_start(handle, read_magic)
-#                     _ = Archive.unpack(handle, read_magic=read_magic, sparse=sparse)
+from tests.relic.sga.datagen import full_gen_dow2_archive, full_gen_dow3_archive, DowI
 
 
 class ArchiveTests:
@@ -78,7 +57,9 @@ class ArchiveTests:
                 assert expected == packed
 
 
-DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED = full_gen_dow1_archive("Dow1 Test Archive", "Tests", "And Now For Something Completely Different.txt", b"Just kidding, it's Monty Python.")
+def fast_gen_dow1_archive(*args):
+    return DowI.gen_sample_archive(*args), DowI.gen_sample_archive_buffer(*args)
+DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED = fast_gen_dow1_archive("Dow1 Test Archive", "Tests", "And Now For Something Completely Different.txt", b"Just kidding, it's Monty Python.")
 
 
 def DOW1_ARCHIVE_WALK() -> ArchiveWalk:
