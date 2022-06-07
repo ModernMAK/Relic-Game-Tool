@@ -174,7 +174,7 @@ class DowIIArchiveHeader(ArchiveHeader):
         return cls(name, toc_ptr, data_ptr, (csum_a, csum_b), unk)
 
     def _pack(self, stream: BinaryIO) -> int:
-        args = self.checksums[0], self.name, self.checksums[1], self.toc_ptr.size, self.data_ptr.offset, self.toc_ptr.offset, 1, 0, self.unk
+        args = self.checksums[0], self.name.encode("uft-16-le"), self.checksums[1], self.toc_ptr.size, self.data_ptr.offset, self.toc_ptr.offset, 1, 0, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
 
@@ -200,7 +200,7 @@ class DowIIIArchiveHeader(ArchiveHeader):
 
     @property
     def version(self) -> VersionLike:
-        return ArchiveVersion.Dow2
+        return ArchiveVersion.Dow3
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ArchiveHeader:
