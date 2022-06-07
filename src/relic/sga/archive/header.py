@@ -169,7 +169,6 @@ class DowIIArchiveHeader(ArchiveHeader):
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> 'DowIIArchiveHeader':
         csum_a, name, csum_b, toc_size, data_offset, toc_pos, rsv_1, rsv_0, unk = cls.LAYOUT.unpack_stream(stream)
-        csum_a, csum_b = csum_a.hex(), csum_b.hex()
 
         assert rsv_1 == 1
         assert rsv_0 == 0
