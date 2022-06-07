@@ -76,13 +76,13 @@ class ArchiveHeader:
         return written
 
 
-def _gen_md5_checksum(stream: BinaryIO, eigen: bytes, buffer_size: int = 64 * KiB, ptr: Ptr = None):
+def _gen_md5_checksum(stream: BinaryIO, eigen: bytes, buffer_size: int = 64 * KiB, ptr: Ptr = None) -> bytes:
     hasher = md5(eigen) if eigen else md5()
     ptr = ptr or StreamPtr(stream)  # Quick way to preserve stream integrity
     with ptr.stream_jump_to(stream) as handle:
         for buffer in iter_read(handle, buffer_size):
             hasher.update(buffer)
-    return hasher.hexdigest()
+    return bytes.fromhex(hasher.hexdigest())
 
 
 def _validate_md5_checksum(stream: BinaryIO, ptr: WindowPtr, eigen: bytes, expected: bytes, buffer_size: int = 1024 * 64, _assert: bool = True) -> bool:
