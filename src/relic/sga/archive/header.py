@@ -118,7 +118,6 @@ class DowIArchiveHeader(ArchiveHeader):
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> 'DowIArchiveHeader':
         csum_a, name, csum_b, toc_size, data_offset = cls.LAYOUT.unpack_stream(stream)
-        csum_a, csum_b = csum_a.hex(), csum_b.hex()
 
         name = name.decode("utf-16-le").rstrip("\0")
         toc_ptr = WindowPtr(offset=stream.tell(), size=toc_size)
@@ -128,7 +127,7 @@ class DowIArchiveHeader(ArchiveHeader):
         return cls(name, toc_ptr, data_ptr, (csum_a, csum_b))
 
     def _pack(self, stream: BinaryIO) -> int:
-        args = self.checksums[0], self.name, self.checksums[1]
+        args = self.checksums[0], self.name.encode("utf-16-le"), self.checksums[1], self.toc_ptr.size, self.data_ptr.offset
         return self.LAYOUT.pack_stream(stream, *args)
 
 
@@ -203,7 +202,7 @@ class DowIIIArchiveHeader(ArchiveHeader):
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ArchiveHeader:
-        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, rsv_0_b, unk = cls.LAYOUT.unpack_stream(stream)[0]
+        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, rsv_0_b, unk = cls.LAYOUT.unpack_stream(stream)
 
         assert rsv_1 == 1
         assert rsv_0_a == 0
@@ -216,9 +215,15 @@ class DowIIIArchiveHeader(ArchiveHeader):
         return cls(name, toc_ptr, data_ptr, unk)
 
     def _pack(self, stream: BinaryIO) -> int:
-        args = (self.name, self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, self.unk)
+        args = self.name.encode("utf-16-le"), self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, 0, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
+    def __eq__(self, other):
+        # TODO make issue to add equality to WindowPtr/Ptr
+        return self.name == other.name and self.unk == other.unk \
+               and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
+               and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
+               and self.version == other.version
 
 _HEADER_VERSION_MAP: Dict[VersionLike, Type[ArchiveHeader]] = {
     ArchiveVersion.Dow: DowIArchiveHeader,
