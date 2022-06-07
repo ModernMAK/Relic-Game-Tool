@@ -1,4 +1,8 @@
 # Relic SGA Archive Tool
+[![Pytest](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/pytest.yml/badge.svg)](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/pytest.yml)
+[![PyPI](https://img.shields.io/pypi/v/relic-game-tool)](https://pypi.org/project/relic-game-tool/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/relic-game-tool)](https://www.python.org/downloads/)
+[![PyPI - License](https://img.shields.io/pypi/l/relic-game-tool)](https://github.com/ModernMAK/Relic-Game-Tool/blob/main/LICENSE.txt)
 #### Disclaimer
 Not affiliated with Sega, Relic Entertainment, or THQ.
 #### Warning
@@ -23,7 +27,10 @@ Via importing the python package, or running the relic from the command line.<br
 *Details pending*
 
 ### As a Command Line Tool
-After installing the package with pip, the tool can be run by entering ```relic``` into the command prompt. The tool will list arguments and sub commands available.
+After installing the package with pip, the tool can be run by entering `relic` into the command prompt. The tool will list arguments and sub commands available.
+```
+relic
+```
 #### Quick Use
 In general, it's best to unpack the SGA files to avoid unpacking the SGA for multiple extraction passes.<br>
 
@@ -37,7 +44,7 @@ The flag`-o` specifies the output directory, this is optional, but makes it easi
 The `-r` flag will search all files and folders within the directory. <br>
 The `-b` flag will not extract archives which contain certain keywords marking them as lower quality assets, this will prevent lower quality assets from overwriting higher quality ones.<br>
 The `-e` flag will force the program to crash on an error; in most cases, the output is bad, and a bug report should be submitted.<br>
----
+<br>
 After unpacking the SGA archives, we can extract assets from Relic Chunky files.
 ```
 relic chunky extract {extractor} 'storage path' -o 'extract path' -r -e
@@ -45,7 +52,9 @@ relic chunky extract {extractor} 'storage path' -o 'extract path' -r -e
 Extractor expects the 'type' of chunky to extract, running `relic chunky extract` will list available extractors.
 First, the path to the unpacked archive, 'storage path' should be the same path used after the `-o` flag. 
 The flags `-o`, `-r`, and `-e` function the same as above. 
-<br>
+```
+relic chunky extract
+```
 ## Format Specifications
 I've compiled what I've learned on the [Wiki](https://github.com/ModernMAK/Relic-SGA-Archive-Tool/wiki).
 It may be lacking compared to the actual python code; for more information, you may wish to examine the `relic\sga`, `relic\chunky`, and `relic\chunky_formats` sub-packages instead.
