@@ -200,7 +200,7 @@ class DowIIIArchiveHeader(ArchiveHeader):
 
     @property
     def version(self) -> VersionLike:
-        return ArchiveVersion.Dow2
+        return ArchiveVersion.Dow3
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> ArchiveHeader:
