@@ -1,9 +1,9 @@
 import hashlib
-from typing import Tuple, List, Dict
+from typing import Tuple, Dict
 
 from serialization_tools.ioutil import WindowPtr, Ptr
 
-from relic.sga import ArchiveHeader, DowIArchiveHeader, DowIIArchiveHeader, DowIIIArchiveHeader, Archive, VirtualDrive, VirtualDriveHeader, Folder, FolderHeader, File, FileHeader, DowIIArchive, DowIArchive, DowIIIArchive, \
+from relic.sga import ArchiveHeader, DowIArchiveHeader, DowIIArchiveHeader, DowIIIArchiveHeader, VirtualDrive, Folder, File, DowIIArchive, DowIArchive, DowIIIArchive, \
     DowIIIFolderHeader, DowIIIFileHeader, DowIIIVirtualDriveHeader, DowIVirtualDriveHeader, DowIFolderHeader, DowIFileHeader, FileCompressionFlag, DowIIFolderHeader, DowIIVirtualDriveHeader, DowIIFileHeader
 from relic.sga.common import ArchiveRange
 from relic.sga.toc.toc import ArchiveTOC
@@ -13,6 +13,10 @@ def encode_and_pad(v: str, byte_size: int, encoding: str) -> bytes:
     v_enc = v.encode(encoding)
     v_pad = b"\0" * (byte_size - len(v_enc))
     return v_enc + v_pad
+
+
+def ulong(v: int) -> bytes:
+    return v.to_bytes(8, "little", signed=False)
 
 
 def uint(v: int) -> bytes:
@@ -31,7 +35,7 @@ def splice_toc_offsets(vdrive: int, folders: int, files: int, names: int, offset
 
 class DowI:
     DEFAULT_CSUMS = (b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f")
-    VDRIVE_UNK = bytes.fromhex("dead")  # Arbitrary value
+    VDRIVE_UNK = b"\xde\xad"  # Arbitrary value
 
     @staticmethod
     def gen_archive_header(name: str, toc_size: int, data_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS, toc_pos: int = 180) -> ArchiveHeader:
@@ -70,7 +74,7 @@ class DowI:
                 comp_flag = FileCompressionFlag.Compressed16  # IDK, just choose one
             else:
                 comp_flag = FileCompressionFlag.Decompressed
-        return DowIFileHeader(Ptr(name_offset), Ptr(data_offset), decomp_size, comp_size, comp_flag)
+        return DowIFileHeader(Ptr(name_offset), WindowPtr(data_offset, comp_size), decomp_size, comp_size, comp_flag)
 
     @staticmethod
     def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None, comp_flag: FileCompressionFlag = None) -> bytes:
@@ -182,195 +186,230 @@ class DowI:
         return DowIArchive(header, [vdrive_], False)
 
 
-def gen_dow2_header_and_buffer(name: str, toc_size: int, data_offset: int, toc_pos: int, unk: int, csum1: bytes = None, csum2: bytes = None) -> Tuple[ArchiveHeader, bytes, bytes]:
-    version = b"\x05\0\0\0"
-    name_enc = name.encode("utf-16-le")
-    name_pad = b"\0" * (128 - len(name) * 2)
-    csum1 = b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0" if csum1 is None else csum1
-    csum2 = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" if csum2 is None else csum2
-    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
-    data_offset_enc = int.to_bytes(data_offset, 4, "little", signed=False)
-    toc_pos_enc = int.to_bytes(toc_pos, 4, "little", signed=False)
-    RSV_1 = int.to_bytes(1, 4, "little", signed=False)
-    RSV_0 = int.to_bytes(0, 4, "little", signed=False)
-    unk_enc = int.to_bytes(unk, 4, "little", signed=False)
-    shared = version + csum1 + name_enc + name_pad + csum2 + toc_size_enc + data_offset_enc + toc_pos_enc + RSV_1 + RSV_0 + unk_enc
+class DowII:
+    DEFAULT_CSUMS = (b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f")
+    VDRIVE_UNK = b"\xde\xad"  # Arbitrary value
+    ARCHIVE_HEADER_UNK = bytes.fromhex("4d41dFFF")  # F in place of unknowns
+    ARCHIVE_HEADER_UNK_INT = int.from_bytes(ARCHIVE_HEADER_UNK, byteorder="little", signed=False)  # F in place of unknowns
+    ARCHIVE_HEADER_SIZE = 196
 
-    header = DowIIArchiveHeader(name, WindowPtr(toc_pos, toc_size), WindowPtr(data_offset), (csum1, csum2), unk)
-    good = "_ARCHIVE".encode("ascii") + shared
-    bad = f"garbage_".encode("ascii") + shared
-    return header, good, bad
+    @classmethod
+    def gen_archive_header(cls, name: str, toc_size: int, data_offset: int, toc_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS) -> ArchiveHeader:
+        return DowIIArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset), csums, cls.ARCHIVE_HEADER_UNK_INT)
 
+    @classmethod
+    def gen_archive_header_buffer(cls, name: str, toc_size: int, data_offset: int, toc_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS, magic: bytes = b"_ARCHIVE") -> bytes:
+        version = b"\x05\0\0\0"
+        encoded_name = encode_and_pad(name, 64 * 2, "utf-16-le")
+        encoded_toc_size = uint(toc_size)
+        encoded_toc_offset = uint(toc_offset)
+        encoded_data_offset = uint(data_offset)
+        return magic + version + csums[0] + encoded_name + csums[1] + encoded_toc_size + encoded_data_offset + encoded_toc_offset + uint(1) + uint(0) + cls.ARCHIVE_HEADER_UNK
 
-def _gen_dow2_archive_toc(vdrive: str, folder: str, file: str, file_uncomp_data: bytes):
-    def ushort(v) -> bytes:
-        return int.to_bytes(v, length=2, byteorder="little", signed=False)
+    @staticmethod
+    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK) -> DowIIVirtualDriveHeader:
+        return DowIIVirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
 
-    def uint(v) -> bytes:
-        return int.to_bytes(v, length=4, byteorder="little", signed=False)
+    gen_vdrive_header_buffer = DowI.gen_vdrive_header_buffer  # Same exact layout;
 
-    USHORT_ZERO = ushort(0)
-    USHORT_ONE = ushort(1)
-    UINT_ZERO = uint(0)
-    VDRIVE_UNK = b"\xde\xad"
-    vdrive_buf = encode_and_pad("data", 64, "ascii") + encode_and_pad(vdrive, 64, "ascii") + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE + VDRIVE_UNK
-    file_size_enc = uint(len(file_uncomp_data))
-    file_buf = uint(len(folder) + 1) + UINT_ZERO + UINT_ZERO + file_size_enc + file_size_enc
-    folder_buf = UINT_ZERO + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE
-    name_buf = encode_and_pad(folder, len(folder) + 1, "ascii") + encode_and_pad(file, len(file) + 1, "ascii")
-    toc_buf = vdrive_buf + folder_buf + file_buf + name_buf
-    PTR_OFF = 24  # 4 * (2 + 6)
-    vdrive_off = 0 + PTR_OFF
-    folder_off = vdrive_off + len(vdrive_buf)
-    file_off = folder_off + len(folder_buf)
-    name_off = file_off + len(folder_buf)
-    toc_ptr_buf = uint(vdrive_off) + USHORT_ONE + uint(folder_off) + USHORT_ONE + uint(file_off) + USHORT_ONE + uint(name_off) + USHORT_ONE
+    @staticmethod
+    def gen_folder_header(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> DowIIFolderHeader:
+        return DowIIFolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
 
-    return toc_ptr_buf, toc_buf
+    gen_folder_header_buffer = DowI.gen_folder_header_buffer  # Same exact layout;
 
+    @staticmethod
+    def gen_file_header(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> DowIIFileHeader:
+        comp_size = decomp_size if comp_size is None else comp_size
+        return DowIIFileHeader(Ptr(name_offset), WindowPtr(data_offset, comp_size), decomp_size, comp_size, 0, 0)
 
-def gen_dow2_archive_toc(vdrive: str, folder: str, file: str, file_uncomp_data: bytes):
-    def ushort(v) -> bytes:
-        return int.to_bytes(v, length=2, byteorder="little", signed=False)
+    @staticmethod
+    def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> bytes:
+        comp_size = decomp_size if comp_size is None else comp_size
+        return uint(name_offset) + uint(data_offset) + uint(comp_size) + uint(decomp_size) + uint(0) + ushort(0)
 
-    def uint(v) -> bytes:
-        return int.to_bytes(v, length=4, byteorder="little", signed=False)
+    gen_name_buffer = DowI.gen_name_buffer
+    gen_toc_buffer_and_offsets = DowI.gen_toc_buffer_and_offsets
+    gen_toc_ptr_buffer = DowI.gen_toc_ptr_buffer
+    gen_toc = DowI.gen_toc
 
-    USHORT_ZERO = ushort(0)
-    USHORT_ONE = ushort(1)
-    UINT_ZERO = uint(0)
-    VDRIVE_UNK = uint(0xdead)
-    vdrive_buf = encode_and_pad("data", 64, "ascii") + encode_and_pad(vdrive, 64, "ascii") + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE + VDRIVE_UNK
-    file_size_enc = uint(len(file_uncomp_data))
-    file_buf = uint(len(folder) + 1) + UINT_ZERO + UINT_ZERO + file_size_enc + file_size_enc + UINT_ZERO + USHORT_ZERO
-    folder_buf = UINT_ZERO + USHORT_ZERO + USHORT_ONE + USHORT_ZERO + USHORT_ONE
-    name_buf = encode_and_pad(folder, len(folder) + 1, "ascii") + encode_and_pad(file, len(file) + 1, "ascii")
-    toc_buf = vdrive_buf + folder_buf + file_buf + name_buf
-    PTR_OFF = 24  # 4 * (2 + 6)
-    vdrive_off = 0 + PTR_OFF
-    folder_off = vdrive_off + len(vdrive_buf)
-    file_off = folder_off + len(folder_buf)
-    name_off = file_off + len(file_buf)
-    toc_ptr_buf = uint(vdrive_off) + USHORT_ONE + uint(folder_off) + USHORT_ONE + uint(file_off) + USHORT_ONE + uint(name_off) + ushort(2)
+    @classmethod
+    def gen_archive_buffer(self, archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes, magic: bytes = "_ARCHIVE") -> bytes:
+        full_toc = toc_ptrs + toc
+        EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
 
-    vdrive_h = DowIIVirtualDriveHeader("data", vdrive, ArchiveRange(0, 1), ArchiveRange(0, 1), VDRIVE_UNK)
-    folder_h = DowIIFolderHeader(0, ArchiveRange(0, 0), ArchiveRange(0, 1))
-    file_h = DowIIFileHeader(Ptr(len(folder) + 1), Ptr(0), len(file_uncomp_data), len(file_uncomp_data), 0, 0)
-    file_obj = File(file_h, file, file_uncomp_data, True, None, None)
-    folder_obj = Folder(folder_h, folder, [], [file_obj], None, None)
-    vdrive_obj = VirtualDrive(vdrive_h, [folder_obj], [file_obj])
-    file_obj._parent = folder_obj
-    file_obj._drive = vdrive_obj
-    folder_obj._drive = vdrive_obj
-    return [vdrive_obj], (toc_ptr_buf, toc_buf)
+        def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
+            hasher = hashlib.md5(eigen)
+            hasher.update(buffer)
+            return bytes.fromhex(hasher.hexdigest())
 
+        csum2 = gen_csum(full_toc, EIGENS[1])
+        toc_and_data = full_toc + data
+        csum1 = gen_csum(toc_and_data, EIGENS[0])
+        header_buffer = self.gen_archive_header_buffer(archive_name, len(full_toc), self.ARCHIVE_HEADER_SIZE + len(full_toc), self.ARCHIVE_HEADER_SIZE, csums=(csum1, csum2), magic=magic)
 
-# Old style; depricated
-def _gen_dow2_archive(archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes) -> bytes:
-    ARCHIVE_HEADER_SIZE = 196  # v5.0 has an extra 16 bytes
-    full_toc = toc_ptrs + toc
-    EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
+        return header_buffer + toc_and_data
 
-    def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
-        hasher = hashlib.md5(eigen)
-        hasher.update(buffer)
-        return bytes.fromhex(hasher.hexdigest())
+    @classmethod
+    def gen_sample_archive_buffer(self, archive_name: str, folder: str, file: str, file_uncomp_data: bytes, magic=b"_ARCHIVE") -> bytes:
+        name_buf, name_offsets = self.gen_name_buffer(folder, file)
+        vdrive_buf = self.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+        folder_buf = self.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+        file_buf = self.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+        toc_buf, toc_offsets = self.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+        toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)
+        toc_ptr_buf = self.gen_toc_ptr_buffer(*toc_ptrs)
+        return self.gen_archive_buffer(archive_name, toc_ptr_buf, toc_buf, file_uncomp_data, magic)
 
-    csum2 = gen_csum(full_toc, EIGENS[1])
-    toc_and_data = full_toc + data
-    csum1 = gen_csum(toc_and_data, EIGENS[0])
-    _, archive_header_buf, _ = gen_dow2_header_and_buffer(archive_name, len(full_toc), ARCHIVE_HEADER_SIZE + len(full_toc), toc_pos=ARCHIVE_HEADER_SIZE, csum1=csum1, csum2=csum2,
-                                                          unk=0x4d41dfff)  # UNK chosen to mostly match my knowledge of common archive files
-    return archive_header_buf + toc_and_data
+    @classmethod
+    def gen_sample_archive(self, archive_name: str, folder: str, file: str, file_uncomp_data: bytes, toc_pos: int = 180) -> DowIIArchive:
+        def dirty_toc_hack():
+            name_buf, name_offsets = self.gen_name_buffer(folder, file)
+            vdrive_buf = self.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+            folder_buf = self.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+            file_buf = self.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+            toc_buf, toc_offsets = self.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+            toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)
+            return self.gen_toc_ptr_buffer(*toc_ptrs) + toc_buf
 
+        full_toc = dirty_toc_hack()
 
-def gen_dow2_archive(archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes, drives: List[VirtualDrive] = None, sparse: bool = False) -> Tuple[Archive, bytes]:
-    ARCHIVE_HEADER_SIZE = 196  # v5.0 has an extra 16 bytes
-    full_toc = toc_ptrs + toc
-    EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
+        def dirty_csum_hack():
+            EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
 
-    def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
-        hasher = hashlib.md5(eigen)
-        hasher.update(buffer)
-        return bytes.fromhex(hasher.hexdigest())
+            def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
+                hasher = hashlib.md5(eigen)
+                hasher.update(buffer)
+                return bytes.fromhex(hasher.hexdigest())
 
-    csum2 = gen_csum(full_toc, EIGENS[1])
-    toc_and_data = full_toc + data
-    csum1 = gen_csum(toc_and_data, EIGENS[0])
-    header, archive_header_buf, _ = gen_dow2_header_and_buffer(archive_name, len(full_toc), ARCHIVE_HEADER_SIZE + len(full_toc), toc_pos=ARCHIVE_HEADER_SIZE, csum1=csum1, csum2=csum2,
-                                                               unk=0x4d41dfff)  # UNK chosen to mostly match my knowledge of common archive files
-    return DowIIArchive(header, drives, sparse), archive_header_buf + toc_and_data
+            csum2 = gen_csum(full_toc, EIGENS[1])
+            toc_and_data = full_toc + file_uncomp_data
+            csum1 = gen_csum(toc_and_data, EIGENS[0])
+            return csum1, csum2
+
+        csums = dirty_csum_hack()
+
+        _, name_offsets = self.gen_name_buffer(folder, file)
+        vdrive_h = self.gen_vdrive_header(archive_name, 0, 1, 0, 1)
+        folder_h = self.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
+        file_h = self.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
+        file_ = File(file_h, file, file_uncomp_data, True)
+        folder_ = Folder(folder_h, folder, [], [file_])
+        vdrive_ = VirtualDrive(vdrive_h, [folder_], [file_])
+        folder_._drive = file_._drive = vdrive_
+        file_._parent = folder_
+        header = self.gen_archive_header(archive_name, len(full_toc), self.ARCHIVE_HEADER_SIZE + len(full_toc), self.ARCHIVE_HEADER_SIZE, csums)
+        return DowIIArchive(header, [vdrive_], False)
 
 
-def full_gen_dow2_archive(archive_name: str, folder: str, file: str, file_uncomp_data: bytes):
-    drives, (toc_ptr, toc) = gen_dow2_archive_toc(archive_name, folder, file, file_uncomp_data)
-    return gen_dow2_archive(archive_name, toc_ptr, toc, file_uncomp_data, drives, False)
+class DowIII:
+    VDRIVE_UNK = bytes.fromhex("dead")  # Arbitrary value
+    ARCHIVE_HEADER_SIZE = 432
+    ARCHIVE_HEADER_UNK = b"dead " * 51 + b"\0"  # 256 bytes spamming `dead ` in ascii; with one byte '\0' to pad to 256
 
+    @classmethod
+    def gen_archive_header(cls, name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int) -> ArchiveHeader:
+        return DowIIIArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset, data_size), cls.ARCHIVE_HEADER_UNK)
 
-def gen_dow3_archive_toc(vdrive: str, folder: str, file: str, file_uncomp_data: bytes):
-    def uint(v) -> bytes:
-        return int.to_bytes(v, length=4, byteorder="little", signed=False)
+    @classmethod
+    def gen_archive_header_buffer(cls, name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int, magic: bytes = b"_ARCHIVE") -> bytes:
+        version = b"\x09\0\0\0"
+        encoded_name = encode_and_pad(name, 64 * 2, "utf-16-le")
+        encoded_toc_offset = ulong(toc_offset)
+        encoded_toc_size = uint(toc_size)
+        encoded_data_offset = ulong(data_offset)
+        encoded_data_size = uint(data_size)
+        return magic + version + encoded_name + encoded_toc_offset + encoded_toc_size + encoded_data_offset + encoded_data_size + uint(0) + uint(1) + uint(0) + cls.ARCHIVE_HEADER_UNK
 
-    def ushort(v) -> bytes:
-        return int.to_bytes(v, length=4, byteorder="little", signed=False)
+    @staticmethod
+    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK) -> DowIIIVirtualDriveHeader:
+        return DowIIIVirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
 
-    USHORT_ZERO = ushort(0)
-    UINT_ZERO = uint(0)
-    UINT_ONE = uint(1)
-    VDRIVE_UNK = uint(0xdead)
-    vdrive_buf = encode_and_pad("data", 64, "ascii") + encode_and_pad(vdrive, 64, "ascii") + UINT_ZERO + UINT_ONE + UINT_ZERO + UINT_ONE + VDRIVE_UNK
-    file_size_enc = uint(len(file_uncomp_data))
-    file_buf = uint(len(folder) + 1) + UINT_ZERO + UINT_ZERO + UINT_ZERO + file_size_enc + file_size_enc + UINT_ZERO + USHORT_ZERO + UINT_ZERO
-    folder_buf = UINT_ZERO + UINT_ONE + UINT_ZERO + UINT_ONE + UINT_ONE
-    name_buf = encode_and_pad(folder, len(folder) + 1, "ascii") + encode_and_pad(file, len(file) + 1, "ascii")
-    toc_buf = vdrive_buf + folder_buf + file_buf + name_buf
-    PTR_OFF = 24  # 4 * (2 + 6)
-    vdrive_off = 0 + PTR_OFF
-    folder_off = vdrive_off + len(vdrive_buf)
-    file_off = folder_off + len(folder_buf)
-    name_off = file_off + len(file_buf)
-    toc_ptr_buf = uint(vdrive_off) + UINT_ONE + uint(folder_off) + UINT_ONE + uint(file_off) + UINT_ONE + uint(name_off) + uint(len(name_buf))
+    @staticmethod
+    def gen_vdrive_header_buffer(name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK):
+        return encode_and_pad(path, 64, "ascii") + encode_and_pad(name, 64, "ascii") + uint(subfolder_offset) + uint(subfolder_offset + subfolder_count) + uint(file_offset) + uint(file_count + file_offset) + unk
 
-    vdrive_h = DowIIIVirtualDriveHeader("data", vdrive, ArchiveRange(0, 1), ArchiveRange(0, 1), VDRIVE_UNK)
-    folder_h = DowIIIFolderHeader(0, ArchiveRange(0, 0), ArchiveRange(0, 1))
-    file_h = DowIIIFileHeader(Ptr(len(folder) + 1), Ptr(0), len(file_uncomp_data), len(file_uncomp_data), 0, 0, 0, 0, 0)
-    file_obj = File(file_h, file, file_uncomp_data, True, None, None)
-    folder_obj = Folder(folder_h, folder, [], [file_obj], None, None)
-    vdrive_obj = VirtualDrive(vdrive_h, [folder_obj], [file_obj])
-    file_obj._parent = folder_obj
-    file_obj._drive = vdrive_obj
-    folder_obj._drive = vdrive_obj
-    return [vdrive_obj], (toc_ptr_buf, toc_buf)
+    @staticmethod
+    def gen_folder_header(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> DowIIIFolderHeader:
+        return DowIIIFolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
 
+    @staticmethod
+    def gen_folder_header_buffer(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> bytes:
+        return uint(name_offset) + uint(subfolder_offset) + uint(subfolder_offset + subfolder_count) + uint(file_offset) + uint(file_count + file_offset)
 
-def gen_dow3_header_and_buffer(name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int) -> Tuple[ArchiveHeader, bytes, bytes]:
-    version = b"\x09\0\0\0"
-    name_enc = name.encode("utf-16-le")
-    name_pad = b"\0" * (128 - len(name) * 2)
-    toc_offset_enc = int.to_bytes(toc_offset, 8, "little", signed=False)
-    toc_size_enc = int.to_bytes(toc_size, 4, "little", signed=False)
-    data_offset_enc = int.to_bytes(data_offset, 8, "little", signed=False)
-    data_size_enc = int.to_bytes(data_size, 4, "little", signed=False)
-    RSV_0 = int.to_bytes(0, 4, "little", signed=False)
-    RSV_1 = int.to_bytes(1, 4, "little", signed=False)
-    unk = b"\xda" * 256
-    shared = version + name_enc + name_pad + toc_offset_enc + toc_size_enc + data_offset_enc + data_size_enc + RSV_0 + RSV_1 + RSV_0 + unk
+    @staticmethod
+    def gen_file_header(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> DowIIIFileHeader:
+        if comp_size is None:
+            comp_size = decomp_size
+        return DowIIIFileHeader(Ptr(name_offset), WindowPtr(data_offset, comp_size), decomp_size, comp_size, 0, 0, 0, 0, 0)
 
-    header = DowIIIArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset, data_size), unk)
-    good = "_ARCHIVE".encode("ascii") + shared
-    bad = f"garbage_".encode("ascii") + shared
-    return header, good, bad
+    @staticmethod
+    def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> bytes:
+        if comp_size is None:
+            comp_size = decomp_size
+        return uint(name_offset) + uint(0) + uint(data_offset) + uint(0) + uint(comp_size) + uint(decomp_size) + uint(0) + uint(0) + uint(0)
 
+    @staticmethod
+    def gen_name_buffer(*names: str, encoding: str = "ascii") -> Tuple[bytes, Dict[str, int]]:
+        packed = [name.encode(encoding) + b"\0" for name in names]
+        offset = 0
+        lookup = {}
+        for i, name in enumerate(names):
+            lookup[name] = offset
+            offset += len(packed[i])
+        return b"".join(packed), lookup
 
-def gen_dow3_archive(archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes, drives: List[VirtualDrive] = None, sparse: bool = False) -> Tuple[Archive, bytes]:
-    ARCHIVE_HEADER_SIZE = 428  # v9.0 is huge
-    full_toc = toc_ptrs + toc
+    gen_toc_buffer_and_offsets = DowI.gen_toc_buffer_and_offsets  # Still the same; should be moved out of DowI probably
 
-    toc_and_data = full_toc + data
-    header, archive_header_buf, _ = gen_dow3_header_and_buffer(archive_name, ARCHIVE_HEADER_SIZE, len(full_toc), ARCHIVE_HEADER_SIZE + len(full_toc), len(data))
-    return DowIIIArchive(header, drives, sparse), archive_header_buf + toc_and_data
+    @staticmethod
+    def gen_toc_ptr_buffer(vdrive: Tuple[int, int], folders: Tuple[int, int], files: Tuple[int, int], names: Tuple[int, int], ptr_off: int = 32):
+        pairs = [vdrive, folders, files, names]
+        parts = [uint(ptr + ptr_off) + uint(count) for (ptr, count) in pairs]
+        return b"".join(parts)
 
+    @staticmethod
+    def gen_toc(vdrive: VirtualDrive, folder: Folder, file: File, names: Dict[int, str]) -> ArchiveTOC:
+        return ArchiveTOC([vdrive], [folder], [file], names)
 
-def full_gen_dow3_archive(archive_name: str, folder: str, file: str, file_uncomp_data: bytes):
-    drives, (toc_ptr, toc) = gen_dow3_archive_toc(archive_name, folder, file, file_uncomp_data)
-    return gen_dow3_archive(archive_name, toc_ptr, toc, file_uncomp_data, drives, False)
+    @classmethod
+    def gen_archive_buffer(self, archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes, magic: bytes = "_ARCHIVE") -> bytes:
+        full_toc = toc_ptrs + toc
+        toc_and_data = full_toc + data
+        header_buffer = self.gen_archive_header_buffer(archive_name, self.ARCHIVE_HEADER_SIZE, len(full_toc), self.ARCHIVE_HEADER_SIZE + len(full_toc), len(data), magic=magic)
+        return header_buffer + toc_and_data
+
+    @classmethod
+    def gen_sample_archive_buffer(self, archive_name: str, folder: str, file: str, file_uncomp_data: bytes, magic=b"_ARCHIVE") -> bytes:
+        name_buf, name_offsets = self.gen_name_buffer(folder, file)
+        vdrive_buf = self.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+        folder_buf = self.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+        file_buf = self.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+        toc_buf, toc_offsets = self.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+        # toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
+        toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)  # According to my notes; V9 uses this to store the size of the name buffer; but Archive Unpacking assumes it's a count; must test on real V9 files. TODO
+        toc_ptr_buf = self.gen_toc_ptr_buffer(*toc_ptrs)
+        return self.gen_archive_buffer(archive_name, toc_ptr_buf, toc_buf, file_uncomp_data, magic)
+
+    @classmethod
+    def gen_sample_archive(self, archive_name: str, folder: str, file: str, file_uncomp_data: bytes) -> DowIIIArchive:
+        name_buf, name_offsets = self.gen_name_buffer(folder, file)
+        vdrive_h = self.gen_vdrive_header(archive_name, 0, 1, 0, 1)
+        folder_h = self.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
+        file_h = self.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
+        file_ = File(file_h, file, file_uncomp_data, True)
+        folder_ = Folder(folder_h, folder, [], [file_])
+        vdrive_ = VirtualDrive(vdrive_h, [folder_], [file_])
+        folder_._drive = file_._drive = vdrive_
+        file_._parent = folder_
+
+        vdrive_buf = self.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+        folder_buf = self.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+        file_buf = self.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+        toc_buf, toc_offsets = self.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+        # toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
+        toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)  # According to my notes; V9 uses this to store the size of the name buffer; but Archive Unpacking assumes it's a count; must test on real V9 files. TODO
+        toc_ptr_buf = self.gen_toc_ptr_buffer(*toc_ptrs)
+        full_toc = toc_ptr_buf + toc_buf
+
+        header = self.gen_archive_header(archive_name,  self.ARCHIVE_HEADER_SIZE, len(full_toc), self.ARCHIVE_HEADER_SIZE + len(full_toc), len(file_uncomp_data))
+        return DowIIIArchive(header, [vdrive_], False)

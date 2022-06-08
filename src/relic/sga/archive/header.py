@@ -193,7 +193,7 @@ class DowIIArchiveHeader(ArchiveHeader):
 @dataclass
 class DowIIIArchiveHeader(ArchiveHeader):
     # name, TOC_POS, TOC_SIZE, DATA_POS, DATA_SIZE, RESERVED:0?, RESERVED:1, RESERVED:0?, UNK???
-    LAYOUT = Struct(f"<{_NAME_BYTE_SIZE}s Q L Q 4L 256s")
+    LAYOUT = Struct(f"<{_NAME_BYTE_SIZE}s Q L Q L 3L 256s")
     toc_ptr: WindowPtr
     data_ptr: WindowPtr
 

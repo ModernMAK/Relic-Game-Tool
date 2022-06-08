@@ -31,6 +31,10 @@ class FileHeader:
     decompressed_size: int
     compressed_size: int
 
+    def __eq__(self, other):
+        # TODO ptr equality
+        return self.decompressed_size == other.decompressed_size and self.compressed_size == other.compressed_size
+
     @property
     def compressed(self):
         raise NotImplementedError
@@ -60,6 +64,10 @@ class DowIFileHeader(FileHeader):
     # name
     LAYOUT = Struct(f"<5L")
     compression_flag: FileCompressionFlag
+
+    def __eq__(self, other):
+        return self.compression_flag == other.compression_flag and super().__eq__(other)
+
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> DowIFileHeader:

@@ -6,7 +6,7 @@ import pytest
 from serialization_tools.ioutil import WindowPtr, Ptr
 from serialization_tools.size import KiB, MiB, GiB
 
-from tests.relic.sga.datagen import DowI, gen_dow2_header_and_buffer, _gen_dow2_archive_toc, _gen_dow2_archive, gen_dow3_header_and_buffer
+from tests.relic.sga.datagen import DowI, DowII, DowII, DowIII
 from tests.helpers import TF
 from relic.common import Version
 from relic.sga import ArchiveHeader, ArchiveVersion, DowIIIArchiveHeader, ArchiveMagicWord
@@ -121,9 +121,8 @@ def test_validate_md5_checksum(stream_data: bytes, eigen: bytes, md5_checksum: b
 # Not garunteed to be a valid header
 
 def fast_dow1_archive_header(name, toc_pos, bad_magic: bytes):
-    _A = 0
-    _B = 120  # Random values
-    return DowI.gen_archive_header(name, _A, _B, toc_pos=toc_pos), DowI.gen_archive_header_buffer(name, _A, _B), DowI.gen_archive_header_buffer(name, _A, _B, magic=bad_magic)
+    _AB = 0, 120  # Random values
+    return DowI.gen_archive_header(name, *_AB, toc_pos=toc_pos), DowI.gen_archive_header_buffer(name, *_AB), DowI.gen_archive_header_buffer(name, *_AB, magic=bad_magic)
 
 
 DOW1_HEADER, DOW1_HEADER_DATA, DOW1_HEADER_DATA_BAD_MAGIC = fast_dow1_archive_header("Dawn Of War 1 Test Header", 180, b"deadbeef")
@@ -175,10 +174,13 @@ class TestDowIArchiveHeader(ArchiveHeaderTests):
 # Not garunteed to be a valid header
 
 
-DOW2_HEADER, DOW2_HEADER_DATA, DOW2_HEADER_DATA_BAD_MAGIC = gen_dow2_header_and_buffer("Dawn Of War 2 Test Header", 0, 120, 120, 0xff)
-_DOW2_ARCHIVE_DATA = b"By the Emperor, we're ready to unleash eleven barrels, m' lord, sir!"
-_DOW2_ARCHIVE_TOC_PTR, _DOW2_ARCHIVE_TOC = _gen_dow2_archive_toc("Dawn Of War 2 Test Archive", "Dow2 Tests", "Imperial Propoganda.txt", _DOW2_ARCHIVE_DATA)
-DOW2_ARCHIVE = _gen_dow2_archive("Dawn Of War 2 Test Archive", _DOW2_ARCHIVE_TOC_PTR, _DOW2_ARCHIVE_TOC, _DOW2_ARCHIVE_DATA)
+def fast_dow2_archive_header(name, bad_magic: bytes):
+    _ABC = 0, 0, 0
+    return DowII.gen_archive_header(name, *_ABC), DowII.gen_archive_header_buffer(name, *_ABC), DowII.gen_archive_header_buffer(name, *_ABC, magic=bad_magic)
+
+
+DOW2_HEADER, DOW2_HEADER_DATA, DOW2_HEADER_DATA_BAD_MAGIC = fast_dow2_archive_header("Dawn Of War 2 Test Header", b"Garbage!")
+DOW2_ARCHIVE_BUFFER = DowII.gen_sample_archive_buffer("Dawn Of War 2 Test Archive", "Dow2 Tests", "Imperial Propoganda.txt", b"By the Emperor, we're ready to unleash eleven barrels, m' lord, sir!")
 
 
 class TestDowIIArchiveHeader(ArchiveHeaderTests):
@@ -212,7 +214,7 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
 
     @pytest.mark.parametrize(
         ["archive"],
-        [(DOW2_ARCHIVE,)],
+        [(DOW2_ARCHIVE_BUFFER,)],
     )
     def test_validate_checksums(self, archive: bytes):
         super().test_validate_checksums(archive)
@@ -222,7 +224,12 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
         super().test_version(archive, expected)
 
 
-DOW3_HEADER, DOW3_HEADER_DATA, DOW3_HEADER_DATA_BAD_MAGIC = gen_dow3_header_and_buffer("Dawn Of War 3 Test Header", 180, 1, 181, 1)
+def fast_dow3_archive_header(name, bad_magic: bytes):
+    _ABCD = 0, 1, 2, 3
+    return DowIII.gen_archive_header(name, *_ABCD), DowIII.gen_archive_header_buffer(name, *_ABCD), DowIII.gen_archive_header_buffer(name, *_ABCD, magic=bad_magic)
+
+
+DOW3_HEADER, DOW3_HEADER_DATA, DOW3_HEADER_DATA_BAD_MAGIC = fast_dow3_archive_header("Dawn Of War 3 Test Header", b" Marine!")  # Big Brain Pun in ` Marine!`
 
 
 class TestDowIIIArchiveHeader(ArchiveHeaderTests):
