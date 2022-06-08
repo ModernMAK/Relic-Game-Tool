@@ -31,6 +31,10 @@ class FileHeader:
     decompressed_size: int
     compressed_size: int
 
+    def __eq__(self, other):
+        # TODO ptr equality
+        return self.decompressed_size == other.decompressed_size and self.compressed_size == other.compressed_size
+
     @property
     def compressed(self):
         raise NotImplementedError
@@ -60,6 +64,10 @@ class DowIFileHeader(FileHeader):
     # name
     LAYOUT = Struct(f"<5L")
     compression_flag: FileCompressionFlag
+
+    def __eq__(self, other):
+        return self.compression_flag == other.compression_flag and super().__eq__(other)
+
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> DowIFileHeader:
@@ -98,6 +106,8 @@ class DowIIFileHeader(FileHeader):
     def _pack(self, stream: BinaryIO) -> int:
         return self.LAYOUT.pack_stream(stream, self.name_sub_ptr.offset, self.data_sub_ptr.offset, self.compressed_size, self.decompressed_size, self.unk_a, self.unk_b)
 
+    def __eq__(self, other):
+        return self.unk_a == other.unk_a and self.unk_b == other.unk_b and super().__eq__(other)
 
 @dataclass
 class DowIIIFileHeader(FileHeader):
@@ -107,6 +117,9 @@ class DowIIIFileHeader(FileHeader):
     unk_c: int
     unk_d: int  # 256?
     unk_e: int
+
+    def __eq__(self, other):
+        return self.unk_a == other.unk_a and self.unk_b == other.unk_b and self.unk_c == other.unk_c and self.unk_d == other.unk_d and self.unk_e == other.unk_e and super().__eq__(other)
 
     @classmethod
     def _unpack(cls, stream: BinaryIO) -> DowIIIFileHeader:
