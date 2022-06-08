@@ -1,19 +1,21 @@
-from .archive import *
-from .file import *
-from .folder import *
-from .toc import *
-from .vdrive import *
-from . import common, hierarchy, writer
-from . import archive, file, folder, toc, vdrive
+#
+# from . import common, hierarchy, writer
+# # from .common import vdrive, archive, folder, file, toc
+#
+# # __all__ = [
+# #     "common",
+# #     "hierarchy",
+# #     "writer",
+# # ]
+#
+# # __all__.extend(archive.__all__)
+# # __all__.extend(file.__all__)
+# # __all__.extend(folder.__all__)
+# # __all__.extend(toc.__all__)
+# # __all__.extend(vdrive.__all__)
+from relic.sga.v2 import APIv2
+from relic.sga.v5 import APIv5
+from relic.sga.v9 import APIv9
 
-__all__ = [
-    "common",
-    "hierarchy",
-    "writer",
-]
-
-__all__.extend(archive.__all__)
-__all__.extend(file.__all__)
-__all__.extend(folder.__all__)
-__all__.extend(toc.__all__)
-__all__.extend(vdrive.__all__)
+__APIS = [APIv2,APIv5,APIv9]
+APIS = {api.version:api for api in __APIS}

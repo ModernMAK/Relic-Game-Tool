@@ -3,21 +3,22 @@ from io import BytesIO
 
 import pytest
 
-from relic.sga.archive import Archive, ArchiveMagicWord
-from relic.sga.hierarchy import ArchiveWalk
+from relic.sga.abc_ import ArchiveABC
+from relic.sga.common import ArchiveMagicWord
+from relic.sga.protocols import ArchiveWalk
 from tests.helpers import TF
 from tests.relic.sga.datagen import DowII, DowI, DowIII
 
 
 class ArchiveTests:
-    def assert_equal(self, expected: Archive, result: Archive, sparse: bool):
+    def assert_equal(self, expected: ArchiveABC, result: ArchiveABC, sparse: bool):
         assert expected.header == result.header
         if sparse:
             assert result._sparse
         # TODO
 
     @abstractmethod
-    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+    def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         archive_walk = archive.walk()
         for (a_vdrive, a_folder, a_folders, a_files), (e_vdrive, e_folder, e_folders, e_files) in zip(archive_walk, expected):
             assert a_vdrive == e_vdrive
@@ -26,27 +27,27 @@ class ArchiveTests:
             assert a_files == e_files
 
     @abstractmethod
-    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
+    def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
         for sparse in TF:
             with BytesIO(stream_data) as stream:
-                archive = expected.__class__._unpack(stream, expected.header, sparse)
+                archive = expected.__class__.unpack(stream, expected.header, sparse)
                 assert expected.__class__ == archive.__class__
                 self.assert_equal(expected, archive, sparse)
 
     @abstractmethod
-    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
+    def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
         for read_magic in TF:
             for sparse in TF:
                 for validate in ([False] if not valid_checksums else TF):
                     with BytesIO(stream_data) as stream:
                         if not read_magic:
                             stream.seek(ArchiveMagicWord.layout.size)
-                        archive = Archive.unpack(stream, read_magic, sparse, validate=validate)
+                        archive = ArchiveABC.unpack(stream, read_magic, sparse, validate=validate)
                         assert expected.__class__ == archive.__class__
                         self.assert_equal(expected, archive, sparse)
 
     @abstractmethod
-    def test_pack(self, archive: Archive, expected: bytes):
+    def test_pack(self, archive: ArchiveABC, expected: bytes):
         for write_magic in TF:
             try:
                 with BytesIO() as stream:
@@ -75,22 +76,22 @@ def DOW1_ARCHIVE_WALK() -> ArchiveWalk:
 class TestDowIArchive(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE)])
-    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
-        super().test_inner_unpack(stream_data, expected)
+    def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
+        super().test_unpack(stream_data, expected)
 
-    @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
-                             [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE, True)])
-    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
-        super().test_unpack(stream_data, expected, valid_checksums)
+    # @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
+    #                          [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE, True)])
+    # def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
+    #     super().old_test_unpack(stream_data, expected, valid_checksums)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED)])
-    def test_pack(self, archive: Archive, expected: bytes):
+    def test_pack(self, archive: ArchiveABC, expected: bytes):
         super().test_pack(archive, expected)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW1_ARCHIVE, DOW1_ARCHIVE_WALK())])
-    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+    def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         super().test_walk(archive, expected)
 
 
@@ -112,22 +113,22 @@ def DOW2_ARCHIVE_WALK() -> ArchiveWalk:
 class TestDowIIArchive(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE)])
-    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
-        super().test_inner_unpack(stream_data, expected)
+    def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
+        super().test_unpack(stream_data, expected)
 
     @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
                              [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE, True)])
-    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
-        super().test_unpack(stream_data, expected, valid_checksums)
+    def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
+        super().old_test_unpack(stream_data, expected, valid_checksums)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED)])
-    def test_pack(self, archive: Archive, expected: bytes):
+    def test_pack(self, archive: ArchiveABC, expected: bytes):
         super().test_pack(archive, expected)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW2_ARCHIVE, DOW2_ARCHIVE_WALK())])
-    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+    def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         super().test_walk(archive, expected)
 
 
@@ -149,20 +150,20 @@ def DOW3_ARCHIVE_WALK() -> ArchiveWalk:
 class TestDowIIIArchive(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW3_ARCHIVE_PACKED, DOW3_ARCHIVE)])
-    def test_inner_unpack(self, stream_data: bytes, expected: Archive):
-        super().test_inner_unpack(stream_data, expected)
+    def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
+        super().test_unpack(stream_data, expected)
 
     @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
                              [(DOW3_ARCHIVE_PACKED, DOW3_ARCHIVE, True)])
-    def test_unpack(self, stream_data: bytes, expected: Archive, valid_checksums: bool):
-        super().test_unpack(stream_data, expected, valid_checksums)
+    def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
+        super().old_test_unpack(stream_data, expected, valid_checksums)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW3_ARCHIVE, DOW3_ARCHIVE_PACKED)])
-    def test_pack(self, archive: Archive, expected: bytes):
+    def test_pack(self, archive: ArchiveABC, expected: bytes):
         super().test_pack(archive, expected)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW3_ARCHIVE, DOW3_ARCHIVE_WALK())])
-    def test_walk(self, archive: Archive, expected: ArchiveWalk):
+    def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         super().test_walk(archive, expected)

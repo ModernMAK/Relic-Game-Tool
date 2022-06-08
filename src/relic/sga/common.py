@@ -3,18 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Iterator, BinaryIO
 
+from serialization_tools.magic import MagicWordIO
 from serialization_tools.structx import Struct
 
-from ..common import VersionEnum, Version, VersionLike
+from relic.common import VersionEnum, Version, VersionLike
 
 ArchiveVersionLayout = Struct("< 2H")
 
 
 class ArchiveVersion(VersionEnum):
     Unsupported = None
-    Dow = Version(2)
-    Dow2 = Version(5)
-    Dow3 = Version(9)
+    v2 = Version(2)
+    Dow = v2
+    v5 = Version(5)
+    Dow2 = v5
+    v9 = Version(9)
+    Dow3 = v9
 
     @classmethod
     def unpack_version(cls, stream: BinaryIO) -> Version:
@@ -51,3 +55,6 @@ class ArchiveRange:
 
     def __next__(self) -> int:
         return next(self.__iterable)
+
+
+ArchiveMagicWord = MagicWordIO(Struct("< 8s"), "_ARCHIVE".encode("ascii"))

@@ -1,47 +1,50 @@
 from abc import abstractmethod
 from io import BytesIO
-from typing import List
+from typing import List, Type
 
 import pytest
 from serialization_tools.ioutil import WindowPtr, Ptr
 from serialization_tools.size import KiB, MiB, GiB
 
-from tests.relic.sga.datagen import DowI, DowII, DowII, DowIII
-from tests.helpers import TF
+import relic.sga.io
 from relic.common import Version
-from relic.sga import ArchiveHeader, ArchiveVersion, DowIIIArchiveHeader, ArchiveMagicWord
-from relic.sga.archive import header
+from relic.sga.common import ArchiveMagicWord, ArchiveVersion
+from relic.sga import protocols as proto, v2, v5, v9
+from relic.sga.checksums import gen_md5_checksum, validate_md5_checksum
+from relic.sga.v9 import ArchiveHeader
+from tests.relic.sga.datagen import DowI, DowII, DowIII
+from tests.helpers import TF
 
 
 class ArchiveHeaderTests:
     @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_validate_checksums(self, archive: bytes):
+    def test_validate_checksums(self, archive: bytes, cls: Type[proto.ArchiveHeader]):
         for fast in TF:
             for _assert in TF:
                 with BytesIO(archive) as stream:
-                    archive_header = ArchiveHeader.unpack(stream)
+                    archive_header = cls.unpack(stream)
                     archive_header.validate_checksums(stream, fast=fast, _assert=_assert)
 
     @abstractmethod  # Trick PyCharm into requiring us to redefine this
     def test_version(self, archive: ArchiveHeader, expected: Version):
         assert archive.version == expected
 
-    @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+    # @abstractmethod  # Trick PyCharm into requiring us to redefine this
+    def old_test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
         with BytesIO(buffer) as stream:
-            result = expected.__class__._unpack(stream)
+            result = relic.sga.io.unpack_archive(stream)
             assert result == expected
 
-    @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+    # @abstractmethod  # Trick PyCharm into requiring us to redefine this
+    def old_test_private_pack(self, inst: ArchiveHeader, expected: bytes):
         with BytesIO() as stream:
-            inst._pack(stream)
+            inst.pack(stream)
             stream.seek(0)
             result = stream.read()
             assert result == expected
 
-    @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
+    # @abstractmethod  # Trick PyCharm into requiring us to redefine this
+    def old_test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
         for read_magic in TF:
             with BytesIO(buffer) as stream:
                 if not read_magic:
@@ -58,8 +61,22 @@ class ArchiveHeaderTests:
                     assert expected.__class__ == unpacked.__class__
                     assert expected == unpacked
 
+    @abstractmethod
+    def test_unpack(self, buffer: bytes, expected: proto.ArchiveHeader):
+        with BytesIO(buffer) as stream:
+            unpacked = expected.__class__.unpack(stream)
+            assert expected == unpacked
+
+    @abstractmethod
+    def test_pack(self, inst: proto.ArchiveHeader, expected: bytes):
+        with BytesIO() as stream:
+            written = inst.pack(stream)
+            stream.seek(0)
+            packed = stream.read()
+            assert expected == packed
+
     @abstractmethod  # Trick PyCharm into requiring us to redefine this
-    def test_pack(self, inst: ArchiveHeader, expected: bytes):
+    def old_test_pack(self, inst: proto.ArchiveHeader, expected: bytes):
         magic_size = ArchiveMagicWord.layout.size
         for write_magic in TF:
             with BytesIO() as stream:
@@ -89,7 +106,7 @@ def test_gen_md5_checksum(stream_data: bytes, eigen: bytes, md5_checksum: bytes,
     ptr = WindowPtr(0, len(stream_data)) if ptr is None else ptr
     for buffer_size in buffer_sizes:
         with BytesIO(stream_data) as stream:
-            result = header._gen_md5_checksum(stream, eigen, buffer_size, ptr)
+            result = gen_md5_checksum(stream, eigen, buffer_size, ptr)
         assert md5_checksum == result
 
 
@@ -105,7 +122,7 @@ def test_validate_md5_checksum(stream_data: bytes, eigen: bytes, md5_checksum: b
         for buffer_size in buffer_sizes:
             try:
                 with BytesIO(stream_data) as stream:
-                    result = header._validate_md5_checksum(stream, ptr, eigen, md5_checksum, buffer_size, _assert)
+                    result = validate_md5_checksum(stream, ptr, eigen, md5_checksum, buffer_size, _assert)
                 # Own lines to make assertions clearer
             except AssertionError as e:
                 if not fail_expected:  # MD5 mismatch; if fail_expected we
@@ -130,41 +147,29 @@ DOW1_HEADER, DOW1_HEADER_DATA, DOW1_HEADER_DATA_BAD_MAGIC = fast_dow1_archive_he
 DOW1_HEADER_INNER, DOW1_HEADER_INNER_DATA, _ = fast_dow1_archive_header("Dawn Of War 1 Test Header (Inner Pack)", 168, b"deaddead")
 DOW1_ARCHIVE_BUFFER = DowI.gen_sample_archive_buffer("Dawn Of War 1 Test Archive", "Tests", "Dow1 Header Tests.txt", b"You thought this was a test, but it was me, DIO!")
 
+HDR_START = 12  # Most logic now doesn't handle Magic + Version
+
 
 class TestDowIArchiveHeader(ArchiveHeaderTests):
     @pytest.mark.parametrize(
-        ["archive"],
-        [(DOW1_ARCHIVE_BUFFER,)])
-    def test_validate_checksums(self, archive: bytes):
-        super().test_validate_checksums(archive)
+        ["archive", "cls"],
+        [(DOW1_ARCHIVE_BUFFER[HDR_START:], v2.ArchiveHeader)])
+    def test_validate_checksums(self, archive: bytes, cls: Type[v2.ArchiveHeader]):
+        super().test_validate_checksums(archive, cls)
 
     @pytest.mark.parametrize(
         ["expected", "inst"],
-        [(DOW1_HEADER_INNER_DATA[12:], DOW1_HEADER_INNER)]
+        [(DOW1_HEADER_INNER_DATA[HDR_START:], DOW1_HEADER_INNER)]
     )
-    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
-        super().test_private_pack(inst, expected)
+    def test_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().test_pack(inst, expected)
 
     @pytest.mark.parametrize(
         ["buffer", "expected"],
-        [(DOW1_HEADER_INNER_DATA[12:], DOW1_HEADER_INNER)]
+        [(DOW1_HEADER_INNER_DATA[HDR_START:], DOW1_HEADER_INNER)]
     )
-    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
-        super().test_private_unpack(buffer, expected)
-
-    @pytest.mark.parametrize(
-        ["buffer", "expected", "bad_magic_word"],
-        [(DOW1_HEADER_DATA, DOW1_HEADER, False),
-         (DOW1_HEADER_DATA_BAD_MAGIC, DOW1_HEADER, True)]
-    )
-    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
-        super().test_unpack(buffer, expected, bad_magic_word)
-
-    @pytest.mark.parametrize(
-        ["inst", "expected"],
-        [(DOW1_HEADER, DOW1_HEADER_DATA)])
-    def test_pack(self, inst: ArchiveHeader, expected: bytes):
-        super().test_pack(inst, expected)
+    def test_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        super().test_unpack(buffer, expected)
 
     @pytest.mark.parametrize(["archive", "expected"], [(DOW1_HEADER, ArchiveVersion.Dow)])
     def test_version(self, archive: ArchiveHeader, expected: Version):
@@ -188,36 +193,36 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
         ["expected", "inst"],
         [(DOW2_HEADER_DATA[12:], DOW2_HEADER)],
     )
-    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
-        super().test_private_pack(inst, expected)
+    def old_test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().old_test_private_pack(inst, expected)
 
     @pytest.mark.parametrize(
         ["buffer", "expected"],
         [(DOW2_HEADER_DATA[12:], DOW2_HEADER)],
     )
-    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
-        super().test_private_unpack(buffer, expected)
+    def old_test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        super().old_test_private_unpack(buffer, expected)
 
     @pytest.mark.parametrize(
         ["buffer", "expected", "bad_magic_word"],
         [(DOW2_HEADER_DATA, DOW2_HEADER, False),
          (DOW2_HEADER_DATA_BAD_MAGIC, DOW2_HEADER, True)],
     )
-    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
-        super().test_unpack(buffer, expected, bad_magic_word)
+    def old_test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
+        super().old_test_unpack(buffer, expected, bad_magic_word)
 
     @pytest.mark.parametrize(
         ["inst", "expected"],
         [(DOW2_HEADER, DOW2_HEADER_DATA)])
-    def test_pack(self, inst: ArchiveHeader, expected: bytes):
-        super().test_pack(inst, expected)
+    def old_test_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().old_test_pack(inst, expected)
 
     @pytest.mark.parametrize(
-        ["archive"],
-        [(DOW2_ARCHIVE_BUFFER,)],
+        ["archive", "cls"],
+        [(DOW2_ARCHIVE_BUFFER, v5.ArchiveHeader)],
     )
-    def test_validate_checksums(self, archive: bytes):
-        super().test_validate_checksums(archive)
+    def test_validate_checksums(self, archive: bytes, cls: Type[v5.ArchiveHeader]):
+        super().test_validate_checksums(archive, cls)
 
     @pytest.mark.parametrize(["archive", "expected"], [(DOW2_HEADER, ArchiveVersion.Dow2)])
     def test_version(self, archive: ArchiveHeader, expected: Version):
@@ -234,41 +239,41 @@ DOW3_HEADER, DOW3_HEADER_DATA, DOW3_HEADER_DATA_BAD_MAGIC = fast_dow3_archive_he
 
 class TestDowIIIArchiveHeader(ArchiveHeaderTests):
     @pytest.mark.parametrize(
-        ["archive"],
-        [(None,)])
-    def test_validate_checksums(self, archive: bytes):
+        ["archive", "cls"],
+        [(None, v9.ArchiveHeader)])
+    def test_validate_checksums(self, archive: bytes, cls: Type[v9.ArchiveHeader]):
         for fast in TF:
             for _assert in TF:
                 # HACK but if it fails it means logic has changed
-                assert DowIIIArchiveHeader.validate_checksums(None, None, fast=fast, _assert=_assert)
+                assert cls.validate_checksums(None, None, fast=fast, _assert=_assert)
 
     @pytest.mark.parametrize(
         ["expected", "inst"],
         [(DOW3_HEADER_DATA[12:], DOW3_HEADER)],
     )
-    def test_private_pack(self, inst: ArchiveHeader, expected: bytes):
-        super().test_private_pack(inst, expected)
+    def old_test_private_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().old_test_private_pack(inst, expected)
 
     @pytest.mark.parametrize(
         ["buffer", "expected"],
         [(DOW3_HEADER_DATA[12:], DOW3_HEADER)],
     )
-    def test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
-        super().test_private_unpack(buffer, expected)
+    def old_test_private_unpack(self, buffer: bytes, expected: ArchiveHeader):
+        super().old_test_private_unpack(buffer, expected)
 
     @pytest.mark.parametrize(
         ["buffer", "expected", "bad_magic_word"],
         [(DOW3_HEADER_DATA, DOW3_HEADER, False),
          (DOW3_HEADER_DATA_BAD_MAGIC, DOW3_HEADER, True)],
     )
-    def test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
-        super().test_unpack(buffer, expected, bad_magic_word)
+    def old_test_unpack(self, buffer: bytes, expected: ArchiveHeader, bad_magic_word: bool):
+        super().old_test_unpack(buffer, expected, bad_magic_word)
 
     @pytest.mark.parametrize(
         ["inst", "expected"],
         [(DOW3_HEADER, DOW3_HEADER_DATA)])
-    def test_pack(self, inst: ArchiveHeader, expected: bytes):
-        super().test_pack(inst, expected)
+    def old_test_pack(self, inst: ArchiveHeader, expected: bytes):
+        super().old_test_pack(inst, expected)
 
     @pytest.mark.parametrize(["archive", "expected"], [(DOW3_HEADER, ArchiveVersion.Dow3)])
     def test_version(self, archive: ArchiveHeader, expected: Version):

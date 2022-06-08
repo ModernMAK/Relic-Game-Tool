@@ -5,9 +5,10 @@ from typing import Iterable
 
 from serialization_tools.walkutil import BlackList, WhiteList, filter_by_path, filter_by_file_extension, collapse_walk_on_files
 
+import relic.sga.io
 from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
 
-from relic.sga.archive import ArchiveMagicWord, Archive
+from relic.sga.common.archive import ArchiveMagicWord, Archive
 
 
 def __safe_makedirs(path: str, use_dirname: bool = True):
@@ -29,7 +30,7 @@ def walk_archive_paths(folder: os.PathLike, extensions: WhiteList = None, whitel
     walk = os.walk(folder)
     walk = filter_by_path(walk, whitelist=whitelist, blacklist=blacklist, prune=True)
     walk = filter_by_file_extension(walk, whitelist=extensions)
-    walk = ArchiveMagicWord.walk(walk)
+    walk = relic.sga.io.walk(walk)
     return collapse_walk_on_files(walk)
 
 
@@ -40,11 +41,11 @@ def dump_archive(input_folder: os.PathLike, output_folder: os.PathLike, overwrit
     output_folder_path = Path(output_folder)
     for input_file_path in walk_archive_paths(input_folder):
         with open(input_file_path, "rb") as in_handle:
-            archive = Archive.unpack(in_handle)
+            archive = relic.sga.io.unpack_archive(in_handle)
             archive_name = splitext(basename(input_file_path))[0]
             with archive.header.data_ptr.stream_jump_to(in_handle) as data_stream:
                 print(f"\tDumping '{archive_name}'")
-                for _, _, _, files in archive.walk():
+                for _, _, _, files in relic.sga.io.walk():
                     for file in files:
                         relative_file_path = file.full_path
 
