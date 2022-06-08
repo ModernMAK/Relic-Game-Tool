@@ -5,7 +5,7 @@ import pytest
 
 from relic.common import VersionLike
 from relic.sga import FileHeader, ArchiveVersion
-from tests.relic.sga.datagen import DowI
+from tests.relic.sga.datagen import DowI, DowII, DowIII
 
 
 class FileHeaderTests:
@@ -59,9 +59,43 @@ class TestDowIFileHeader(FileHeaderTests):
         super().test_inner_unpack(data_stream, expected)
 
 
+DOW2_HEADER, DOW2_HEADER_BUFFER = DowII.gen_file_header(0, 0, 0), DowII.gen_file_header_buffer(0, 0, 0)
+
+
 class TestDowIIFileHeader(FileHeaderTests):
-    ...  # TODO
+    @pytest.mark.parametrize(["header", "expected"], [(DOW2_HEADER, DOW2_HEADER_BUFFER)])
+    def test_pack(self, header: FileHeader, expected: bytes):
+        super().test_pack(header, expected)
+
+    @pytest.mark.parametrize(["header", "expected"], [(DOW2_HEADER, DOW2_HEADER_BUFFER)])
+    def test_inner_pack(self, header: FileHeader, expected: bytes):
+        super().test_pack(header, expected)
+
+    @pytest.mark.parametrize(["expected", "data_stream", "version"], [(DOW2_HEADER, DOW2_HEADER_BUFFER, ArchiveVersion.Dow2)])
+    def test_unpack(self, data_stream: bytes, expected: FileHeader, version: VersionLike):
+        super().test_unpack(data_stream, expected, version)
+
+    @pytest.mark.parametrize(["expected", "data_stream"], [(DOW2_HEADER, DOW2_HEADER_BUFFER)])
+    def test_inner_unpack(self, data_stream: bytes, expected: FileHeader):
+        super().test_inner_unpack(data_stream, expected)
+
+
+DOW3_HEADER, DOW3_HEADER_BUFFER = DowIII.gen_file_header(0x0f, 0xf0, 0x09, 0x90), DowIII.gen_file_header_buffer(0x0f, 0xf0, 0x09, 0x90)
 
 
 class TestDowIIIFileHeader(FileHeaderTests):
-    ...  # TODO
+    @pytest.mark.parametrize(["header", "expected"], [(DOW3_HEADER, DOW3_HEADER_BUFFER)])
+    def test_pack(self, header: FileHeader, expected: bytes):
+        super().test_pack(header, expected)
+
+    @pytest.mark.parametrize(["header", "expected"], [(DOW3_HEADER, DOW3_HEADER_BUFFER)])
+    def test_inner_pack(self, header: FileHeader, expected: bytes):
+        super().test_pack(header, expected)
+
+    @pytest.mark.parametrize(["expected", "data_stream", "version"], [(DOW3_HEADER, DOW3_HEADER_BUFFER, ArchiveVersion.Dow3)])
+    def test_unpack(self, data_stream: bytes, expected: FileHeader, version: VersionLike):
+        super().test_unpack(data_stream, expected, version)
+
+    @pytest.mark.parametrize(["expected", "data_stream"], [(DOW3_HEADER, DOW3_HEADER_BUFFER)])
+    def test_inner_unpack(self, data_stream: bytes, expected: FileHeader):
+        super().test_inner_unpack(data_stream, expected)
