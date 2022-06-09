@@ -101,7 +101,6 @@ class ArchiveHeader(ArchiveHeaderABC, _V9):
 
         assert rsv_1 == 1
         assert rsv_0_a == 0
-        assert stream.tell() == toc_pos or stream.tell() == data_pos, (stream.tell(), toc_pos, data_pos)
         toc_ptr = WindowPtr(offset=toc_pos, size=toc_size)
         data_ptr = WindowPtr(offset=data_pos, size=data_size)
         name = name.decode("utf-16-le").rstrip("\0")
@@ -109,7 +108,7 @@ class ArchiveHeader(ArchiveHeaderABC, _V9):
         return cls(name, toc_ptr, data_ptr, unk)
 
     def pack(self, stream: BinaryIO) -> int:
-        args = self.name.encode("utf-16-le"), self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, 0, self.unk
+        args = self.name.encode("utf-16-le"), self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
     def __eq__(self, other):

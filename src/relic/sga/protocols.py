@@ -30,7 +30,7 @@ class ArchiveHeader(Protocol):
 
     @classmethod
     @property
-    def version(cls) -> VersionLike:
+    def version(self) -> VersionLike:
         raise NotImplementedError
 
     @classmethod
@@ -45,6 +45,7 @@ class ArchiveHeader(Protocol):
 class ArchiveWalkable(Protocol):
     def walk(self) -> ArchiveWalk:
         raise NotImplementedError
+
 
 @runtime_checkable
 class DriveCollection(Protocol):
@@ -72,12 +73,12 @@ class DriveChild(Protocol):
 
 
 @runtime_checkable
-class VirtualDrive(FolderCollection, FileCollection,ArchiveWalkable, Protocol):
+class VirtualDrive(FolderCollection, FileCollection, ArchiveWalkable, Protocol):
     ...
 
 
 @runtime_checkable
-class Folder(FolderCollection, FileCollection, FolderChild, DriveChild,ArchiveWalkable, Protocol):
+class Folder(FolderCollection, FileCollection, FolderChild, DriveChild, ArchiveWalkable, Protocol):
     ...
 
 
@@ -94,7 +95,7 @@ class File(FolderChild, DriveChild, Protocol):
 
 
 @runtime_checkable
-class Archive(DriveCollection,ArchiveWalkable, Protocol):
+class Archive(DriveCollection, ArchiveWalkable, Protocol):
     header: ArchiveHeader
     """Sparse represents whether data was loaded on creation."""
     _sparse: bool

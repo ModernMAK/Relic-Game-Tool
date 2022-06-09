@@ -304,7 +304,7 @@ class DowII:
 
 class DowIII:
     VDRIVE_UNK = bytes.fromhex("dead")  # Arbitrary value
-    ARCHIVE_HEADER_SIZE = 432
+    ARCHIVE_HEADER_SIZE = 428
     ARCHIVE_HEADER_UNK = b"dead " * 51 + b"\0"  # 256 bytes spamming `dead ` in ascii; with one byte '\0' to pad to 256
 
     @classmethod
@@ -319,7 +319,7 @@ class DowIII:
         encoded_toc_size = uint(toc_size)
         encoded_data_offset = ulong(data_offset)
         encoded_data_size = uint(data_size)
-        return magic + version + encoded_name + encoded_toc_offset + encoded_toc_size + encoded_data_offset + encoded_data_size + uint(0) + uint(1) + uint(0) + cls.ARCHIVE_HEADER_UNK
+        return magic + version + encoded_name + encoded_toc_offset + encoded_toc_size + encoded_data_offset + encoded_data_size + uint(0) + uint(1) + cls.ARCHIVE_HEADER_UNK
 
     @staticmethod
     def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK) -> v9.VirtualDriveHeader:
@@ -385,8 +385,7 @@ class DowIII:
         folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
         file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
         toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
-        # toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
-        toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)  # According to my notes; V9 uses this to store the size of the name buffer; but Archive Unpacking assumes it's a count; must test on real V9 files. TODO
+        toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
         toc_ptr_buf = cls.gen_toc_ptr_buffer(*toc_ptrs)
         return cls.gen_archive_buffer(archive_name, toc_ptr_buf, toc_buf, file_uncomp_data, magic)
 
@@ -406,8 +405,7 @@ class DowIII:
         folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
         file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
         toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
-        # toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
-        toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)  # According to my notes; V9 uses this to store the size of the name buffer; but Archive Unpacking assumes it's a count; must test on real V9 files. TODO
+        toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
         toc_ptr_buf = cls.gen_toc_ptr_buffer(*toc_ptrs)
         full_toc = toc_ptr_buf + toc_buf
 
