@@ -5,6 +5,7 @@ from typing import Iterable
 
 from serialization_tools.walkutil import BlackList, WhiteList, filter_by_path, filter_by_file_extension, collapse_walk_on_files
 
+import relic.sga.common
 import relic.sga.io
 from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
 
@@ -30,7 +31,7 @@ def walk_archive_paths(folder: os.PathLike, extensions: WhiteList = None, whitel
     walk = os.walk(folder)
     walk = filter_by_path(walk, whitelist=whitelist, blacklist=blacklist, prune=True)
     walk = filter_by_file_extension(walk, whitelist=extensions)
-    walk = relic.sga.io.walk(walk)
+    walk = relic.sga.common.walk(walk)
     return collapse_walk_on_files(walk)
 
 
@@ -45,7 +46,7 @@ def dump_archive(input_folder: os.PathLike, output_folder: os.PathLike, overwrit
             archive_name = splitext(basename(input_file_path))[0]
             with archive.header.data_ptr.stream_jump_to(in_handle) as data_stream:
                 print(f"\tDumping '{archive_name}'")
-                for _, _, _, files in relic.sga.io.walk():
+                for _, _, _, files in relic.sga.common.walk():
                     for file in files:
                         relative_file_path = file.full_path
 

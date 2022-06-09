@@ -10,12 +10,13 @@ from tests.helpers import TF
 from tests.relic.sga.datagen import DowII, DowI, DowIII
 
 
-def _ARCHIVE_WALK_SAMPLE(a:protocols.Archive) -> ArchiveWalk:
+def _ARCHIVE_WALK_SAMPLE(a: protocols.Archive) -> ArchiveWalk:
     d = a.drives[0]
     sfs = d.sub_folders
     dfs = d.files
     yield d, None, sfs, dfs
     yield d, sfs[0], [], sfs[0].files
+
 
 class ArchiveTests:
     def assert_equal(self, expected: ArchiveABC, result: ArchiveABC, sparse: bool):
@@ -41,7 +42,6 @@ class ArchiveTests:
                 assert expected.__class__ == archive.__class__
                 self.assert_equal(expected, archive, sparse)
 
-
     @abstractmethod
     def test_pack(self, archive: ArchiveABC, expected: bytes):
         for write_magic in TF:
@@ -59,8 +59,6 @@ def fast_gen_dow1_archive(*args):
 
 
 DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED = fast_gen_dow1_archive("Dow1 Test Archive", "Tests", "And Now For Something Completely Different.txt", b"Just kidding, it's Monty Python.")
-
-
 
 
 class TestArchiveV2(ArchiveTests):
@@ -87,7 +85,6 @@ def fast_gen_dow2_archive(*args):
 DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED = fast_gen_dow2_archive("Dow2 Test Archive", "Tests", "A Favorite Guardsmen VL.txt", b"Where's that artillery!?")
 
 
-
 class TestArchiveV5(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE)])
@@ -110,8 +107,6 @@ def fast_gen_dow3_archive(*args):
 
 
 DOW3_ARCHIVE, DOW3_ARCHIVE_PACKED = fast_gen_dow3_archive("Dow3 Test Archive", "Tests", "Some Witty FileName.txt", b"NGL; I'm running out of dumb/clever test data.")
-
-
 
 
 class TestArchiveV9(ArchiveTests):

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import BinaryIO
+from typing import BinaryIO, Dict
 
 from serialization_tools.ioutil import Ptr, WindowPtr
 from serialization_tools.structx import Struct
 
 from relic.common import VersionLike
 from relic.sga import abc_
-from relic.sga.abc_ import VirtualDriveHeaderABC, ArchiveToCPtrABC, FolderHeaderABC, FileHeaderABC, ArchiveABC, ArchiveHeaderABC, ArchiveTableOfContentsHeadersABC
+from relic.sga.abc_ import VirtualDriveHeaderABC, ArchiveToCPtrABC, FolderHeaderABC, FileHeaderABC, ArchiveABC, ArchiveHeaderABC, ArchiveTableOfContentsHeadersABC, NameBufferABC
 from relic.sga.common import ArchiveVersion
 from relic.sga.protocols import ArchiveHeader
 from relic.sga.vX import APIvX
@@ -74,7 +74,7 @@ class FileHeader(FileHeaderABC, _V9):
 @dataclass
 class ArchiveHeader(ArchiveHeaderABC, _V9):
     # name, TOC_POS, TOC_SIZE, DATA_POS, DATA_SIZE, RESERVED:0?, RESERVED:1, RESERVED:0?, UNK???
-    LAYOUT = Struct(f"<128s Q L Q L 3L 256s")
+    LAYOUT = Struct(f"<128s QL QL 2L 256s")
     toc_ptr: WindowPtr
     data_ptr: WindowPtr
 
@@ -97,12 +97,11 @@ class ArchiveHeader(ArchiveHeaderABC, _V9):
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> ArchiveHeader:
-        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, rsv_0_b, unk = cls.LAYOUT.unpack_stream(stream)
+        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, unk = cls.LAYOUT.unpack_stream(stream)
 
         assert rsv_1 == 1
         assert rsv_0_a == 0
-        assert rsv_0_b == 0
-
+        assert stream.tell() == toc_pos or stream.tell() == data_pos, (stream.tell(), toc_pos, data_pos)
         toc_ptr = WindowPtr(offset=toc_pos, size=toc_size)
         data_ptr = WindowPtr(offset=data_pos, size=data_size)
         name = name.decode("utf-16-le").rstrip("\0")
@@ -126,10 +125,25 @@ Folder = abc_.FolderABC
 VirtualDrive = abc_.VirtualDriveABC
 
 
+class NameBuffer(NameBufferABC):
+    @classmethod
+    def unpack(cls, stream: BinaryIO, buffer_size: int) -> Dict[int, str]:
+        """ Dow III uses a 'buffer size' instead of a 'name count' to unpack names """
+        buffer = stream.read(buffer_size)
+        parts = buffer.split(b"\0")
+        lookup = {}
+        offset = 0
+        for name in parts:
+            lookup[offset] = name.decode("ascii")
+            offset += len(name) + 1  # +1 to account for b'\0'
+        return lookup
+
+
 class ArchiveTableOfContentsHeaders(ArchiveTableOfContentsHeadersABC):
     VDRIVE_HEADER_CLS = VirtualDriveHeader
     FOLDER_HEADER_CLS = FolderHeader
     FILE_HEADER_CLS = FileHeader
+    NAME_BUFFER_CLS = NameBuffer
 
 
 @dataclass(init=False)

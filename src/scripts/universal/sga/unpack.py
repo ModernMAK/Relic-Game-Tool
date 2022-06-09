@@ -3,8 +3,8 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import Dict
 
+import relic.sga.common
 import relic.sga.io
-from relic.sga import Archive
 from scripts.universal.common import PrintOptions, print_error, print_any, SharedExtractorParser
 from scripts.universal.sga.common import get_runner
 
@@ -30,7 +30,7 @@ def unpack_archive(in_path: str, out_path: str, print_opts: PrintOptions = None,
         archive_name = splitext(basename(in_path))[0]
         with archive.header.data_ptr.stream_jump_to(in_handle) as data_stream:
             print_any(f"Unpacking \"{archive_name}\"...", indent_level, print_opts)
-            for _, _, _, files in relic.sga.io.walk():
+            for _, _, _, files in archive.walk():
                 for file in files:
                     try:
                         relative_file_path = file.full_path

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import PurePath
+from pathlib import PurePath, PurePosixPath
 from typing import BinaryIO, Protocol, runtime_checkable, List, Optional, Iterable, Tuple
 
 from serialization_tools.ioutil import Ptr, WindowPtr
@@ -84,6 +84,13 @@ class Folder(FolderCollection, FileCollection, FolderChild, DriveChild,ArchiveWa
 @runtime_checkable
 class File(FolderChild, DriveChild, Protocol):
     ...
+
+    @property
+    def full_path(self) -> PurePosixPath:
+        raise NotImplementedError
+
+    def read_data(self, data_stream, param):
+        raise NotImplementedError
 
 
 @runtime_checkable

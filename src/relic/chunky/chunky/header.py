@@ -6,7 +6,8 @@ from typing import BinaryIO, Dict, Type
 from serialization_tools.magic import MagicWordIO, MagicWord
 from serialization_tools.structx import Struct
 
-from relic.sga.common.common import VersionEnum, Version, VersionLike, VersionError
+from relic.common import VersionError
+from relic.sga.common import VersionEnum, Version, VersionLike
 
 ChunkyVersionLayout = Struct("< 2L")
 

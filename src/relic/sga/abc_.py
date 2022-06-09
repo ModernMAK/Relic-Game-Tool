@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zlib
 from abc import ABC
+from collections import UserDict
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import List, BinaryIO, Optional, Dict, ClassVar, Tuple, Type
@@ -53,6 +54,32 @@ class ArchiveTableOfContentsABC:
             _.build_tree()
 
 
+class NameBufferABC:
+    @classmethod
+    def unpack(cls, stream: BinaryIO, name_count: int) -> Dict[int,str]:
+        inst = {}
+        start = stream.tell()  # use stream to avoid invalidating window
+        while len(inst) < name_count:
+            remaining = name_count - len(inst)
+            current = stream.tell()  # Get relative pos to start
+            buffer = stream.read(_BUFFER_SIZE)
+            if len(buffer) == 0:
+                raise TypeError("Ran out of data!")
+            terminal_null = buffer.endswith(_NULL)
+            parts = buffer.split(_NULL, remaining)
+
+            offset = 0
+            for i, p in enumerate(parts):
+                if i == len(parts) - 1:
+                    break
+                inst[current - start + offset] = p.decode("ascii")
+                offset += len(p) + 1  # +1 to include null terminal
+
+            if not terminal_null:
+                stream.seek(current + offset)
+        return inst
+
+
 @dataclass
 class ArchiveTableOfContentsHeadersABC:
     drives: List[VirtualDriveHeaderABC]
@@ -62,46 +89,11 @@ class ArchiveTableOfContentsHeadersABC:
     VDRIVE_HEADER_CLS: ClassVar[Type[VirtualDriveHeaderABC]]
     FOLDER_HEADER_CLS: ClassVar[Type[FolderHeaderABC]]
     FILE_HEADER_CLS: ClassVar[Type[FileHeaderABC]]
+    NAME_BUFFER_CLS: ClassVar[Type[NameBufferABC]] = NameBufferABC
 
     @classmethod
     def old_unpack(cls, stream: BinaryIO, ptr: ArchiveTableOfContentsPtrABC, version: VersionLike = None) -> ArchiveTableOfContentsHeadersABC:
-        version = version or ptr.version  # abusing the fact that the classes know their own version to avoid explicitly passing it in
-
-        local_ptr = ptr.virtual_drive_ptr
-        with local_ptr.stream_jump_to(stream) as handle:
-            virtual_drives = [VirtualDriveHeaderABC.old_unpack(handle, version) for _ in range(local_ptr.count)]
-
-        local_ptr = ptr.folder_ptr
-        with local_ptr.stream_jump_to(stream) as handle:
-            folders = [FolderHeaderABC.old_unpack(handle, version) for _ in range(local_ptr.count)]
-
-        local_ptr = ptr.file_ptr
-        with local_ptr.stream_jump_to(stream) as handle:
-            files = [FileHeaderABC.old_unpack(handle, version) for _ in range(local_ptr.count)]
-
-        # This gets a bit wierd
-        local_ptr = ptr.name_ptr
-        names: Dict[int, str] = {}
-        with local_ptr.stream_jump_to(stream) as handle:
-            start = stream.tell()  # use stream to avoid invalidating window
-            while len(names) < local_ptr.count:
-                remaining = local_ptr.count - len(names)
-                current = stream.tell()  # Get relative pos to start
-                buffer = handle.read(_BUFFER_SIZE)
-                terminal_null = buffer.endswith(_NULL)
-                parts = buffer.split(_NULL, remaining)
-
-                offset = 0
-                for i, p in enumerate(parts):
-                    if i == len(parts) - 1:
-                        break
-                    names[current - start + offset] = p.decode("ascii")
-                    offset += len(p) + 1  # +1 to include null terminal
-
-                if not terminal_null:
-                    stream.seek(current + offset)
-
-        return ArchiveTableOfContentsHeadersABC(virtual_drives, folders, files, names)
+        raise TypeError('Use .unpack() and APIS to unpack!')
 
     @classmethod
     def unpack(cls, stream: BinaryIO, ptr: ArchiveTableOfContentsPtrABC) -> ArchiveTableOfContentsHeadersABC:
@@ -119,25 +111,8 @@ class ArchiveTableOfContentsHeadersABC:
 
         # This gets a bit wierd
         local_ptr = ptr.name_ptr
-        names: Dict[int, str] = {}
         with local_ptr.stream_jump_to(stream) as handle:
-            start = stream.tell()  # use stream to avoid invalidating window
-            while len(names) < local_ptr.count:
-                remaining = local_ptr.count - len(names)
-                current = stream.tell()  # Get relative pos to start
-                buffer = handle.read(_BUFFER_SIZE)
-                terminal_null = buffer.endswith(_NULL)
-                parts = buffer.split(_NULL, remaining)
-
-                offset = 0
-                for i, p in enumerate(parts):
-                    if i == len(parts) - 1:
-                        break
-                    names[current - start + offset] = p.decode("ascii")
-                    offset += len(p) + 1  # +1 to include null terminal
-
-                if not terminal_null:
-                    stream.seek(current + offset)
+            names = cls.NAME_BUFFER_CLS.unpack(handle, local_ptr.count)
 
         return ArchiveTableOfContentsHeadersABC(virtual_drives, folders, files, names)
 
