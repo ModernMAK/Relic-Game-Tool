@@ -41,39 +41,53 @@ class ArchiveHeader(Protocol):
         raise NotImplementedError
 
 
+@runtime_checkable
+class ArchiveWalkable(Protocol):
+    def walk(self) -> ArchiveWalk:
+        raise NotImplementedError
+
+@runtime_checkable
 class DriveCollection(Protocol):
     drives: List[VirtualDrive]
 
 
+@runtime_checkable
 class FolderCollection(Protocol):
     sub_folders: List[Folder]
 
 
+@runtime_checkable
 class FileCollection(Protocol):
     files: List[File]
 
 
+@runtime_checkable
 class FolderChild(Protocol):
     parent_folder: Optional[Folder]
 
 
+@runtime_checkable
 class DriveChild(Protocol):
     parent_drive: Optional[VirtualDrive]
 
 
-class VirtualDrive(FolderCollection, FileCollection, Protocol):
+@runtime_checkable
+class VirtualDrive(FolderCollection, FileCollection,ArchiveWalkable, Protocol):
     ...
 
 
-class Folder(FolderCollection, FileCollection, FolderChild, DriveChild, Protocol):
+@runtime_checkable
+class Folder(FolderCollection, FileCollection, FolderChild, DriveChild,ArchiveWalkable, Protocol):
     ...
 
 
+@runtime_checkable
 class File(FolderChild, DriveChild, Protocol):
     ...
 
 
-class Archive(DriveCollection, Protocol):
+@runtime_checkable
+class Archive(DriveCollection,ArchiveWalkable, Protocol):
     header: ArchiveHeader
     """Sparse represents whether data was loaded on creation."""
     _sparse: bool

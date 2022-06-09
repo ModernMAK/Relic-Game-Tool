@@ -3,12 +3,19 @@ from io import BytesIO
 
 import pytest
 
+from relic.sga import protocols
 from relic.sga.abc_ import ArchiveABC
-from relic.sga.common import ArchiveMagicWord
 from relic.sga.protocols import ArchiveWalk
 from tests.helpers import TF
 from tests.relic.sga.datagen import DowII, DowI, DowIII
 
+
+def _ARCHIVE_WALK_SAMPLE(a:protocols.Archive) -> ArchiveWalk:
+    d = a.drives[0]
+    sfs = d.sub_folders
+    dfs = d.files
+    yield d, None, sfs, dfs
+    yield d, sfs[0], [], sfs[0].files
 
 class ArchiveTests:
     def assert_equal(self, expected: ArchiveABC, result: ArchiveABC, sparse: bool):
@@ -34,17 +41,6 @@ class ArchiveTests:
                 assert expected.__class__ == archive.__class__
                 self.assert_equal(expected, archive, sparse)
 
-    @abstractmethod
-    def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
-        for read_magic in TF:
-            for sparse in TF:
-                for validate in ([False] if not valid_checksums else TF):
-                    with BytesIO(stream_data) as stream:
-                        if not read_magic:
-                            stream.seek(ArchiveMagicWord.layout.size)
-                        archive = ArchiveABC.unpack(stream, read_magic, sparse, validate=validate)
-                        assert expected.__class__ == archive.__class__
-                        self.assert_equal(expected, archive, sparse)
 
     @abstractmethod
     def test_pack(self, archive: ArchiveABC, expected: bytes):
@@ -65,24 +61,13 @@ def fast_gen_dow1_archive(*args):
 DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED = fast_gen_dow1_archive("Dow1 Test Archive", "Tests", "And Now For Something Completely Different.txt", b"Just kidding, it's Monty Python.")
 
 
-def DOW1_ARCHIVE_WALK() -> ArchiveWalk:
-    a = DOW1_ARCHIVE
-    d = a.drives[0]
-    sfs = d.sub_folders
-    yield d, None, sfs, []
-    yield d, sfs[0], [], sfs[0].files
 
 
-class TestDowIArchive(ArchiveTests):
+class TestArchiveV2(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE)])
     def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
         super().test_unpack(stream_data, expected)
-
-    # @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
-    #                          [(DOW1_ARCHIVE_PACKED, DOW1_ARCHIVE, True)])
-    # def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
-    #     super().old_test_unpack(stream_data, expected, valid_checksums)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW1_ARCHIVE, DOW1_ARCHIVE_PACKED)])
@@ -90,7 +75,7 @@ class TestDowIArchive(ArchiveTests):
         super().test_pack(archive, expected)
 
     @pytest.mark.parametrize(["archive", "expected"],
-                             [(DOW1_ARCHIVE, DOW1_ARCHIVE_WALK())])
+                             [(DOW1_ARCHIVE, _ARCHIVE_WALK_SAMPLE(DOW1_ARCHIVE))])
     def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         super().test_walk(archive, expected)
 
@@ -102,24 +87,12 @@ def fast_gen_dow2_archive(*args):
 DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED = fast_gen_dow2_archive("Dow2 Test Archive", "Tests", "A Favorite Guardsmen VL.txt", b"Where's that artillery!?")
 
 
-def DOW2_ARCHIVE_WALK() -> ArchiveWalk:
-    a = DOW2_ARCHIVE
-    d = a.drives[0]
-    sfs = d.sub_folders
-    yield d, None, sfs, []
-    yield d, sfs[0], [], sfs[0].files
 
-
-class TestDowIIArchive(ArchiveTests):
+class TestArchiveV5(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE)])
     def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
         super().test_unpack(stream_data, expected)
-
-    @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
-                             [(DOW2_ARCHIVE_PACKED, DOW2_ARCHIVE, True)])
-    def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
-        super().old_test_unpack(stream_data, expected, valid_checksums)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW2_ARCHIVE, DOW2_ARCHIVE_PACKED)])
@@ -127,7 +100,7 @@ class TestDowIIArchive(ArchiveTests):
         super().test_pack(archive, expected)
 
     @pytest.mark.parametrize(["archive", "expected"],
-                             [(DOW2_ARCHIVE, DOW2_ARCHIVE_WALK())])
+                             [(DOW2_ARCHIVE, _ARCHIVE_WALK_SAMPLE(DOW2_ARCHIVE))])
     def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         super().test_walk(archive, expected)
 
@@ -139,24 +112,13 @@ def fast_gen_dow3_archive(*args):
 DOW3_ARCHIVE, DOW3_ARCHIVE_PACKED = fast_gen_dow3_archive("Dow3 Test Archive", "Tests", "Some Witty FileName.txt", b"NGL; I'm running out of dumb/clever test data.")
 
 
-def DOW3_ARCHIVE_WALK() -> ArchiveWalk:
-    a = DOW3_ARCHIVE
-    d = a.drives[0]
-    sfs = d.sub_folders
-    yield d, None, sfs, []
-    yield d, sfs[0], [], sfs[0].files
 
 
-class TestDowIIIArchive(ArchiveTests):
+class TestArchiveV9(ArchiveTests):
     @pytest.mark.parametrize(["stream_data", "expected"],
                              [(DOW3_ARCHIVE_PACKED, DOW3_ARCHIVE)])
     def test_unpack(self, stream_data: bytes, expected: ArchiveABC):
         super().test_unpack(stream_data, expected)
-
-    @pytest.mark.parametrize(["stream_data", "expected", "valid_checksums"],
-                             [(DOW3_ARCHIVE_PACKED, DOW3_ARCHIVE, True)])
-    def old_test_unpack(self, stream_data: bytes, expected: ArchiveABC, valid_checksums: bool):
-        super().old_test_unpack(stream_data, expected, valid_checksums)
 
     @pytest.mark.parametrize(["archive", "expected"],
                              [(DOW3_ARCHIVE, DOW3_ARCHIVE_PACKED)])
@@ -164,6 +126,6 @@ class TestDowIIIArchive(ArchiveTests):
         super().test_pack(archive, expected)
 
     @pytest.mark.parametrize(["archive", "expected"],
-                             [(DOW3_ARCHIVE, DOW3_ARCHIVE_WALK())])
+                             [(DOW3_ARCHIVE, _ARCHIVE_WALK_SAMPLE(DOW3_ARCHIVE))])
     def test_walk(self, archive: ArchiveABC, expected: ArchiveWalk):
         super().test_walk(archive, expected)

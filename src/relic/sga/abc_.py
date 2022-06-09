@@ -12,16 +12,12 @@ from serialization_tools.structx import Struct
 
 # import relic.sga.io
 from relic.common import VersionLike
-from relic.sga.common import ArchiveRange, ArchiveVersion
+from relic.sga.common import ArchiveRange, ArchiveVersion, walk
 # from relic.sga.io import walk
-from relic.sga.protocols import ArchiveHeader, Archive, FileCollection, FolderCollection, Folder, File, VirtualDrive, ArchiveWalk
+from relic.sga.protocols import ArchiveHeader, Archive, FileCollection, FolderCollection, Folder, File, VirtualDrive, ArchiveWalk, DriveCollection, DriveChild, FolderChild, ArchiveWalkable
 
 _NULL = b"\0"
 _BUFFER_SIZE = 64 * KiB
-
-
-def walk(self):
-    raise NotImplementedError  # Currently causes cyclic dependencies; needs a fix
 
 
 @dataclass
@@ -219,15 +215,18 @@ class ArchiveHeaderABC(ArchiveHeader, ABC):
 class ArchiveABC(Archive):
     header: ArchiveHeader
     """Sparse represents whether data was loaded on creation."""
+
+    def walk(self) -> ArchiveWalk:
+        for drive in self.drives:
+            for inner_walk in drive.walk():
+                yield inner_walk
+
     _sparse: bool
 
     def __init__(self, header: ArchiveHeader, drives: List[VirtualDriveABC], _sparse: bool):
         self.header = header
         self._sparse = _sparse
         self.drives = drives
-
-    def walk(self) -> ArchiveWalk:
-        return walk(self)
 
     TOC_PTR_CLS: ClassVar[Type[ArchiveToCPtrABC]] = ArchiveTableOfContentsPtrABC
     TOC_HEADERS_CLS: ClassVar[Type[ArchiveTableOfContentsHeadersABC]] = ArchiveTableOfContentsHeadersABC
@@ -372,17 +371,29 @@ class FileCollectionABC(FileCollection):
 
 
 @dataclass
-class FolderChild:
+class FolderChildABC(FolderChild):
     parent_folder: Optional[Folder]
 
 
 @dataclass
-class DriveChild:
+class DriveChildABC(DriveChild):
     parent_drive: Optional[VirtualDrive]
 
 
 @dataclass
-class FolderABC(Folder, FolderCollectionABC, FileCollectionABC, FolderChild, DriveChild):
+class DriveCollectionABC(DriveCollection):
+    drives: List[VirtualDrive]
+
+
+@dataclass
+class FolderABC(Folder, FolderCollectionABC, FileCollectionABC, FolderChildABC, DriveChildABC):
+    def walk(self) -> ArchiveWalk:
+        drive = self.parent_drive
+        yield drive, self, self.sub_folders, self.files
+        for folder in self.sub_folders:
+            for inner_walk in folder.walk():
+                yield inner_walk
+
     header: FolderHeaderABC
     name: str
 
@@ -400,9 +411,6 @@ class FolderABC(Folder, FolderCollectionABC, FileCollectionABC, FolderChild, Dri
             return self.parent_drive.full_path / self.name
         else:
             return PurePosixPath(self.name)
-
-    def walk(self) -> ArchiveWalk:
-        return walk(self)
 
     @classmethod
     def create(cls, header: FolderHeaderABC) -> FolderABC:
@@ -519,7 +527,10 @@ class VirtualDriveABC(FolderCollectionABC, FileCollectionABC):
         return self.header.name
 
     def walk(self) -> ArchiveWalk:
-        return walk(self)
+        yield self, None, self.sub_folders, self.files
+        for folder in self.sub_folders:
+            for inner_walk in folder.walk():
+                yield inner_walk
 
     @property
     def full_path(self) -> PurePosixPath:
@@ -557,8 +568,3 @@ class VirtualDriveABC(FolderCollectionABC, FileCollectionABC):
 
 ArchiveTOC = ArchiveTableOfContentsABC
 ArchiveToCPtrABC = ArchiveTableOfContentsPtrABC
-
-
-@dataclass
-class DriveCollection:
-    drives: List[VirtualDrive]

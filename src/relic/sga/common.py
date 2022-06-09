@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Iterator, BinaryIO
+from typing import Optional, Iterator, BinaryIO, Union
 
 from serialization_tools.magic import MagicWordIO
 from serialization_tools.structx import Struct
 
 from relic.common import VersionEnum, Version, VersionLike
+from relic.sga.protocols import ArchiveWalk, FileCollection, FolderCollection, DriveCollection, Folder, VirtualDrive
 
 ArchiveVersionLayout = Struct("< 2H")
 
@@ -58,3 +59,36 @@ class ArchiveRange:
 
 
 ArchiveMagicWord = MagicWordIO(Struct("< 8s"), "_ARCHIVE".encode("ascii"))
+
+
+
+def walk(collection: Union[DriveCollection, FolderCollection, FileCollection]) -> ArchiveWalk:
+    raise TypeError("Use walk() function on collection!")
+    # drives = collection.drives if isinstance(collection, DriveCollection) else []
+    # sub_folders = collection.sub_folders if isinstance(collection, FolderCollection) else []
+    # files = collection.files if isinstance(collection, FileCollection) and not isinstance(collection, VirtualDrive) else []
+    #
+    # root_drive = collection if isinstance(collection, VirtualDrive) else None
+    # root_folder = collection if isinstance(collection, Folder) else None
+    #
+    # # TODO optimize
+    # #   logically, we can only walk folder OR drive
+    # if root_drive is None and root_folder is None and len(sub_folders) == 0 and len(files) == 0:
+    #     # I don't think we need to return ANYTHING if we won't be iterating over it
+    #     pass
+    #     # if len(drives) == 0: # We will only yield this item, so we return this to always iterate over something
+    #     #     yield root_drive, root_folder, sub_folders, files
+    # else:
+    #     yield root_drive, root_folder, sub_folders, files  # at least one of these isn't None/Empty so we yield iti
+    #
+    # for drive in drives:
+    #     for d, f, folds, files, in walk(drive):
+    #         d = d or drive or root_drive
+    #         f = f or root_folder
+    #         yield d, f, folds, files
+    #
+    # for folder in sub_folders:
+    #     for d, f, folds, files in walk(folder):
+    #         d = d or root_drive
+    #         f = f or folder or root_folder
+    #         yield d, f, folds, files

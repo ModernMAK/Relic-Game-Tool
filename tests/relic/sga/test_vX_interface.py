@@ -20,6 +20,8 @@ def _permutate(*items: List):
                     yield item, sub_item
 
     if len(items) == 0:
+        return []
+    elif len(items) == 1:
         return items[0]
     else:
         return inner_permutate(items[0], items[1:])

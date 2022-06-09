@@ -98,7 +98,7 @@ class ArchiveHeader(ArchiveHeaderABC, _V5):
         return ArchiveVersion.Dow2
 
     @classmethod
-    def _unpack(cls, stream: BinaryIO) -> 'ArchiveHeader':
+    def unpack(cls, stream: BinaryIO) -> 'ArchiveHeader':
         csum_a, name, csum_b, toc_size, data_offset, toc_pos, rsv_1, rsv_0, unk = cls.LAYOUT.unpack_stream(stream)
 
         assert rsv_1 == 1
@@ -110,7 +110,7 @@ class ArchiveHeader(ArchiveHeaderABC, _V5):
 
         return cls(name, toc_ptr, data_ptr, (csum_a, csum_b), unk)
 
-    def _pack(self, stream: BinaryIO) -> int:
+    def pack(self, stream: BinaryIO) -> int:
         args = self.checksums[0], self.name.encode("utf-16-le"), self.checksums[1], self.toc_ptr.size, self.data_ptr.offset, self.toc_ptr.offset, 1, 0, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
