@@ -18,6 +18,8 @@ class ArchiveVersion(VersionEnum):
     Dow = v2
     v5 = Version(5)
     Dow2 = v5
+    v7 = Version(7)
+    CoH2 = v7
     v9 = Version(9)
     Dow3 = v9
 
