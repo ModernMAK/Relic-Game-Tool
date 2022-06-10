@@ -74,7 +74,8 @@ class FileHeader(FileHeaderABC, _V9):
 @dataclass
 class ArchiveHeader(ArchiveHeaderABC, _V9):
     # name, TOC_POS, TOC_SIZE, DATA_POS, DATA_SIZE, RESERVED:0?, RESERVED:1, RESERVED:0?, UNK???
-    LAYOUT = Struct(f"<128s QL QL 2L 256s")
+
+    LAYOUT = Struct(f"<128s QL QQ L 256s")
     toc_ptr: WindowPtr
     data_ptr: WindowPtr
 
@@ -97,10 +98,9 @@ class ArchiveHeader(ArchiveHeaderABC, _V9):
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> ArchiveHeader:
-        name, toc_pos, toc_size, data_pos, data_size, rsv_0_a, rsv_1, unk = cls.LAYOUT.unpack_stream(stream)
+        name, toc_pos, toc_size, data_pos, data_size, rsv_1, unk = cls.LAYOUT.unpack_stream(stream)
 
         assert rsv_1 == 1
-        assert rsv_0_a == 0
         toc_ptr = WindowPtr(offset=toc_pos, size=toc_size)
         data_ptr = WindowPtr(offset=data_pos, size=data_size)
         name = name.decode("utf-16-le").rstrip("\0")
@@ -108,7 +108,7 @@ class ArchiveHeader(ArchiveHeaderABC, _V9):
         return cls(name, toc_ptr, data_ptr, unk)
 
     def pack(self, stream: BinaryIO) -> int:
-        args = self.name.encode("utf-16-le"), self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 0, 1, self.unk
+        args = self.name.encode("utf-16-le"), self.toc_ptr.offset, self.toc_ptr.size, self.data_ptr.offset, self.data_ptr.size, 1, self.unk
         return self.LAYOUT.pack_stream(stream, *args)
 
     def __eq__(self, other):

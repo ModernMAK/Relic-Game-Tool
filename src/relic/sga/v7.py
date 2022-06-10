@@ -18,6 +18,31 @@ from relic.sga.vX import APIvX
 
 version = ArchiveVersion.v7
 
+"""
+Format According to ArchiveViewer (CoH2 Mod tools)
+Magic: b'Archive_'
+Version: UInt16
+Product: UInt16 (I call this minor)
+NiceName: bytes[128]/str[64] (utf-16-le)
+Header Size: UInt32
+Data Offset : UInt32
+(cached position in file here)
+ToC Rel Pos: UInt32
+ToC Count : index_size
+Folder Rel Pos: UInt32
+Folder Count : index_size
+File Rel Pos: UInt32
+File Count : index_size
+Name Buffer Pos : UInt32
+Name Buffer Count/Size ??? : index_size
+unk??? : uint32
+Block Size : Uint32
+~~~
+ToC
+
+
+"""
+
 
 class _V7:
     """Mixin to allow classes to add `version` from the module level to the class level"""
@@ -41,7 +66,7 @@ class FolderHeader(FolderHeaderABC, _V7):
 
 @dataclass
 class FileHeader(FileHeaderABC, _V7):
-    LAYOUT = Struct(f"<5L H 2L")
+    LAYOUT = Struct(f"<5L BB 2L")
     unk_a: int
     unk_b: int
     unk_c: int
@@ -53,11 +78,11 @@ class FileHeader(FileHeaderABC, _V7):
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> FileHeader:
-        name_off, data_off, comp_size, decomp_size, unk_a, unk_b, unk_c, unk_d = cls.LAYOUT.unpack_stream(stream)
+        name_off, data_off, comp_size, decomp_size, unk_a, unk_b1, unk_b2, unk_c, unk_d = cls.LAYOUT.unpack_stream(stream)
         # Name, File, Compressed, Decompressed, ???, ???
         name_ptr = Ptr(name_off)
         data_ptr = Ptr(data_off)
-        return cls(name_ptr, data_ptr, decomp_size, comp_size, unk_a, unk_b, unk_c, unk_d)
+        return cls(name_ptr, data_ptr, decomp_size, comp_size, unk_a, unk_b1, unk_b2, unk_c, unk_d)
 
     def pack(self, stream: BinaryIO) -> int:
         return self.LAYOUT.pack_stream(stream, self.name_sub_ptr.offset, self.data_sub_ptr.offset, self.compressed_size, self.decompressed_size, self.unk_a, self.unk_b, self.unk_c, self.unk_d)
@@ -73,7 +98,7 @@ class ArchiveHeader(ArchiveHeaderABC, _V7):
     TOC_HEADER_SIZE = ArchiveToCPtr.LAYOUT.size
     toc_ptr: WindowPtr
     unk_a: int
-    unk_b: int
+    block_size: int # IDK what this means
 
     # This may not mirror DowI one-to-one, until it's verified, it stays here
     # noinspection DuplicatedCode
@@ -82,7 +107,7 @@ class ArchiveHeader(ArchiveHeaderABC, _V7):
 
     def __eq__(self, other):
         # TODO make issue to add equality to WindowPtr/Ptr
-        return self.name == other.name and (self.unk_a, self.unk_b) == (other.unk_a, other.unk_b) \
+        return self.name == other.name and (self.unk_a, self.block_size) == (other.unk_a, other.block_size) \
                and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
                and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset
 
@@ -91,13 +116,13 @@ class ArchiveHeader(ArchiveHeaderABC, _V7):
         name, unk_a, data_offset, rsv_1 = cls.LAYOUT.unpack_stream(stream)
         toc_pos = stream.tell()
         stream.seek(cls.TOC_HEADER_SIZE, 1)
-        toc_size, unk_b = cls.LAYOUT_2.unpack_stream(stream)
+        toc_size, block_size = cls.LAYOUT_2.unpack_stream(stream)
 
         # assert toc_size == toc_size_2, (toc_size, toc_size_2)
         assert rsv_1 == 1
         name = name.decode("utf-16-le").rstrip("\0")
         toc_ptr, data_ptr = WindowPtr(toc_pos, toc_size), WindowPtr(data_offset)
-        return cls(name, toc_ptr, data_ptr, unk_a,unk_b)
+        return cls(name, toc_ptr, data_ptr, unk_a,block_size)
 
     def pack(self, stream: BinaryIO) -> int:
         name, toc_size, data_offset = self.name.encode("utf-16-le"), self.toc_ptr.size, self.data_ptr.offset

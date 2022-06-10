@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, Iterator, BinaryIO, Union
 
 from serialization_tools.magic import MagicWordIO
@@ -10,6 +11,20 @@ from relic.common import VersionEnum, Version, VersionLike
 from relic.sga.protocols import ArchiveWalk, FileCollection, FolderCollection, DriveCollection, Folder, VirtualDrive
 
 ArchiveVersionLayout = Struct("< 2H")
+
+
+class FileVerificationType(Enum):
+    None_ = 0  # unknown real values, assuming incremental
+    CRC = 1  # unknown real values, assuming incremental
+    CRCBlocks = 2  # unknown real values, assuming incremental
+    MD5Blocks = 3  # unknown real values, assuming incremental
+    SHA1Blocks = 4  # unknown real values, assuming incremental
+
+
+class FileStorageType(Enum):
+    Store = 0
+    StreamCompress = 1  # 16
+    BufferCompress = 2  # 32
 
 
 class ArchiveVersion(VersionEnum):
@@ -61,7 +76,6 @@ class ArchiveRange:
 
 
 ArchiveMagicWord = MagicWordIO(Struct("< 8s"), "_ARCHIVE".encode("ascii"))
-
 
 
 def walk(collection: Union[DriveCollection, FolderCollection, FileCollection]) -> ArchiveWalk:
