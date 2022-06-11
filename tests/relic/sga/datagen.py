@@ -3,10 +3,10 @@ from typing import Tuple, Dict
 
 from serialization_tools.ioutil import WindowPtr, Ptr
 
-from relic.sga.protocols import ArchiveHeader
-from relic.sga.abc_ import FileABC, FolderABC, VirtualDriveABC, ArchiveTOC
-from relic.sga import v2, v5, v9
-from relic.sga.common import ArchiveRange
+from relic.sga_old.protocols import ArchiveHeader
+from relic.sga_old.abc_old_ import FileABC, FolderABC, VirtualDriveABC, ArchiveTOC
+from relic.sga_old import v2, v5, v9
+from relic.sga_old.common import ArchiveRange
 
 
 def encode_and_pad(v: str, byte_size: int, encoding: str) -> bytes:

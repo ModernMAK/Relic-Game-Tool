@@ -3,8 +3,8 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import Dict
 
-import relic.sga.common
-import relic.sga.io
+import relic.sga_old.common
+import relic.sga_old.io
 from scripts.universal.common import PrintOptions, print_error, print_any, SharedExtractorParser
 from scripts.universal.sga.common import get_runner
 

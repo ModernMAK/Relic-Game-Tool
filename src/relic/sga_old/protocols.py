@@ -28,10 +28,10 @@ class ArchiveHeader(Protocol):
         """
         raise NotImplementedError
 
-    @classmethod
-    @property
-    def version(self) -> VersionLike:
-        raise NotImplementedError
+    # @classmethod
+    # @property
+    # def version(self) -> VersionLike:
+    #     raise NotImplementedError
 
     @classmethod
     def unpack(cls, stream: BinaryIO) -> ArchiveHeader:

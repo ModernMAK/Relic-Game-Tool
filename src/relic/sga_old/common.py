@@ -8,52 +8,43 @@ from serialization_tools.magic import MagicWordIO
 from serialization_tools.structx import Struct
 
 from relic.common import VersionEnum, Version, VersionLike
-from relic.sga.protocols import ArchiveWalk, FileCollection, FolderCollection, DriveCollection, Folder, VirtualDrive
+from relic.sga_old.protocols import ArchiveWalk, FileCollection, FolderCollection, DriveCollection, Folder, VirtualDrive
 
 ArchiveVersionLayout = Struct("< 2H")
 
 
-class FileVerificationType(Enum):
-    None_ = 0  # unknown real values, assuming incremental
-    CRC = 1  # unknown real values, assuming incremental
-    CRCBlocks = 2  # unknown real values, assuming incremental
-    MD5Blocks = 3  # unknown real values, assuming incremental
-    SHA1Blocks = 4  # unknown real values, assuming incremental
+
+class ArchiveVersion(Version):
+    LAYOUT = Version._16
 
 
-class FileStorageType(Enum):
-    Store = 0
-    StreamCompress = 1  # 16
-    BufferCompress = 2  # 32
-
-
-class ArchiveVersion(VersionEnum):
-    Unsupported = None
-    v2 = Version(2)
-    Dow = v2
-    v5 = Version(5)
-    Dow2 = v5
-    v7 = Version(7)
-    CoH2 = v7
-    v9 = Version(9)
-    Dow3 = v9
-
-    @classmethod
-    def unpack_version(cls, stream: BinaryIO) -> Version:
-        return Version(*ArchiveVersionLayout.unpack_stream(stream))
-
-    @classmethod
-    def pack_version(cls, stream: BinaryIO, version: VersionLike) -> int:
-        if isinstance(version, VersionEnum):
-            version = version.value
-        return ArchiveVersionLayout.pack_stream(stream, version.major, version.minor)
-
-    @classmethod
-    def unpack(cls, stream: BinaryIO) -> ArchiveVersion:
-        return ArchiveVersion(cls.unpack_version(stream))
-
-    def pack(self, stream: BinaryIO) -> int:
-        return self.pack_version(stream, self)
+# class ArchiveVersion(VersionEnum):
+#     Unsupported = None
+#     v2 = Version(2)
+#     Dow = v2
+#     v5 = Version(5)
+#     Dow2 = v5
+#     v7 = Version(7)
+#     CoH2 = v7
+#     v9 = Version(9)
+#     Dow3 = v9
+#
+#     @classmethod
+#     def unpack_version(cls, stream: BinaryIO) -> Version:
+#         return Version(*ArchiveVersionLayout.unpack_stream(stream))
+#
+#     @classmethod
+#     def pack_version(cls, stream: BinaryIO, version: VersionLike) -> int:
+#         if isinstance(version, VersionEnum):
+#             version = version.value
+#         return ArchiveVersionLayout.pack_stream(stream, version.major, version.minor)
+#
+#     @classmethod
+#     def unpack(cls, stream: BinaryIO) -> ArchiveVersion:
+#         return ArchiveVersion(cls.unpack_version(stream))
+#
+#     def pack(self, stream: BinaryIO) -> int:
+#         return self.pack_version(stream, self)
 
 
 @dataclass

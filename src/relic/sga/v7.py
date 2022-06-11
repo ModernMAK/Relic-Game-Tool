@@ -1,191 +1,113 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import BinaryIO, Tuple, ClassVar, Type, List, Dict
+from datetime import datetime, timezone
+from typing import BinaryIO, Tuple, List, Dict, ClassVar, Optional
 
-from serialization_tools.ioutil import Ptr, WindowPtr
 from serialization_tools.structx import Struct
 
-from relic.common import VersionLike
-from relic.sga import v2
-from relic.sga.abc_ import VirtualDriveHeaderABC, FolderHeaderABC, FileHeaderABC, ArchiveHeaderABC, ArchiveABC, ArchiveTableOfContentsHeadersABC, ArchiveTableOfContentsABC, VirtualDriveABC, NameBufferABC
-from relic.sga.checksums import validate_md5_checksum
-from relic.sga.common import ArchiveVersion
-from relic.sga.protocols import Archive, ArchiveWalk
-from relic.sga.v2 import ArchiveToCPtrABC
-from relic.sga import abc_
-from relic.sga.vX import APIvX
-
-version = ArchiveVersion.v7
-
-"""
-Format According to ArchiveViewer (CoH2 Mod tools)
-Magic: b'Archive_'
-Version: UInt16
-Product: UInt16 (I call this minor)
-NiceName: bytes[128]/str[64] (utf-16-le)
-Header Size: UInt32
-Data Offset : UInt32
-(cached position in file here)
-ToC Rel Pos: UInt32
-ToC Count : index_size
-Folder Rel Pos: UInt32
-Folder Count : index_size
-File Rel Pos: UInt32
-File Count : index_size
-Name Buffer Pos : UInt32
-Name Buffer Count/Size ??? : index_size
-unk??? : uint32
-Block Size : Uint32
-~~~
-ToC
+from relic.sga.core import ArchiveABC, ArchiveMetaABC, BlobPtrs, FileDefABC, ToCPtrsABC, DriveDefABC, FolderDefABC, FileVerificationType, FileStorageType, FileMetaABC, FileSparseInfo, FileABC, FolderABC, Version, DriveABC
 
 
-"""
+class _ToCPtrs(ToCPtrsABC):
+    LAYOUT = ToCPtrsABC.LAYOUT_UINT32
 
 
-class _V7:
-    """Mixin to allow classes to add `version` from the module level to the class level"""
-    version = version  # classvar = modulevar # THIS IS A COPY; NOT A REFERENCE!
+class _DriveDef(DriveDefABC):
+    LAYOUT = DriveDefABC.LAYOUT_UINT32
+
+
+class _FolderDef(FolderDefABC):
+    LAYOUT = FolderDefABC.LAYOUT_UINT32
 
 
 @dataclass
-class VirtualDriveHeader(VirtualDriveHeaderABC, _V7):
-    LAYOUT = Struct("< 64s 64s 5L")
+class FileDef(FileDefABC):
+    LAYOUT = Struct("<5I 2B 2I")
+    # v7 Specific data
+    modified: datetime  # Unix EPOCH
+    verification_type: FileVerificationType
+    crc: int
+    hash_pos: int
+
+    @classmethod
+    def unpack(cls, stream: BinaryIO):
+        # print(stream.tell())
+        name_rel_pos, data_rel_pos, length, store_length, modified_seconds, verification_type_val, storage_type_val, crc, hash_pos = cls.LAYOUT.unpack_stream(stream)
+        modified = datetime.fromtimestamp(modified_seconds, timezone.utc)
+        storage_type = FileStorageType(storage_type_val)
+        verification_type = FileVerificationType(verification_type_val)
+        return cls(name_rel_pos, data_rel_pos, length, store_length, storage_type, modified, verification_type, crc, hash_pos)
 
 
 @dataclass
-class ArchiveToCPtr(ArchiveToCPtrABC, _V7):
-    LAYOUT = Struct("< 8I")
+class FileMeta(FileMetaABC):
+    modified: datetime
+    verification: FileVerificationType
+    storage: FileStorageType
+    crc: int
+    hash: bytes
+
+
+class File(FileABC):
+    meta: FileMeta
 
 
 @dataclass
-class FolderHeader(FolderHeaderABC, _V7):
-    LAYOUT = Struct("< L 4I")
+class Folder(FolderABC):
+    folders: List[Folder]
+    files: List[File]
+
+
+class Drive(DriveABC):
+    folders: List[Folder]
+    files: List[File]
 
 
 @dataclass
-class FileHeader(FileHeaderABC, _V7):
-    LAYOUT = Struct(f"<5L BB 2L")
+class ArchiveMeta(ArchiveMetaABC):
+    LAYOUT: ClassVar = Struct("<2I")
     unk_a: int
-    unk_b: int
-    unk_c: int
-    unk_d: int
-
-    @property
-    def compressed(self):
-        return self.compressed_size < self.decompressed_size
+    block_size: int
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> FileHeader:
-        name_off, data_off, comp_size, decomp_size, unk_a, unk_b1, unk_b2, unk_c, unk_d = cls.LAYOUT.unpack_stream(stream)
-        # Name, File, Compressed, Decompressed, ???, ???
-        name_ptr = Ptr(name_off)
-        data_ptr = Ptr(data_off)
-        return cls(name_ptr, data_ptr, decomp_size, comp_size, unk_a, unk_b1, unk_b2, unk_c, unk_d)
+    def unpack(cls, stream):
+        layout = cls.LAYOUT
+        args = layout.unpack_stream(stream)
+        return cls(*args)
 
-    def pack(self, stream: BinaryIO) -> int:
-        return self.LAYOUT.pack_stream(stream, self.name_sub_ptr.offset, self.data_sub_ptr.offset, self.compressed_size, self.decompressed_size, self.unk_a, self.unk_b, self.unk_c, self.unk_d)
-
-    def __eq__(self, other):
-        return self.unk_a == other.unk_a and self.unk_b == other.unk_b and super().__eq__(other)
+    def pack(self, stream):
+        layout = self.LAYOUT
+        args = self.unk_a, self.block_size
+        return layout.pack_stream(stream, *args)
 
 
-@dataclass
-class ArchiveHeader(ArchiveHeaderABC, _V7):
-    LAYOUT = Struct("< 128s 3L")
-    LAYOUT_2 = Struct("< 2L")
-    TOC_HEADER_SIZE = ArchiveToCPtr.LAYOUT.size
-    toc_ptr: WindowPtr
-    unk_a: int
-    block_size: int # IDK what this means
-
-    # This may not mirror DowI one-to-one, until it's verified, it stays here
-    # noinspection DuplicatedCode
-    def validate_checksums(self, stream: BinaryIO, *, fast: bool = True, _assert: bool = True):
-        return True
-
-    def __eq__(self, other):
-        # TODO make issue to add equality to WindowPtr/Ptr
-        return self.name == other.name and (self.unk_a, self.block_size) == (other.unk_a, other.block_size) \
-               and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
-               and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset
+class Archive(ArchiveABC):
+    drives: List[Drive]  # typing
+    TOC_PTRS = _ToCPtrs
+    VDRIVE_DEF = _DriveDef
+    FOLDER_DEF = _FolderDef
+    FILE_DEF = FileDef
+    VERSION = Version(7)
+    META_PREFIX_LAYOUT = Struct("<128s 3I")
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> ArchiveHeader:
-        name, unk_a, data_offset, rsv_1 = cls.LAYOUT.unpack_stream(stream)
-        toc_pos = stream.tell()
-        stream.seek(cls.TOC_HEADER_SIZE, 1)
-        toc_size, block_size = cls.LAYOUT_2.unpack_stream(stream)
-
-        # assert toc_size == toc_size_2, (toc_size, toc_size_2)
-        assert rsv_1 == 1
-        name = name.decode("utf-16-le").rstrip("\0")
-        toc_ptr, data_ptr = WindowPtr(toc_pos, toc_size), WindowPtr(data_offset)
-        return cls(name, toc_ptr, data_ptr, unk_a,block_size)
-
-    def pack(self, stream: BinaryIO) -> int:
-        name, toc_size, data_offset = self.name.encode("utf-16-le"), self.toc_ptr.size, self.data_ptr.offset
-        written = self.TOC_HEADER_SIZE  # count
-        written += self.LAYOUT.pack_stream(stream, name, self.unk_a, data_offset, 1)
-        stream.seek(self.TOC_HEADER_SIZE, 1)  # this will write \0 when seeking past files (unless python api/system api changes)
-        written += self.LAYOUT.pack_stream(stream, toc_size, self.unk_b)
-        return written
-
-
-class ArchiveTableOfContentsHeaders(ArchiveTableOfContentsHeadersABC):
-    VDRIVE_HEADER_CLS = VirtualDriveHeader
-    FOLDER_HEADER_CLS = FolderHeader
-    FILE_HEADER_CLS = FileHeader
-    # NAME_BUFFER_CLS = NameBuffer
-
-
-@dataclass(init=False)
-class Archive(Archive, _V7):
-    header: ArchiveHeader
-    _sparse: bool
-
-    def __init__(self, header: ArchiveHeader, drives: List[VirtualDriveABC], _sparse: bool):
-        self.header = header
-        self._sparse = _sparse
-        self.drives = drives
-
-    # redefine function
-    walk = ArchiveABC.walk
+    def _assemble_files(cls, file_defs: List[FileDef], names: Dict[int, str], data_pos: int):
+        files = []
+        for f_def in file_defs:
+            meta = FileMeta(f_def.storage_type, f_def.modified, f_def.verification_type, f_def.crc, None)  # TODO handle hash
+            sparse = FileSparseInfo(f_def.storage_type, data_pos + f_def.data_rel_pos, f_def.length, f_def.store_length)
+            file = File(names[f_def.name_rel_pos], meta, None, sparse)
+            files.append(file)
+        return files
 
     @classmethod
-    def unpack(cls, stream: BinaryIO, header: ArchiveHeader, sparse: bool = True):
-        with header.toc_ptr.stream_jump_to(stream) as handle:
-            toc_ptr = ArchiveToCPtr.unpack(handle)
-        with header.toc_ptr.stream_jump_to(stream) as handle:
-            toc_headers = ArchiveTableOfContentsHeaders.unpack(handle, toc_ptr)
-            toc = ArchiveTableOfContentsABC.create(toc_headers)
-
-        toc.load_toc()
-        toc.build_tree()  # ensures walk is unique; avoiding dupes and speeding things up
-        if not sparse:
-            with header.data_ptr.stream_jump_to(stream) as handle:
-                toc.load_data(handle)
-
-        return cls(header, toc.drives, sparse)
-
-    def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-        raise NotImplementedError
-
-
-File = abc_.FileABC
-Folder = abc_.FolderABC
-VirtualDrive = abc_.VirtualDriveABC
-
-
-class APIv7(APIvX, _V7):
-    ArchiveHeader = ArchiveHeader
-    ArchiveTableOfContentsHeaders = ArchiveTableOfContentsHeaders
-    FileHeader = FileHeader
-    FolderHeader = FolderHeader
-    VirtualDriveHeader = VirtualDriveHeader
-    Archive = Archive
-    ArchiveToCPtr = ArchiveToCPtr
-    File = File
-    Folder = Folder
-    VirtualDrive = VirtualDrive
+    def _unpack_meta(cls, stream: BinaryIO) -> Tuple[str, ArchiveMetaABC, BlobPtrs, ToCPtrsABC]:
+        encoded_name: bytes
+        encoded_name, header_size, data_pos, RSV_1 = cls.META_PREFIX_LAYOUT.unpack_stream(stream)
+        decoded_name = encoded_name.decode("utf-16-le").rstrip("\0")
+        assert RSV_1 == 1
+        header_pos = stream.tell()
+        toc_ptrs = cls.TOC_PTRS.unpack(stream)
+        meta = ArchiveMeta.unpack(stream)
+        blob_ptrs = BlobPtrs(header_pos, None, data_pos, None)
+        return decoded_name, meta, blob_ptrs, toc_ptrs

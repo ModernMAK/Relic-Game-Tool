@@ -1,10 +1,7 @@
-from __future__ import annotations
-
 from types import ModuleType
-from typing import Type, Protocol, ClassVar
+from typing import Type, Protocol
 
-from relic.sga import abc_, protocols
-from relic.sga.common import ArchiveVersion
+from relic.sga.core import ArchiveABC, Version
 
 
 class APIvX(Protocol):
@@ -13,22 +10,23 @@ class APIvX(Protocol):
 
     """
 
-    version:ClassVar[ArchiveVersion]
+
+    version:Version
     # Archive
-    Archive: Type[protocols.Archive]
-    ArchiveHeader: Type[protocols.ArchiveHeader]
-    # Table Of Contents
-    ArchiveToCPtr: Type[abc_.ArchiveToCPtrABC]
-    ArchiveTableOfContentsHeaders: Type[abc_.ArchiveTableOfContentsHeadersABC]
-    # Files
-    FileHeader: Type[abc_.FileHeaderABC]
-    File: Type[protocols.File]
-    # Folders
-    FolderHeader: Type[abc_.FolderHeaderABC]
-    Folder: Type[protocols.Folder]
-    # VDrive
-    VirtualDriveHeader: Type[abc_.VirtualDriveHeaderABC]
-    VirtualDrive: Type[protocols.VirtualDrive]
+    Archive: Type[ArchiveABC]
+    # ArchiveHeader: Type[protocols.ArchiveHeader]
+    # # Table Of Contents
+    # ArchiveToCPtr: Type[abc_.ArchiveToCPtrABC]
+    # ArchiveTableOfContentsHeaders: Type[abc_.ArchiveTableOfContentsHeadersABC]
+    # # Files
+    # FileHeader: Type[abc_.FileHeaderABC]
+    # File: Type[protocols.File]
+    # # Folders
+    # FolderHeader: Type[abc_.FolderHeaderABC]
+    # Folder: Type[protocols.Folder]
+    # # VDrive
+    # VirtualDriveHeader: Type[abc_.VirtualDriveHeaderABC]
+    # VirtualDrive: Type[protocols.VirtualDrive]
 
 
 """Modules implementing vX should define all of the following attributes"""

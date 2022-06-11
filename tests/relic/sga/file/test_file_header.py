@@ -4,8 +4,8 @@ from io import BytesIO
 import pytest
 
 from relic.common import VersionLike
-from relic.sga.common import ArchiveVersion
-from relic.sga.abc_ import FileHeaderABC
+from relic.sga_old.common import ArchiveVersion
+from relic.sga_old.abc_old_ import FileHeaderABC
 from tests.relic.sga.datagen import DowI, DowII, DowIII
 
 

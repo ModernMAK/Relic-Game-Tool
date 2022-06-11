@@ -1,10 +1,10 @@
 from typing import Iterable, List, Tuple
 
-import relic.sga
-from relic.sga import v2, v5, v9, vX
+import relic.sga_old
+from relic.sga_old import v2, v5,archive,v7_old, v9, vX
 import pytest
 
-MODULES = [v2, v5, v9]
+MODULES = [v2, v5,v7,v7_old, v9]
 ATTRS = vX.required_attrs
 APIS = relic.sga.APIS.values()
 

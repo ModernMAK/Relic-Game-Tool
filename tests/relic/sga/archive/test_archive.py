@@ -3,9 +3,9 @@ from io import BytesIO
 
 import pytest
 
-from relic.sga import protocols
-from relic.sga.abc_ import ArchiveABC
-from relic.sga.protocols import ArchiveWalk
+from relic.sga_old import protocols
+from relic.sga_old.abc_old_ import ArchiveABC
+from relic.sga_old.protocols import ArchiveWalk
 from tests.helpers import TF
 from tests.relic.sga.datagen import DowII, DowI, DowIII
 

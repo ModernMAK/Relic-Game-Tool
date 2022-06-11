@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Dict, Type, BinaryIO
 
 from relic.common import VersionLike
-from relic.sga.vX import APIvX
-from relic.sga.common import ArchiveMagicWord, ArchiveVersion
-from relic.sga.protocols import ArchiveHeader, Archive
-from relic import sga
+from relic.sga_old.vX import APIvX
+from relic.sga_old.common import ArchiveMagicWord, ArchiveVersion
+from relic.sga_old.protocols import ArchiveHeader, Archive
+from relic import sga_old
 
 
 def unpack_archive_header(versions: Dict[VersionLike, Type[ArchiveHeader]], stream: BinaryIO, read_magic: bool = True) -> ArchiveHeader:
@@ -38,7 +38,7 @@ def pack_archive(archive: Archive, stream: BinaryIO, write_magic: bool = True) -
 
 
 def unpack_archive(stream: BinaryIO, sparse: bool = True, versions: Dict[VersionLike, APIvX] = None, *, validate: bool = True) -> Archive:
-    versions = sga.APIS if versions is None else versions
+    versions = sga_old.APIS if versions is None else versions
     ArchiveMagicWord.assert_magic_word(stream, True)
     version = ArchiveVersion.unpack_version(stream)
     api = versions[version]

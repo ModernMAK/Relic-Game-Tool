@@ -5,11 +5,11 @@ from typing import Iterable
 
 from serialization_tools.walkutil import BlackList, WhiteList, filter_by_path, filter_by_file_extension, collapse_walk_on_files
 
-import relic.sga.common
-import relic.sga.io
+import relic.sga_old.common
+import relic.sga_old.io
 from relic.config import DowIIIGame, DowIIGame, DowGame, filter_latest_dow_game, get_dow_root_directories
 
-from relic.sga.common.archive import ArchiveMagicWord, Archive
+from relic.sga_old.common.archive import ArchiveMagicWord, Archive
 
 
 def __safe_makedirs(path: str, use_dirname: bool = True):

@@ -1,151 +1,124 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
-from enum import Enum
-from typing import BinaryIO, Tuple, Type, ClassVar
+from datetime import datetime, timezone
+from typing import BinaryIO, Tuple, List, Dict, ClassVar, Optional
 
-from serialization_tools.ioutil import WindowPtr, Ptr
+from serialization_tools.size import KiB
 from serialization_tools.structx import Struct
 
-from relic.common import VersionLike
-from relic.sga import abc_
-from relic.sga.abc_ import ArchiveHeaderABC, ArchiveABC, FileHeaderABC, FolderHeaderABC, VirtualDriveHeaderABC, ArchiveToCPtrABC, ArchiveTableOfContentsHeadersABC
-from relic.sga.checksums import validate_md5_checksum
-from relic.sga.common import ArchiveVersion
-from relic.sga.vX import APIvX
-
-version = ArchiveVersion.v2
+from relic.sga.core import ArchiveABC, ArchiveMetaABC, BlobPtrs, FileDefABC, ToCPtrsABC, DriveDefABC, FolderDefABC, FileVerificationType, FileStorageType, FileMetaABC, FileSparseInfo, FileABC, FolderABC, Version, DriveABC, Md5MismatchError
 
 
-class _V2:
-    """Mixin to allow classes to add `version` from the module level to the class level"""
-    version = version  # classvar = modulevar
+class _ToCPtrs(ToCPtrsABC):
+    LAYOUT = ToCPtrsABC.LAYOUT_UINT16
 
 
-@dataclass
-class ArchiveToCPtr(ArchiveToCPtrABC, _V2):
-    LAYOUT = Struct("< LH LH LH LH")
+class _DriveDef(DriveDefABC):
+    LAYOUT = DriveDefABC.LAYOUT_UINT16
+
+
+class _FolderDef(FolderDefABC):
+    LAYOUT = FolderDefABC.LAYOUT_UINT16
 
 
 @dataclass
-class ArchiveHeader(ArchiveHeaderABC, _V2):
-    # hash, name, hash (repeated), TOC_SIZE, DATA_OFFSET
-    LAYOUT = Struct(f"< 16s 128s 16s 2L")
-    # The eigen value is a guid? also knew that layout looked familiar
-    MD5_EIGENVALUES = (b"E01519D6-2DB7-4640-AF54-0A23319C56C3", b"DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF")
-    toc_ptr: WindowPtr
-    checksums: Tuple[bytes, bytes]
-
-    def validate_checksums(self, stream: BinaryIO, *, fast: bool = True, _assert: bool = True):
-        ptrs = [Ptr(self.toc_ptr.offset), self.toc_ptr]
-        valid = True
-        indexes = (1,) if fast else (0, 1)
-        for i in indexes:
-            valid &= validate_md5_checksum(stream, ptrs[i], self.MD5_EIGENVALUES[i], self.checksums[i], _assert=_assert)
-        return valid
+class FileDef(FileDefABC):
+    LAYOUT = Struct("<5I")
 
     @classmethod
-    @property
-    def version(cls) -> VersionLike:
-        return ArchiveVersion.Dow
+    def unpack(cls, stream: BinaryIO):
+        name_rel_pos, storage_type_val_v2, data_rel_pos, length, store_length = cls.LAYOUT.unpack_stream(stream)
+        storage_type_map = {0: FileStorageType.Store, 16: FileStorageType.StreamCompress, 32: FileStorageType.BufferCompress}
+        storage_type = storage_type_map[storage_type_val_v2]
+        return cls(name_rel_pos, data_rel_pos, length, store_length, storage_type)
+
+
+FileMeta = FileMetaABC
+File = FileABC
+Folder = FolderABC
+Drive = DriveABC
+# class File(FileABC):
+#     meta: FileMeta
+
+
+# @dataclass
+# class Folder(FolderABC):
+#     folders: List[Folder]
+#     files: List[File]
+#
+#
+# class Drive(DriveABC):
+#     folders: List[Folder]
+#     files: List[File]
+
+
+@dataclass
+class ArchiveMeta(ArchiveMetaABC):
+    file_md5: bytes
+    header_md5: bytes
+    blob_ptr: BlobPtrs  # Cached for MD5
+    FILE_MD5_EIGEN: ClassVar = b"E01519D6-2DB7-4640-AF54-0A23319C56C3"
+    HEADER_MD5_EIGEN: ClassVar = b"DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF"
+
+    @staticmethod
+    def _validate_md5(stream: BinaryIO, start: int, size: Optional[int], eigen: bytes, expected: bytes):
+        _BUF_SIZE = 256 * KiB
+        hasher = hashlib.md5(eigen)
+        stream.seek(start)
+        if size is None:
+            while True:
+                buffer = stream.read(_BUF_SIZE)
+                hasher.update(buffer)
+                if len(buffer) != _BUF_SIZE:
+                    break
+        else:
+            read = 0
+            while read < size:
+                buffer = stream.read(min(_BUF_SIZE, size - read))
+                read += len(buffer)
+                hasher.update(buffer)
+        md5 = bytes.fromhex(hasher.hexdigest())
+        if md5 != expected:
+            raise Md5MismatchError(md5, expected)
+
+    def validate_file_md5(self, stream: BinaryIO):
+        self._validate_md5(stream, self.blob_ptr.header_pos, None, self.FILE_MD5_EIGEN, self.file_md5)
+
+    def validate_header_md5(self, stream: BinaryIO):
+        self._validate_md5(stream, self.blob_ptr.header_pos, self.blob_ptr.header_size, self.HEADER_MD5_EIGEN, self.header_md5)
+
+
+class Archive(ArchiveABC):
+    meta: ArchiveMeta
+    # drives: List[Drive]  # typing
+
+    TOC_PTRS = _ToCPtrs
+    VDRIVE_DEF = _DriveDef
+    FOLDER_DEF = _FolderDef
+    FILE_DEF = FileDef
+    VERSION = Version(2)
+    META_PREFIX_LAYOUT = Struct("<16s 128s 16s 3I")
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> ArchiveHeader:
-        csum_a, name, csum_b, toc_size, data_offset = cls.LAYOUT.unpack_stream(stream)
-
-        name = name.decode("utf-16-le").rstrip("\0")
-        toc_ptr = WindowPtr(offset=stream.tell(), size=toc_size)
-        data_ptr = WindowPtr(offset=data_offset, size=None)
-        return cls(name, toc_ptr, data_ptr, (csum_a, csum_b))
-
-    def pack(self, stream: BinaryIO) -> int:
-        args = self.checksums[0], self.name.encode("utf-16-le"), self.checksums[1], self.toc_ptr.size, self.data_ptr.offset
-        return self.LAYOUT.pack_stream(stream, *args)
-
-    def __eq__(self, other):
-        # TODO make issue to add equality to WindowPtr/Ptr
-        return self.name == other.name \
-               and self.toc_ptr.size == other.toc_ptr.size and self.toc_ptr.offset == other.toc_ptr.offset \
-               and self.data_ptr.size == other.data_ptr.size and self.data_ptr.offset == other.data_ptr.offset \
-               and self.version == other.version and self.checksums[0] == other.checksums[0] and self.checksums[1] == other.checksums[1]
-
-
-class FileCompressionFlag(Enum):
-    # Compression flag is either 0 (Decompressed) or 16/32 which are both compressed
-    # Aside from 0; these appear to be the Window-Sizes for the Zlib Compression (In KibiBytes)
-    Decompressed = 0
-
-    Compressed16 = 16
-    Compressed32 = 32
-
-    def compressed(self) -> bool:
-        return self != FileCompressionFlag.Decompressed
-
-
-@dataclass
-class FileHeader(FileHeaderABC, _V2):
-    # name
-    LAYOUT = Struct(f"<5L")
-    compression_flag: FileCompressionFlag
-
-    def __eq__(self, other):
-        return self.compression_flag == other.compression_flag and super().__eq__(other)
+    def _assemble_files(cls, file_defs: List[FileDef], names: Dict[int, str], data_pos: int):
+        files = []
+        for f_def in file_defs:
+            meta = FileMeta(f_def.storage_type)
+            sparse = FileSparseInfo(f_def.storage_type, data_pos + f_def.data_rel_pos, f_def.length, f_def.store_length)
+            file = File(names[f_def.name_rel_pos], meta, None, sparse)
+            files.append(file)
+        return files
 
     @classmethod
-    def unpack(cls, stream: BinaryIO) -> FileHeader:
-        name_offset, compression_flag_value, data_offset, decompressed_size, compressed_size = cls.LAYOUT.unpack_stream(stream)
-        compression_flag = FileCompressionFlag(compression_flag_value)
-        name_ptr = Ptr(name_offset)
-        data_ptr = WindowPtr(data_offset, compressed_size)
-        return cls(name_ptr, data_ptr, decompressed_size, compressed_size, compression_flag)
-
-    def pack(self, stream: BinaryIO) -> int:
-        return self.LAYOUT.pack_stream(stream, self.name_sub_ptr.offset, self.compression_flag.value, self.data_sub_ptr.offset, self.decompressed_size, self.compressed_size)
-
-    @property
-    def compressed(self):
-        return self.compression_flag.compressed()
-
-
-@dataclass
-class FolderHeader(FolderHeaderABC, _V2):
-    LAYOUT = Struct("< L 4H")
-
-
-@dataclass
-class VirtualDriveHeader(VirtualDriveHeaderABC, _V2):
-    LAYOUT = Struct("< 64s 64s 4H 2s")
-
-
-class ArchiveTableOfContentsHeaders(ArchiveTableOfContentsHeadersABC):
-    VDRIVE_HEADER_CLS = VirtualDriveHeader
-    FOLDER_HEADER_CLS = FolderHeader
-    FILE_HEADER_CLS = FileHeader
-
-
-@dataclass(init=False)
-class Archive(ArchiveABC, _V2):
-    TOC_PTR_CLS: ClassVar[Type[ArchiveToCPtrABC]] = ArchiveToCPtr
-    TOC_HEADERS_CLS: ClassVar[Type[ArchiveTableOfContentsHeadersABC]] = ArchiveTableOfContentsHeaders
-
-    def pack(self, stream: BinaryIO, write_magic: bool = True) -> int:
-        raise NotImplementedError
-
-
-# Class Aliases; don't need to be inherited
-File = abc_.FileABC
-Folder = abc_.FolderABC
-VirtualDrive = abc_.VirtualDriveABC
-
-
-class APIv2(APIvX, _V2):
-    ArchiveTableOfContentsHeaders = ArchiveTableOfContentsHeaders
-    ArchiveHeader = ArchiveHeader
-    FileHeader = FileHeader
-    FolderHeader = FolderHeader
-    VirtualDriveHeader = VirtualDriveHeader
-    Archive = Archive
-    ArchiveToCPtr = ArchiveToCPtr
-    File = File
-    Folder = Folder
-    VirtualDrive = VirtualDrive
+    def _unpack_meta(cls, stream: BinaryIO) -> Tuple[str, ArchiveMetaABC, BlobPtrs, ToCPtrsABC]:
+        encoded_name: bytes
+        file_md5, encoded_name, header_md5, header_size, data_pos, RSV_1 = cls.META_PREFIX_LAYOUT.unpack_stream(stream)
+        decoded_name = encoded_name.decode("utf-16-le").rstrip("\0")
+        assert RSV_1 == 1
+        header_pos = stream.tell()
+        toc_ptrs = cls.TOC_PTRS.unpack(stream)
+        blob_ptrs = BlobPtrs(header_pos, header_size, data_pos, None)
+        meta = ArchiveMeta(file_md5, header_md5, blob_ptrs)
+        return decoded_name, meta, blob_ptrs, toc_ptrs

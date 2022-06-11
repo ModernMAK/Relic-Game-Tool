@@ -7,9 +7,9 @@ from serialization_tools.ioutil import WindowPtr, Ptr
 from serialization_tools.size import KiB, MiB, GiB
 
 from relic.common import Version
-from relic.sga import protocols as proto, v2, v5, v9
-from relic.sga.checksums import gen_md5_checksum, validate_md5_checksum
-from relic.sga.common import ArchiveVersion
+from relic.sga_old import protocols as proto, v2, v5, v9
+from relic.sga_old.checksums import gen_md5_checksum, validate_md5_checksum
+from relic.sga_old.common import ArchiveVersion
 from tests.helpers import TF
 from tests.relic.sga.datagen import DowI, DowII, DowIII
 
@@ -124,7 +124,7 @@ class TestDowIArchiveHeader(ArchiveHeaderTests):
     def test_unpack(self, buffer: bytes, expected: proto.ArchiveHeader):
         super().test_unpack(buffer, expected)
 
-    @pytest.mark.parametrize(["archive", "expected"], [(DOW1_HEADER, ArchiveVersion.Dow)])
+    @pytest.mark.parametrize(["archive", "expected"], [(DOW1_HEADER, v2.version)])
     def test_version(self, archive: proto.ArchiveHeader, expected: Version):
         super().test_version(archive, expected)
 
@@ -162,7 +162,7 @@ class TestDowIIArchiveHeader(ArchiveHeaderTests):
     def test_validate_checksums(self, archive: bytes, cls: Type[v5.ArchiveHeader]):
         super().test_validate_checksums(archive, cls)
 
-    @pytest.mark.parametrize(["archive", "expected"], [(DOW2_HEADER, ArchiveVersion.Dow2)])
+    @pytest.mark.parametrize(["archive", "expected"], [(DOW2_HEADER, v5.version)])
     def test_version(self, archive: proto.ArchiveHeader, expected: Version):
         super().test_version(archive, expected)
 
@@ -198,6 +198,6 @@ class TestDowIIIArchiveHeader(ArchiveHeaderTests):
     def test_pack(self, inst: proto.ArchiveHeader, expected: bytes):
         super().test_pack(inst, expected)
 
-    @pytest.mark.parametrize(["archive", "expected"], [(DOW3_HEADER, ArchiveVersion.Dow3)])
+    @pytest.mark.parametrize(["archive", "expected"], [(DOW3_HEADER, v9.version)])
     def test_version(self, archive: proto.ArchiveHeader, expected: Version):
         super().test_version(archive, expected)
