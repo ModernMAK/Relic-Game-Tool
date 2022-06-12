@@ -38,4 +38,4 @@ jobs:
       uses: jpetrucciani/mypy-check@master
       with:
         mypy_flags: '--config-file mypy.ini'
-        path: '-p .'
+        path: '-p relic-game-tool'
