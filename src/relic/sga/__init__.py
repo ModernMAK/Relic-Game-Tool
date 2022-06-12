@@ -1,19 +1,10 @@
-from .archive import *
-from .file import *
-from .folder import *
-from .toc import *
-from .vdrive import *
-from . import common, hierarchy, writer
-from . import archive, file, folder, toc, vdrive
+from relic.sga._apis import apis as APIs
+from relic.sga._core import Version, MagicWord, StorageType, VerificationType
 
 __all__ = [
-    "common",
-    "hierarchy",
-    "writer",
+    "APIs",
+    "Version",
+    "MagicWord",
+    "StorageType",
+    "VerificationType"
 ]
-
-__all__.extend(archive.__all__)
-__all__.extend(file.__all__)
-__all__.extend(folder.__all__)
-__all__.extend(toc.__all__)
-__all__.extend(vdrive.__all__)
