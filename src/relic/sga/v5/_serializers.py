@@ -26,14 +26,12 @@ class FileDefSerializer(StreamSerializer[core.FileDef]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO):
-        storage_type: int
-        verification_type: int
 
-        name_rel_pos, data_rel_pos, length, store_length, modified_seconds, verification_type, storage_type = self.layout.unpack_stream(stream)
+        name_rel_pos, data_rel_pos, length, store_length, modified_seconds, verification_type_val, storage_type_val = self.layout.unpack_stream(stream)
 
         modified = datetime.fromtimestamp(modified_seconds, timezone.utc)
-        storage_type: StorageType = StorageType(storage_type)
-        verification_type:VerificationType = VerificationType(verification_type)
+        storage_type: StorageType = StorageType(storage_type_val)
+        verification_type:VerificationType = VerificationType(verification_type_val)
 
         return core.FileDef(name_rel_pos, data_rel_pos, length, store_length, storage_type, modified, verification_type)
 
@@ -60,8 +58,8 @@ class APISerializers(_abc.APISerializer):
         if version != self.version:
             raise VersionMismatchError(version,self.version)
 
-        name: bytes
-        file_md5, name, header_md5, header_size, data_pos, header_pos, RSV_1, RSV_0, unk_a = self.layout.unpack_stream(stream)
+        encoded_name: bytes
+        file_md5, encoded_name, header_md5, header_size, data_pos, header_pos, RSV_1, RSV_0, unk_a = self.layout.unpack_stream(stream)
         if (RSV_1, RSV_0) != (1, 0):
             raise MismatchError("Reserved Field", (RSV_1, RSV_0), (1, 0))
         # header_pos = stream.tell()
@@ -80,7 +78,7 @@ class APISerializers(_abc.APISerializer):
                     file.data = lazy_info.read(decompress)
                     file._lazy_info = None
 
-        name: str = name.rstrip(b"").decode("utf-16-le")
+        name: str = encoded_name.rstrip(b"").decode("utf-16-le")
         file_md5_helper = core._Md5ChecksumHelper(file_md5, stream, header_pos, eigen=self.FILE_MD5_EIGEN)
         header_md5_helper = core._Md5ChecksumHelper(file_md5, stream, header_pos, header_size, eigen=self.FILE_MD5_EIGEN)
         metadata = core.ArchiveMetadata(file_md5_helper, header_md5_helper, unk_a)

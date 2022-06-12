@@ -32,9 +32,9 @@ class FileDefSerializer(StreamSerializer[FileDef]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO) -> FileDef:
-        storage_type: int
-        name_pos, storage_type, data_pos, length_on_disk, length_in_archive = self.layout.unpack_stream(stream)
-        storage_type: StorageType = self.INT2STORAGE[storage_type]
+        storage_type_val: int
+        name_pos, storage_type_val, data_pos, length_on_disk, length_in_archive = self.layout.unpack_stream(stream)
+        storage_type: StorageType = self.INT2STORAGE[storage_type_val]
         return FileDef(name_pos, data_pos, length_on_disk, length_in_archive, storage_type)
 
     def pack(self, stream: BinaryIO, value: FileDef) -> int:
@@ -58,8 +58,8 @@ class APISerializers(_abc.APISerializer):
         if version != self.version:
             raise VersionMismatchError(version,self.version)
 
-        name: bytes
-        file_md5, name, header_md5, header_size, data_pos = self.layout.unpack_stream(stream)
+        encoded_name: bytes
+        file_md5, encoded_name, header_md5, header_size, data_pos = self.layout.unpack_stream(stream)
         header_pos = stream.tell()
         # Seek to header; but we skip that because we are already there
         toc_header = self.TocHeader.unpack(stream)
@@ -76,7 +76,7 @@ class APISerializers(_abc.APISerializer):
                     file.data = lazy_info.read(decompress)
                     file._lazy_info = None
 
-        name: str = name.rstrip(b"").decode("utf-16-le")
+        name: str = encoded_name.rstrip(b"").decode("utf-16-le")
         file_md5_helper = core._Md5ChecksumHelper(file_md5, stream, header_pos, eigen=self.FILE_MD5_EIGEN)
         header_md5_helper = core._Md5ChecksumHelper(file_md5, stream, header_pos, header_size, eigen=self.FILE_MD5_EIGEN)
         metadata = core.ArchiveMetadata(file_md5_helper, header_md5_helper)

@@ -5,8 +5,7 @@ from pathlib import PurePath
 from types import ModuleType
 from typing import TypeVar, Protocol, List, Optional, ForwardRef, Tuple, Iterable, BinaryIO, Type, runtime_checkable
 
-from relic.common import Version
-from relic.sga._core import StorageType
+from relic.sga._core import StorageType, Version
 
 FileFwd = ForwardRef("File")
 FolderFwd = ForwardRef("Folder")

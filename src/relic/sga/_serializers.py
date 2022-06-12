@@ -36,11 +36,11 @@ class DriveDefSerializer(StreamSerializer[DriveDef]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO) -> DriveDef:
-        alias: bytes
-        name: bytes
-        alias, name, folder_start, folder_end, file_start, file_end, root_folder = self.layout.unpack_stream(stream)
-        alias: str = alias.rstrip(b"\0").decode("ascii")
-        name: str = name.rstrip(b"\0").decode("ascii")
+        encoded_alias: bytes
+        encoded_name: bytes
+        encoded_alias, encoded_name, folder_start, folder_end, file_start, file_end, root_folder = self.layout.unpack_stream(stream)
+        alias: str = encoded_alias.rstrip(b"\0").decode("ascii")
+        name: str = encoded_name.rstrip(b"\0").decode("ascii")
         folder_range = (folder_start, folder_end)
         file_range = (file_start, file_end)
         return DriveDef(alias=alias, name=name, root_folder=root_folder, folder_range=folder_range, file_range=file_range)
@@ -178,10 +178,12 @@ def _chunked_read(stream: BinaryIO, size: Optional[int] = None, chunk_size: Opti
                 break
     elif size is not None and chunk_size is None:
         yield stream.read(size)
-    else:
+    elif size is not None and chunk_size is not None:  # MyPy
         chunks = size // chunk_size
         for _ in range(chunks):
             yield stream.read(chunk_size)
         total_read = chunk_size * chunks
         if total_read < size:
             yield stream.read(size - total_read)
+    else:
+        raise Exception("Something impossible happened!")

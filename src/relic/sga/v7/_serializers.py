@@ -26,14 +26,11 @@ class FileDefSerializer(StreamSerializer[core.FileDef]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO):
-        storage_type: int
-        verification_type: int
-
-        name_rel_pos, data_rel_pos, length, store_length, modified_seconds, verification_type, storage_type, crc, hash_pos = self.layout.unpack_stream(stream)
+        name_rel_pos, data_rel_pos, length, store_length, modified_seconds, verification_type_val, storage_type_val, crc, hash_pos = self.layout.unpack_stream(stream)
 
         modified = datetime.fromtimestamp(modified_seconds, timezone.utc)
-        storage_type: StorageType = StorageType(storage_type)
-        verification_type: VerificationType = VerificationType(verification_type)
+        storage_type: StorageType = StorageType(storage_type_val)
+        verification_type: VerificationType = VerificationType(verification_type_val)
 
         return core.FileDef(name_rel_pos, data_rel_pos, length, store_length, storage_type, modified, verification_type, crc,hash_pos)
 
@@ -58,8 +55,8 @@ class APISerializers(_abc.APISerializer):
             raise VersionMismatchError(version,self.version)
 
 
-        name: bytes
-        name, header_size, data_pos, RSV_1 = self.layout.unpack_stream(stream)
+        encoded_name: bytes
+        encoded_name, header_size, data_pos, RSV_1 = self.layout.unpack_stream(stream)
         if RSV_1 != 1:
             raise MismatchError("Reserved Field", RSV_1, 1)
         header_pos = stream.tell()
@@ -79,7 +76,7 @@ class APISerializers(_abc.APISerializer):
                     file.data = lazy_info.read(decompress)
                     file._lazy_info = None
 
-        name: str = name.rstrip(b"").decode("utf-16-le")
+        name: str = encoded_name.rstrip(b"").decode("utf-16-le")
         metadata = core.ArchiveMetadata(unk_a, block_size)
 
         return Archive(name, metadata, drives)
