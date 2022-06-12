@@ -30,4 +30,5 @@ jobs:
     - name: Run mypy
       uses: jpetrucciani/mypy-check@master
       with:
-        mypy_flags: '-p relic --config-file mypy.ini'
+        mypy_flags: '--config-file mypy.ini'
+        path: '-p relic'
