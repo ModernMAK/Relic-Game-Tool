@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Type
 
 from relic.sga import _abc
 from relic.sga._serializers import _Md5ChecksumHelper
@@ -23,7 +24,7 @@ class ArchiveMetadata:
     _header_md5: _Md5ChecksumHelper
 
 
-Archive = _abc.Archive[ArchiveMetadata]
+Archive: Type[_abc.Archive[ArchiveMetadata]] = _abc.Archive
 Folder = _abc.Folder
 File = _abc.File
 Drive = _abc.Drive

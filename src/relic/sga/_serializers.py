@@ -27,11 +27,25 @@ class TocHeaderSerializer(StreamSerializer[TocHeader]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO) -> TocHeader:
-        drive_pos, drive_count, folder_pos, folder_count, file_pos, file_count, name_pos, name_count = self.layout.unpack_stream(stream)
+        drive_pos, \
+        drive_count, \
+        folder_pos, \
+        folder_count, \
+        file_pos, \
+        file_count, \
+        name_pos, \
+        name_count = self.layout.unpack_stream(stream)
         return TocHeader((drive_pos, drive_count), (folder_pos, folder_count), (file_pos, file_count), (name_pos, name_count))
 
     def pack(self, stream: BinaryIO, value: TocHeader) -> int:
-        args = value.drive_info[0], value.drive_info[1], value.folder_info[0], value.folder_info[1], value.file_info[0], value.file_info[1], value.name_info[0], value.name_info[1]
+        args = value.drive_info[0], \
+               value.drive_info[1], \
+               value.folder_info[0], \
+               value.folder_info[1], \
+               value.file_info[0], \
+               value.file_info[1], \
+               value.name_info[0], \
+               value.name_info[1]
         return self.layout.pack_stream(stream, *args)
 
 
@@ -71,7 +85,8 @@ class FolderDefSerializer(StreamSerializer[FolderDef]):
         return self.layout.pack_stream(stream, *args)
 
 
-def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderDef], file_defs: List[FileDef], names: Dict[int, str], data_pos: int, stream: BinaryIO, build_file_meta: Optional[Callable[[FileDef], TFileMetadata]] = None, decompress:bool=False) -> Tuple[List[_abc.Drive], List[_abc.File]]:
+def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderDef], file_defs: List[FileDef], names: Dict[int, str], data_pos: int, stream: BinaryIO, build_file_meta: Optional[Callable[[FileDef], TFileMetadata]] = None,
+                           decompress: bool = False) -> Tuple[List[_abc.Drive], List[_abc.File]]:
     all_files: List[TFile] = []
     drives: List[TDrive] = []
     for drive_def in drive_defs:
@@ -84,7 +99,7 @@ def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderD
             metadata = build_file_meta(file_def) if build_file_meta is not None else None
             lazy_info = _FileLazyInfo(data_pos + file_def.data_pos, file_def.length_in_archive, file_def.length_on_disk, stream, decompress)
             file_compressed = file_def.storage_type != StorageType.Store
-            file = _abc.File(name=name,_data=None,storage_type=file_def.storage_type,_is_compressed=file_compressed,metadata=metadata, _lazy_info=lazy_info)
+            file = _abc.File(name=name, _data=None, storage_type=file_def.storage_type, _is_compressed=file_compressed, metadata=metadata, _lazy_info=lazy_info)
             files.append(file)
 
         folders: List[_abc.Folder] = []
@@ -202,12 +217,12 @@ class _Md5ChecksumHelper:
     size: Optional[int] = None
     eigen: Optional[bytes] = None
 
-    def read(self,stream:Optional[BinaryIO] = None) -> bytes:
+    def read(self, stream: Optional[BinaryIO] = None) -> bytes:
         stream = self.stream if stream is None else stream
         stream.seek(self.start)
-        md5 = hashlib.md5(self.eigen)
+        md5 = hashlib.md5(self.eigen) if self.eigen is not None else hashlib.md5()
         # Safer for large files to read chunked
-        for chunk in _chunked_read(stream,self.size,256*KiB):
+        for chunk in _chunked_read(stream, self.size, 256 * KiB):
             md5.update(chunk)
         md5_str = md5.hexdigest()
         return bytes.fromhex(md5_str)
@@ -215,4 +230,4 @@ class _Md5ChecksumHelper:
     def validate(self, stream: Optional[BinaryIO] = None) -> None:
         result = self.read(stream)
         if self.expected != result:
-            raise MD5MismatchError(result,self.expected)
+            raise MD5MismatchError(result, self.expected)

@@ -6,12 +6,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import PurePath
-from typing import List, Optional, Tuple, BinaryIO, Type, Generic
+from typing import List, Optional, Tuple, BinaryIO, Type, Generic, TypeVar
 
 from relic.sga import protocols as p
-from relic.sga.protocols import TFileMetadata, IONode, IOWalk, TMetadata, TDrive, TArchive, TFolder, TFile, StreamSerializer, IOContainer
-from relic.sga._core import StorageType
-from relic.sga.errors import Version
+from relic.sga._core import StorageType, Version
+from relic.sga.protocols import IONode, IOWalk, IOContainer
 
 
 def _build_io_path(name: str, parent: Optional[p.IONode]) -> PurePath:
@@ -19,6 +18,14 @@ def _build_io_path(name: str, parent: Optional[p.IONode]) -> PurePath:
         return parent.path / name
     else:
         return PurePath(name)
+
+
+TFile = TypeVar("TFile", bound=p.File)
+TFolder = TypeVar("TFolder", bound=p.Folder)
+TDrive = TypeVar("TDrive", bound=p.Drive)
+TArchive = TypeVar("TArchive", bound=p.Archive)
+TMetadata = TypeVar("TMetadata")
+TFileMetadata = TypeVar("TFileMetadata")
 
 
 @dataclass
@@ -67,7 +74,7 @@ class FileDefABC:
 
 
 @dataclass
-class File(p.File[TFileMetadata]):
+class File(Generic[TFileMetadata], p.File[TFileMetadata]):
     name: str
     _data: Optional[bytes]
     storage_type: StorageType
@@ -172,7 +179,7 @@ class Archive(Generic[TMetadata], p.Archive[TMetadata]):
 
 # for good typing; manually define dataclass attributes in construct
 # it sucks, but good typing is better than no typing
-class API(p.API, ABC):
+class API(Generic[TArchive, TDrive, TFolder, TFile], p.API[TArchive, TDrive, TFolder, TFile], ABC):
     def __init__(self, version: Version, archive: Type[TArchive], drive: Type[TDrive], folder: Type[TFolder], file: Type[TFile], serializer: APISerializer):
         self.version = version
         self.Archive = archive

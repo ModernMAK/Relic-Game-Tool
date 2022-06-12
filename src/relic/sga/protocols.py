@@ -3,20 +3,18 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import PurePath
 from types import ModuleType
-from typing import TypeVar, Protocol, List, Optional, ForwardRef, Tuple, Iterable, BinaryIO, Type, runtime_checkable
+from typing import TypeVar, Protocol, List, Optional, ForwardRef, Tuple, Iterable, BinaryIO, Type, runtime_checkable, Sequence
 
 from relic.sga._core import StorageType, Version
 
-FileFwd = ForwardRef("File")
-FolderFwd = ForwardRef("Folder")
-DriveFwd = ForwardRef("Drive")
-ArchiveFwd = ForwardRef("Archive")
-TFile = TypeVar("TFile", bound=FileFwd)
-TFolder = TypeVar("TFolder", bound=FolderFwd)
-TDrive = TypeVar("TDrive", bound=DriveFwd)
-TArchive = TypeVar("TArchive", bound=ArchiveFwd)
+TFile = TypeVar("TFile")
+TFolder = TypeVar("TFolder")
+TDrive = TypeVar("TDrive")
+TArchive = TypeVar("TArchive")
 TMetadata = TypeVar("TMetadata")
 TFileMetadata = TypeVar("TFileMetadata")
+TFile_co = TypeVar("TFile_co", covariant=True)
+TFolder_co = TypeVar("TFolder_co", covariant=True)
 T = TypeVar("T")
 
 
@@ -40,16 +38,16 @@ class IONode(Protocol):
     parent: Optional[IOContainer]
 
 
-class IOContainer(IONode, Protocol):
-    sub_folders: List[Folder]
-    files: List[File]
+class IOContainer(IONode, Protocol[TFolder, TFile]):
+    sub_folders: List[TFolder]
+    files: List[TFile]
 
 
-IOWalkStep = Tuple[IOContainer, List[FolderFwd], List[FileFwd]]
+IOWalkStep = Tuple[IOContainer, Sequence[TFolder_co], Sequence[TFile_co]]
 IOWalk = Iterable[IOWalkStep]
 
 
-class IOWalkable(Protocol[TFolder, TFile]):
+class IOWalkable(Protocol[TFolder_co, TFile_co]):
     def walk(self) -> IOWalk:
         raise NotImplementedError
 
