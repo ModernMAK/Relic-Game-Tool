@@ -3,9 +3,16 @@ name: mypy
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/mypy.yml'  
   pull_request:
     branches: [ main ]
-
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/mypy.yml'
 jobs:
   build:
     runs-on: ubuntu-latest
