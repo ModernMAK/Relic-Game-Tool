@@ -6,16 +6,16 @@ name: Pytest
 on:
   push:
     branches: [ main ]
-#    paths:
-#      - 'src/**'
-#      - 'tests/**'
-#      - '.github/workflows/pytest.yaml'
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/pytest.yml'
   pull_request:
     branches: [ main ]
-#    paths:
-#      - 'src/**'
-#      - 'tests/**'
-#      - '.github/workflows/pytest.yaml'
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/pytest.yml'
 
 jobs:
   build:
@@ -25,7 +25,7 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10"]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
