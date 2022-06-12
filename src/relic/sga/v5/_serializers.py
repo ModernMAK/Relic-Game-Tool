@@ -5,6 +5,7 @@ from typing import BinaryIO, ClassVar, Optional
 
 from serialization_tools.structx import Struct
 
+import relic.sga._serializers
 from relic.sga import _abc, _serializers as _s
 from relic.sga._abc import Archive
 from relic.sga.errors import MismatchError, VersionMismatchError
@@ -67,7 +68,7 @@ class APISerializers(_abc.APISerializer):
         toc_header = self.TocHeader.unpack(stream)
         drive_defs, folder_defs, file_defs = _s._read_toc_definitions(stream, toc_header, header_pos, self.DriveDef, self.FolderDef, self.FileDef)
         names = _s._read_toc_names_as_count(stream, toc_header.name_info, header_pos)
-        drives, files = _s._assemble_io_from_defs(drive_defs, folder_defs, file_defs, names, data_pos, stream)
+        drives, files = _s._assemble_io_from_defs(drive_defs, folder_defs, file_defs, names, data_pos, stream,decompress=decompress)
 
         if not lazy:
             for file in files:
@@ -79,8 +80,8 @@ class APISerializers(_abc.APISerializer):
                     file._lazy_info = None
 
         name: str = encoded_name.rstrip(b"").decode("utf-16-le")
-        file_md5_helper = core._Md5ChecksumHelper(file_md5, stream, header_pos, eigen=self.FILE_MD5_EIGEN)
-        header_md5_helper = core._Md5ChecksumHelper(file_md5, stream, header_pos, header_size, eigen=self.FILE_MD5_EIGEN)
+        file_md5_helper = relic.sga._serializers._Md5ChecksumHelper(file_md5, stream, header_pos, eigen=self.FILE_MD5_EIGEN)
+        header_md5_helper = relic.sga._serializers._Md5ChecksumHelper(file_md5, stream, header_pos, header_size, eigen=self.FILE_MD5_EIGEN)
         metadata = core.ArchiveMetadata(file_md5_helper, header_md5_helper, unk_a)
 
         return Archive(name, metadata, drives)

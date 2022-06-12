@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import BinaryIO, List, Dict, Optional, Callable, Tuple, Iterable
 
+from serialization_tools.size import KiB
 from serialization_tools.structx import Struct
 
 from relic.sga import _abc
 from relic.sga._abc import DriveDef, FolderDef, FileDefABC as FileDef, _FileLazyInfo, FileDefABC
+from relic.sga._core import StorageType
+from relic.sga.errors import MD5MismatchError
 from relic.sga.protocols import TFileMetadata, IOContainer, StreamSerializer, T, TFile, TDrive
 
 
@@ -67,7 +71,7 @@ class FolderDefSerializer(StreamSerializer[FolderDef]):
         return self.layout.pack_stream(stream, *args)
 
 
-def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderDef], file_defs: List[FileDef], names: Dict[int, str], data_pos: int, stream: BinaryIO, build_file_meta: Optional[Callable[[FileDef], TFileMetadata]] = None) -> Tuple[List[_abc.Drive], List[_abc.File]]:
+def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderDef], file_defs: List[FileDef], names: Dict[int, str], data_pos: int, stream: BinaryIO, build_file_meta: Optional[Callable[[FileDef], TFileMetadata]] = None, decompress:bool=False) -> Tuple[List[_abc.Drive], List[_abc.File]]:
     all_files: List[TFile] = []
     drives: List[TDrive] = []
     for drive_def in drive_defs:
@@ -78,8 +82,9 @@ def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderD
         for file_def in local_file_defs:
             name = names[file_def.name_pos]
             metadata = build_file_meta(file_def) if build_file_meta is not None else None
-            lazy_info = _FileLazyInfo(data_pos + file_def.data_pos, file_def.length_in_archive, file_def.length_on_disk, stream)
-            file = _abc.File(name, None, file_def.storage_type, metadata, None, lazy_info)
+            lazy_info = _FileLazyInfo(data_pos + file_def.data_pos, file_def.length_in_archive, file_def.length_on_disk, stream, decompress)
+            file_compressed = file_def.storage_type != StorageType.Store
+            file = _abc.File(name=name,_data=None,storage_type=file_def.storage_type,_is_compressed=file_compressed,metadata=metadata, _lazy_info=lazy_info)
             files.append(file)
 
         folders: List[_abc.Folder] = []
@@ -187,3 +192,27 @@ def _chunked_read(stream: BinaryIO, size: Optional[int] = None, chunk_size: Opti
             yield stream.read(size - total_read)
     else:
         raise Exception("Something impossible happened!")
+
+
+@dataclass
+class _Md5ChecksumHelper:
+    expected: bytes
+    stream: BinaryIO
+    start: int
+    size: Optional[int] = None
+    eigen: Optional[bytes] = None
+
+    def read(self,stream:Optional[BinaryIO] = None) -> bytes:
+        stream = self.stream if stream is None else stream
+        stream.seek(self.start)
+        md5 = hashlib.md5(self.eigen)
+        # Safer for large files to read chunked
+        for chunk in _chunked_read(stream,self.size,256*KiB):
+            md5.update(chunk)
+        md5_str = md5.hexdigest()
+        return bytes.fromhex(md5_str)
+
+    def validate(self, stream: Optional[BinaryIO] = None) -> None:
+        result = self.read(stream)
+        if self.expected != result:
+            raise MD5MismatchError(result,self.expected)

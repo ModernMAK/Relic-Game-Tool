@@ -9,7 +9,7 @@ from pathlib import PurePath
 from typing import List, Optional, Tuple, BinaryIO, Type, Generic
 
 from relic.sga import protocols as p
-from relic.sga.protocols import TFileMetadata, IONode, IOWalk, TMetadata, TDrive, TArchive, TFolder, TFile, StreamSerializer
+from relic.sga.protocols import TFileMetadata, IONode, IOWalk, TMetadata, TDrive, TArchive, TFolder, TFile, StreamSerializer, IOContainer
 from relic.sga._core import StorageType
 from relic.sga.errors import Version
 
@@ -27,8 +27,10 @@ class _FileLazyInfo:
     packed_size: int
     unpacked_size: int
     stream: BinaryIO
+    decompress: bool
 
-    def read(self, decompress: bool) -> bytes:
+    def read(self, decompress: Optional[bool] = None) -> bytes:
+        decompress = self.decompress if decompress is None else decompress
         jump_back = self.stream.tell()
         self.stream.seek(self.jump_to)
         buffer = self.stream.read(self.packed_size)
@@ -67,16 +69,31 @@ class FileDefABC:
 @dataclass
 class File(p.File[TFileMetadata]):
     name: str
-    data: Optional[bytes]
+    _data: Optional[bytes]
     storage_type: StorageType
-    metadata: Optional[TFileMetadata] = None
-    parent: Optional[IONode] = None
+    _is_compressed: bool
+    metadata: TFileMetadata
+    parent: Optional[IOContainer] = None
     _lazy_info: Optional[_FileLazyInfo] = None
-    _is_compressed: bool = None
+
+    @property
+    def data(self) -> bytes:
+        if self._data is None:
+            if self._lazy_info is None:
+                raise TypeError("Data was not loaded!")
+            else:
+                self._data = self._lazy_info.read()
+                self._lazy_info = None
+        return self._data
+
+    @data.setter
+    def data(self, value: bytes) -> None:
+        self._data = value
 
     @contextmanager
-    def open(self, read_only: bool = True) -> BinaryIO:
-        with BytesIO(self.data) as stream:
+    def open(self, read_only: bool = True):
+        data = self.data
+        with BytesIO(data) as stream:
             yield stream
             if not read_only:
                 stream.seek(0)
@@ -87,6 +104,8 @@ class File(p.File[TFileMetadata]):
         return self._is_compressed
 
     def compress(self) -> None:
+        if self.data is None:
+            raise TypeError("Data was not loaded!")
         if not self._is_compressed:
             self.data = zlib.compress(self.data)
             self._is_compressed = True
@@ -166,7 +185,7 @@ class API(p.API, ABC):
         return self._serializer.read(stream, lazy, decompress)
 
     def write(self, stream: BinaryIO, archive: TArchive) -> int:
-        return self._serializer.write(stream,archive)
+        return self._serializer.write(stream, archive)
 
 
 class APISerializer(Generic[TArchive]):

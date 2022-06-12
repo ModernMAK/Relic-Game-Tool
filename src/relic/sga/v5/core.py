@@ -2,27 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, BinaryIO
 
 from relic.sga import _abc
 from relic.sga._abc import FileDefABC
-from relic.sga.errors import Version
 from relic.sga._core import VerificationType
+from relic.sga._serializers import _Md5ChecksumHelper
+from relic.sga.errors import Version
 
 version = Version(5)
-
-
-@dataclass
-class _Md5ChecksumHelper:
-    expected: bytes
-    stream: BinaryIO
-    start: int
-    size: Optional[int] = None
-    eigen: Optional[bytes] = None
-
-    def validate(self, stream: BinaryIO = None) -> None:
-        stream = self.stream if stream is None else stream
-        stream.seek(self.start)
 
 
 @dataclass

@@ -2,7 +2,7 @@ import json
 from abc import abstractmethod
 from io import BytesIO
 from pathlib import Path
-from typing import Union, Iterable, Tuple
+from typing import Union, Iterable, Tuple, List
 
 import pytest
 
@@ -42,26 +42,38 @@ def prepare_for_parametrize(files: Iterable[str]) -> Iterable[Tuple[str]]:
     return [(_,) for _ in files]
 
 
+_path = Path(__file__).parent
+# Explicit path locations
 try:
-    path = Path(__file__)
-    path = path.parent / "sources.json"
+    path = _path / "sources.json"
     with path.open() as stream:
         file_sources = json.load(stream)
 except IOError as e:
     file_sources = {}
 
 
+# Implicit path locations
+def _update_implicit_file_sources(src_key: str):
+    if src_key not in file_sources:
+        file_sources[src_key] = {}
+    if "dirs" not in file_sources[src_key]:
+        file_sources[src_key]["dirs"] = []
+    dirs:List[str] = file_sources[src_key]["dirs"]
+    dirs.append(str(_path / "test_data" / src_key))
+
+
 def _helper(src_key: str, version: Version):
+    _update_implicit_file_sources(src_key)
     try:
-        local_sources = file_sources.get(src_key,{})
+        local_sources = file_sources.get(src_key, {})
         files = set()
-        for src_dir in local_sources.get("dirs",[]):
+        for src_dir in local_sources.get("dirs", []):
             for f in scan_directory(src_dir, version):
                 files.add(f)
-        for src_file in local_sources.get("files",[]):
+        for src_file in local_sources.get("files", []):
             files.add(src_file)
         return prepare_for_parametrize(files)
-    except Exception as e:
+    except IOError as e:
         return tuple()
 
 

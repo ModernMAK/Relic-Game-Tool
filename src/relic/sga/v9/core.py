@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, BinaryIO
 
 from relic.sga import _abc
 from relic.sga._abc import FileDefABC
-from relic.sga.errors import Version
 from relic.sga._core import VerificationType
+from relic.sga.errors import Version
 
 version = Version(9)
 

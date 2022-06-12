@@ -56,7 +56,15 @@ class IOWalkable(Protocol[TFolder, TFile]):
 
 class File(IOPathable, IONode, Protocol[TFileMetadata]):
     name: str
-    data: bytes
+
+    @property
+    def data(self) -> bytes:
+        raise NotImplementedError
+
+    @data.setter
+    def data(self, value: bytes) -> None:
+        raise NotImplementedError
+
     storage_type: StorageType
     metadata: TFileMetadata
 
@@ -91,7 +99,7 @@ class Archive(IOWalkable, Protocol[TMetadata]):
 
 
 class API(Protocol[TArchive, TDrive, TFolder, TFile]):
-    version:Version
+    version: Version
     Archive: Type[TArchive]
     Drive: Type[TDrive]
     Folder: Type[TFolder]

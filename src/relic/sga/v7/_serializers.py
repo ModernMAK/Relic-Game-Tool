@@ -65,7 +65,7 @@ class APISerializers(_abc.APISerializer):
         unk_a, block_size = self.metadata_layout.unpack_stream(stream)
         drive_defs, folder_defs, file_defs = _s._read_toc_definitions(stream, toc_header, header_pos, self.DriveDef, self.FolderDef, self.FileDef)
         names = _s._read_toc_names_as_count(stream, toc_header.name_info, header_pos)
-        drives, files = _s._assemble_io_from_defs(drive_defs, folder_defs, file_defs, names, data_pos, stream)
+        drives, files = _s._assemble_io_from_defs(drive_defs, folder_defs, file_defs, names, data_pos, stream,decompress=decompress)
 
         if not lazy:
             for file in files:

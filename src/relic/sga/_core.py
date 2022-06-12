@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+
 from serialization_tools.structx import Struct
 from typing import Optional, ClassVar, BinaryIO
 
 from serialization_tools.magic import MagicWordIO
-
 
 MagicWord = MagicWordIO(Struct("< 8s"), "_ARCHIVE".encode("ascii"))
 
@@ -44,7 +44,6 @@ class Version:
         layout: Struct = self.LAYOUT
         args = (self.major, self.minor)
         return layout.pack_stream(stream, *args)
-
 
 
 class StorageType(int, Enum):
