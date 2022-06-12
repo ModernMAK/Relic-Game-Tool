@@ -32,4 +32,4 @@ jobs:
       uses: jpetrucciani/mypy-check@master
       with:
         mypy_flags: '--config-file mypy.ini'
-        path: './src/relic'
+        path: '-p ./src/relic'
