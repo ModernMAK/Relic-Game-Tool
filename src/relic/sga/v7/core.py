@@ -5,7 +5,7 @@ from datetime import datetime
 
 from relic.sga import _abc
 from relic.sga._abc import FileDefABC
-from relic.sga.error import Version
+from relic.sga.errors import Version
 from relic.sga._core import VerificationType
 
 version = Version(7)

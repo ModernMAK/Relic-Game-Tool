@@ -6,7 +6,7 @@ from serialization_tools.structx import Struct
 
 from relic.sga import _abc, _serializers as _s
 from relic.sga._abc import FileDefABC as FileDef, Archive
-from relic.sga.error import VersionMismatchError
+from relic.sga.errors import VersionMismatchError
 from relic.sga.v2 import core
 from relic.sga._core import MagicWord, Version, StorageType
 from relic.sga.protocols import StreamSerializer

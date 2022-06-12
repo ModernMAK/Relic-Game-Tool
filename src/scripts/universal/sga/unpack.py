@@ -3,7 +3,7 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import Dict
 
-from relic.sga.error import FileABC
+from relic.sga.errors import FileABC
 from relic.sga.apis import read_archive
 from scripts.universal.common import PrintOptions, print_error, print_any, SharedExtractorParser
 from scripts.universal.sga.common import get_runner

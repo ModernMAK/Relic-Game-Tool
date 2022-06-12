@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional, BinaryIO
 
 from relic.sga import _abc
-from relic.sga.error import Version
+from relic.sga.errors import Version
 
 version = Version(2)
 

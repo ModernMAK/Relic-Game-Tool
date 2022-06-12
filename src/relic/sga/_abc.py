@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple, BinaryIO, Type, Generic
 from relic.sga import protocols as p
 from relic.sga.protocols import TFileMetadata, IONode, IOWalk, TMetadata, TDrive, TArchive, TFolder, TFile, StreamSerializer
 from relic.sga._core import StorageType
-from relic.sga.error import Version
+from relic.sga.errors import Version
 
 
 def _build_io_path(name: str, parent: Optional[p.IONode]) -> PurePath:
