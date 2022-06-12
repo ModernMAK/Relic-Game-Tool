@@ -6,10 +6,10 @@ from typing import Optional, BinaryIO
 
 from relic.sga import _abc
 from relic.sga._abc import FileDefABC
-from relic.sga.core import Version
-from relic.sga.protocols import VerificationType
+from relic.sga.error import Version
+from relic.sga._core import VerificationType
 
-version = Version(2)
+version = Version(5)
 
 
 @dataclass

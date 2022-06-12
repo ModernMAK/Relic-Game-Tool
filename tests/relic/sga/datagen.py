@@ -1,12 +1,49 @@
 import hashlib
-from typing import Tuple, Dict
+from typing import Tuple, Dict, ClassVar
 
-from serialization_tools.ioutil import WindowPtr, Ptr
+from relic.sga._core import StorageType
 
-from relic.sga.protocols import ArchiveHeader
-from relic.sga_old.abc_old_ import FileABC, FolderABC, VirtualDriveABC, ArchiveTOC
-from relic.sga_old import v2, v5, v9
-from relic.sga_old.common import ArchiveRange
+
+class VirtualDriveABC:
+    pass
+
+
+class ArchiveHeader:
+    pass
+
+
+class v9:
+    VirtualDriveHeader = None
+    FolderHeader: ClassVar = None
+    Archive: ClassVar = None
+    FileHeader: ClassVar = None
+
+
+class v5:
+    VirtualDriveHeader = None
+    FolderHeader: ClassVar = None
+    Archive: ClassVar = None
+    FileHeader: ClassVar = None
+
+
+class v2:
+    VirtualDriveHeader = None
+    FolderHeader: ClassVar = None
+    Archive: ClassVar = None
+    FileCompressionFlag: ClassVar = None
+    FileHeader: ClassVar = None
+
+
+class FolderABC:
+    pass
+
+
+class FileABC:
+    pass
+
+
+class ArchiveTOC:
+    pass
 
 
 def encode_and_pad(v: str, byte_size: int, encoding: str) -> bytes:
@@ -35,11 +72,12 @@ def splice_toc_offsets(vdrive: int, folders: int, files: int, names: int, offset
 
 class DowI:
     DEFAULT_CSUMS = (b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f")
-    VDRIVE_UNK = b"\xde\xad"  # Arbitrary value
+    DEF_ROOT_FOLDER = ushort(0)  # b"\xde\xad"  # Arbitrary value
 
     @staticmethod
     def gen_archive_header(name: str, toc_size: int, data_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS, toc_pos: int = 180) -> ArchiveHeader:
-        return v2.ArchiveHeader(name, WindowPtr(toc_pos, toc_size), WindowPtr(data_offset), csums)
+        raise TypeError("Not currently supported")
+        # return v2.ArchiveHeader(name, WindowPtr(toc_pos, toc_size), WindowPtr(data_offset), csums)
 
     @staticmethod
     def gen_archive_header_buffer(name: str, toc_size: int, data_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS, magic: bytes = b"_ARCHIVE") -> bytes:
@@ -50,16 +88,18 @@ class DowI:
         return magic + version + csums[0] + encoded_name + csums[1] + encoded_toc_size + encoded_data_offset
 
     @staticmethod
-    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK) -> v2.VirtualDriveHeader:
-        return v2.VirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
+    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = DEF_ROOT_FOLDER) -> v2.VirtualDriveHeader:
+        raise TypeError("Not currently supported")
+        # return v2.VirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
 
     @staticmethod
-    def gen_vdrive_header_buffer(name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK):
-        return encode_and_pad(path, 64, "ascii") + encode_and_pad(name, 64, "ascii") + ushort(subfolder_offset) + ushort(subfolder_offset + subfolder_count) + ushort(file_offset) + ushort(file_count + file_offset) + unk
+    def gen_vdrive_header_buffer(name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", root_folder: bytes = DEF_ROOT_FOLDER):
+        return encode_and_pad(path, 64, "ascii") + encode_and_pad(name, 64, "ascii") + ushort(subfolder_offset) + ushort(subfolder_offset + subfolder_count) + ushort(file_offset) + ushort(file_count + file_offset) + root_folder
 
     @staticmethod
     def gen_folder_header(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> v2.FolderHeader:
-        return v2.FolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
+        raise TypeError("Not currently supported")
+        # return v2.FolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
 
     @staticmethod
     def gen_folder_header_buffer(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> bytes:
@@ -67,25 +107,26 @@ class DowI:
 
     @staticmethod
     def gen_file_header(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None, comp_flag: v2.FileCompressionFlag = None) -> v2.FileHeader:
-        if comp_size is None:
-            comp_size = decomp_size
-        if comp_flag is None:
-            if comp_size != decomp_size:
-                comp_flag = v2.FileCompressionFlag.Compressed16  # IDK, just choose one
-            else:
-                comp_flag = v2.FileCompressionFlag.Decompressed
-        return v2.FileHeader(Ptr(name_offset), WindowPtr(data_offset, comp_size), decomp_size, comp_size, comp_flag)
+        raise TypeError("Not currently supported")
+        # if comp_size is None:
+        #     comp_size = decomp_size
+        # if comp_flag is None:
+        #     if comp_size != decomp_size:
+        #         comp_flag = v2.FileCompressionFlag.Compressed16  # IDK, just choose one
+        #     else:
+        #         comp_flag = v2.FileCompressionFlag.Decompressed
+        # return v2.FileHeader(Ptr(name_offset), WindowPtr(data_offset, comp_size), decomp_size, comp_size, comp_flag)
 
     @staticmethod
-    def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None, comp_flag: v2.FileCompressionFlag = None) -> bytes:
+    def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None, comp_flag: StorageType = None) -> bytes:
         if comp_size is None:
             comp_size = decomp_size
         if comp_flag is None:
             if comp_size != decomp_size:
-                comp_flag = v2.FileCompressionFlag.Compressed16  # IDK, just choose one
+                comp_flag = 32  # StorageType.StreamCompress  # IDK, just choose one
             else:
-                comp_flag = v2.FileCompressionFlag.Decompressed
-        return uint(name_offset) + uint(comp_flag.value) + uint(data_offset) + uint(decomp_size) + uint(comp_size)
+                comp_flag = 0  # StorageType.Store
+        return uint(name_offset) + uint(comp_flag) + uint(data_offset) + uint(decomp_size) + uint(comp_size)
 
     @staticmethod
     def gen_name_buffer(*names: str, encoding: str = "ascii") -> Tuple[bytes, Dict[str, int]]:
@@ -114,7 +155,8 @@ class DowI:
 
     @staticmethod
     def gen_toc(vdrive: VirtualDriveABC, folder: FolderABC, file: FileABC, names: Dict[int, str]) -> ArchiveTOC:
-        return ArchiveTOC([vdrive], [folder], [file], names)
+        raise TypeError("Not currently supported")
+        # return ArchiveTOC([vdrive], [folder], [file], names)
 
     @classmethod
     def gen_archive_buffer(cls, archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes, magic: bytes = "_ARCHIVE") -> bytes:
@@ -147,55 +189,57 @@ class DowI:
 
     @classmethod
     def gen_sample_archive(cls, archive_name: str, folder: str, file: str, file_uncomp_data: bytes, toc_pos: int = 180) -> v2.Archive:
-        def dirty_toc_hack():
-            name_buf, name_offsets = cls.gen_name_buffer(folder, file)
-            vdrive_buf = cls.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
-            folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
-            file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
-            toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
-            toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)
-            return cls.gen_toc_ptr_buffer(*toc_ptrs) + toc_buf
-
-        toc_buf = dirty_toc_hack()
-
-        def dirty_csum_hack():
-            EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
-
-            def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
-                hasher = hashlib.md5(eigen)
-                hasher.update(buffer)
-                return bytes.fromhex(hasher.hexdigest())
-
-            csum2 = gen_csum(toc_buf, EIGENS[1])
-            toc_and_data = toc_buf + file_uncomp_data
-            csum1 = gen_csum(toc_and_data, EIGENS[0])
-            return csum1, csum2
-
-        csums = dirty_csum_hack()
-
-        _, name_offsets = cls.gen_name_buffer(folder, file)
-        vdrive_h = cls.gen_vdrive_header(archive_name, 0, 1, 0, 1)
-        folder_h = cls.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
-        file_h = cls.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
-        file_ = v2.File(file_h, file, file_uncomp_data, True)
-        folder_ = v2.Folder(folder_h, folder, [], [file_])
-        vdrive_ = v2.VirtualDrive(vdrive_h, [folder_], [file_])
-        folder_.parent_drive = file_.parent_drive = vdrive_
-        file_.parent_folder = folder_
-        header = cls.gen_archive_header(archive_name, len(toc_buf), len(toc_buf) + toc_pos, csums, toc_pos)
-        return v2.Archive(header, [vdrive_], False)
+        raise TypeError("Currently not supported")
+        # def dirty_toc_hack():
+        #     name_buf, name_offsets = cls.gen_name_buffer(folder, file)
+        #     vdrive_buf = cls.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+        #     folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+        #     file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+        #     toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+        #     toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)
+        #     return cls.gen_toc_ptr_buffer(*toc_ptrs) + toc_buf
+        #
+        # toc_buf = dirty_toc_hack()
+        #
+        # def dirty_csum_hack():
+        #     EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
+        #
+        #     def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
+        #         hasher = hashlib.md5(eigen)
+        #         hasher.update(buffer)
+        #         return bytes.fromhex(hasher.hexdigest())
+        #
+        #     csum2 = gen_csum(toc_buf, EIGENS[1])
+        #     toc_and_data = toc_buf + file_uncomp_data
+        #     csum1 = gen_csum(toc_and_data, EIGENS[0])
+        #     return csum1, csum2
+        #
+        # csums = dirty_csum_hack()
+        #
+        # _, name_offsets = cls.gen_name_buffer(folder, file)
+        # vdrive_h = cls.gen_vdrive_header(archive_name, 0, 1, 0, 1)
+        # folder_h = cls.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
+        # file_h = cls.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
+        # file_ = v2.File(file_h, file, file_uncomp_data, True)
+        # folder_ = v2.Folder(folder_h, folder, [], [file_])
+        # vdrive_ = v2.VirtualDrive(vdrive_h, [folder_], [file_])
+        # folder_.parent_drive = file_.parent_drive = vdrive_
+        # file_.parent_folder = folder_
+        # header = cls.gen_archive_header(archive_name, len(toc_buf), len(toc_buf) + toc_pos, csums, toc_pos)
+        # return v2.Archive(header, [vdrive_], False)
 
 
 class DowII:
     DEFAULT_CSUMS = (b"\x01\x02\0\x04\0\0\0\x08\0\0\0\0\0\0\0\0", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f")
-    VDRIVE_UNK = b"\xde\xad"  # Arbitrary value
+    DEF_ROOT_FOLDER = ushort(0)  # b"\xde\xad"  # Arbitrary value
     ARCHIVE_HEADER_UNK = bytes.fromhex("4d41dFFF")  # F in place of unknowns
     ARCHIVE_HEADER_UNK_INT = int.from_bytes(ARCHIVE_HEADER_UNK, byteorder="little", signed=False)  # F in place of unknowns
     ARCHIVE_HEADER_SIZE = 196
 
     @classmethod
     def gen_archive_header(cls, name: str, toc_size: int, data_offset: int, toc_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS) -> ArchiveHeader:
-        return v5.ArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset), csums, cls.ARCHIVE_HEADER_UNK_INT)
+        raise TypeError("Not currently supported")
+        # return v5.ArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset), csums, cls.ARCHIVE_HEADER_UNK_INT)
 
     @classmethod
     def gen_archive_header_buffer(cls, name: str, toc_size: int, data_offset: int, toc_offset: int, csums: Tuple[bytes, bytes] = DEFAULT_CSUMS, magic: bytes = b"_ARCHIVE") -> bytes:
@@ -207,21 +251,24 @@ class DowII:
         return magic + version + csums[0] + encoded_name + csums[1] + encoded_toc_size + encoded_data_offset + encoded_toc_offset + uint(1) + uint(0) + cls.ARCHIVE_HEADER_UNK
 
     @staticmethod
-    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK) -> v5.VirtualDriveHeader:
-        return v5.VirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
+    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", root_folder: bytes = DEF_ROOT_FOLDER) -> v5.VirtualDriveHeader:
+        raise TypeError("Not currently supported")
+        # return v5.VirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
 
     gen_vdrive_header_buffer = DowI.gen_vdrive_header_buffer  # Same exact layout;
 
     @staticmethod
     def gen_folder_header(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> v5.FolderHeader:
-        return v5.FolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
+        raise TypeError("Not currently supported")
+        # return v5.FolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
 
     gen_folder_header_buffer = DowI.gen_folder_header_buffer  # Same exact layout;
 
     @staticmethod
     def gen_file_header(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> v5.FileHeader:
-        comp_size = decomp_size if comp_size is None else comp_size
-        return v5.FileHeader(Ptr(name_offset), Ptr(data_offset, comp_size), decomp_size, comp_size, 0, 0)
+        raise TypeError("Not currently supported")
+        # comp_size = decomp_size if comp_size is None else comp_size
+        # return v5.FileHeader(Ptr(name_offset), Ptr(data_offset, comp_size), decomp_size, comp_size, 0, 0)
 
     @staticmethod
     def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> bytes:
@@ -263,53 +310,55 @@ class DowII:
 
     @classmethod
     def gen_sample_archive(cls, archive_name: str, folder: str, file: str, file_uncomp_data: bytes, toc_pos: int = 180) -> v5.Archive:
-        def dirty_toc_hack():
-            name_buf, name_offsets = cls.gen_name_buffer(folder, file)
-            vdrive_buf = cls.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
-            folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
-            file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
-            toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
-            toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)
-            return cls.gen_toc_ptr_buffer(*toc_ptrs) + toc_buf
-
-        full_toc = dirty_toc_hack()
-
-        def dirty_csum_hack():
-            EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
-
-            def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
-                hasher = hashlib.md5(eigen)
-                hasher.update(buffer)
-                return bytes.fromhex(hasher.hexdigest())
-
-            csum2 = gen_csum(full_toc, EIGENS[1])
-            toc_and_data = full_toc + file_uncomp_data
-            csum1 = gen_csum(toc_and_data, EIGENS[0])
-            return csum1, csum2
-
-        csums = dirty_csum_hack()
-
-        _, name_offsets = cls.gen_name_buffer(folder, file)
-        vdrive_h = cls.gen_vdrive_header(archive_name, 0, 1, 0, 1)
-        folder_h = cls.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
-        file_h = cls.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
-        file_ = FileABC(file_h, file, file_uncomp_data, True)
-        folder_ = FolderABC(folder_h, folder, [], [file_])
-        vdrive_ = VirtualDriveABC(vdrive_h, [folder_], [file_])
-        folder_.parent_drive = file_.parent_drive = vdrive_
-        file_.parent_folder = folder_
-        header = cls.gen_archive_header(archive_name, len(full_toc), cls.ARCHIVE_HEADER_SIZE + len(full_toc), cls.ARCHIVE_HEADER_SIZE, csums)
-        return v5.Archive(header, [vdrive_], False)
+        raise TypeError("Not currently supported")
+        # def dirty_toc_hack():
+        #     name_buf, name_offsets = cls.gen_name_buffer(folder, file)
+        #     vdrive_buf = cls.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+        #     folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+        #     file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+        #     toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+        #     toc_ptrs = splice_toc_offsets(1, 1, 1, 2, toc_offsets)
+        #     return cls.gen_toc_ptr_buffer(*toc_ptrs) + toc_buf
+        #
+        # full_toc = dirty_toc_hack()
+        #
+        # def dirty_csum_hack():
+        #     EIGENS = ("E01519D6-2DB7-4640-AF54-0A23319C56C3".encode("ascii"), "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF".encode("ascii"))
+        #
+        #     def gen_csum(buffer: bytes, eigen: bytes) -> bytes:
+        #         hasher = hashlib.md5(eigen)
+        #         hasher.update(buffer)
+        #         return bytes.fromhex(hasher.hexdigest())
+        #
+        #     csum2 = gen_csum(full_toc, EIGENS[1])
+        #     toc_and_data = full_toc + file_uncomp_data
+        #     csum1 = gen_csum(toc_and_data, EIGENS[0])
+        #     return csum1, csum2
+        #
+        # csums = dirty_csum_hack()
+        #
+        # _, name_offsets = cls.gen_name_buffer(folder, file)
+        # vdrive_h = cls.gen_vdrive_header(archive_name, 0, 1, 0, 1)
+        # folder_h = cls.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
+        # file_h = cls.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
+        # file_ = FileABC(file_h, file, file_uncomp_data, True)
+        # folder_ = FolderABC(folder_h, folder, [], [file_])
+        # vdrive_ = VirtualDriveABC(vdrive_h, [folder_], [file_])
+        # folder_.parent_drive = file_.parent_drive = vdrive_
+        # file_.parent_folder = folder_
+        # header = cls.gen_archive_header(archive_name, len(full_toc), cls.ARCHIVE_HEADER_SIZE + len(full_toc), cls.ARCHIVE_HEADER_SIZE, csums)
+        # return v5.Archive(header, [vdrive_], False)
 
 
 class DowIII:
-    VDRIVE_UNK = bytes.fromhex("dead")  # Arbitrary value
+    DEF_ROOT_FOLDER = ushort(0)  # bytes.fromhex("dead")  # Arbitrary value
     ARCHIVE_HEADER_SIZE = 428
     ARCHIVE_HEADER_UNK = b"dead " * 51 + b"\0"  # 256 bytes spamming `dead ` in ascii; with one byte '\0' to pad to 256
 
     @classmethod
     def gen_archive_header(cls, name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int) -> ArchiveHeader:
-        return v9.ArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset, data_size), cls.ARCHIVE_HEADER_UNK)
+        raise TypeError("Not currently supported")
+        # return v9.ArchiveHeader(name, WindowPtr(toc_offset, toc_size), WindowPtr(data_offset, data_size), cls.ARCHIVE_HEADER_UNK)
 
     @classmethod
     def gen_archive_header_buffer(cls, name: str, toc_offset: int, toc_size: int, data_offset: int, data_size: int, magic: bytes = b"_ARCHIVE") -> bytes:
@@ -322,16 +371,18 @@ class DowIII:
         return magic + version + encoded_name + encoded_toc_offset + encoded_toc_size + encoded_data_offset + encoded_data_size + uint(0) + uint(1) + cls.ARCHIVE_HEADER_UNK
 
     @staticmethod
-    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK) -> v9.VirtualDriveHeader:
-        return v9.VirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
+    def gen_vdrive_header(archive_name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = DEF_ROOT_FOLDER) -> v9.VirtualDriveHeader:
+        raise TypeError("Not currently supported")
+        # return v9.VirtualDriveHeader(path, archive_name, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count), unk)
 
     @staticmethod
-    def gen_vdrive_header_buffer(name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = VDRIVE_UNK):
+    def gen_vdrive_header_buffer(name: str, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0, path: str = "data", unk: bytes = DEF_ROOT_FOLDER):
         return encode_and_pad(path, 64, "ascii") + encode_and_pad(name, 64, "ascii") + uint(subfolder_offset) + uint(subfolder_offset + subfolder_count) + uint(file_offset) + uint(file_count + file_offset) + unk
 
     @staticmethod
     def gen_folder_header(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> v9.FolderHeader:
-        return v9.FolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
+        raise TypeError("Not currently supported")
+        # return v9.FolderHeader(name_offset, ArchiveRange(subfolder_offset, subfolder_offset + subfolder_count), ArchiveRange(file_offset, file_offset + file_count))
 
     @staticmethod
     def gen_folder_header_buffer(name_offset: int, subfolder_offset: int = 0, subfolder_count: int = 0, file_offset: int = 0, file_count: int = 0) -> bytes:
@@ -341,7 +392,8 @@ class DowIII:
     def gen_file_header(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> v9.FileHeader:
         if comp_size is None:
             comp_size = decomp_size
-        return v9.FileHeader(Ptr(name_offset), Ptr(data_offset), decomp_size, comp_size, 0, 0, 0, 0, 0)
+        raise TypeError("Not currently supported")
+        # return v9.FileHeader(Ptr(name_offset), Ptr(data_offset), decomp_size, comp_size, 0, 0, 0, 0, 0)
 
     @staticmethod
     def gen_file_header_buffer(name_offset: int, data_offset: int, decomp_size: int, comp_size: int = None) -> bytes:
@@ -369,7 +421,8 @@ class DowIII:
 
     @staticmethod
     def gen_toc(vdrive: VirtualDriveABC, folder: FolderABC, file: FileABC, names: Dict[int, str]) -> ArchiveTOC:
-        return ArchiveTOC([vdrive], [folder], [file], names)
+        raise TypeError("Not currently supported")
+        # return ArchiveTOC([vdrive], [folder], [file], names)
 
     @classmethod
     def gen_archive_buffer(cls, archive_name: str, toc_ptrs: bytes, toc: bytes, data: bytes, magic: bytes = "_ARCHIVE") -> bytes:
@@ -391,23 +444,24 @@ class DowIII:
 
     @classmethod
     def gen_sample_archive(cls, archive_name: str, folder: str, file: str, file_uncomp_data: bytes) -> v9.Archive:
-        name_buf, name_offsets = cls.gen_name_buffer(folder, file)
-        vdrive_h = cls.gen_vdrive_header(archive_name, 0, 1, 0, 1)
-        folder_h = cls.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
-        file_h = cls.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
-        file_ = FileABC(file_h, file, file_uncomp_data, True)
-        folder_ = FolderABC(folder_h, folder, [], [file_])
-        vdrive_ = VirtualDriveABC(vdrive_h, [folder_], [file_])
-        folder_.parent_drive = file_.parent_drive = vdrive_
-        file_.parent_folder = folder_
-
-        vdrive_buf = cls.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
-        folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
-        file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
-        toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
-        toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
-        toc_ptr_buf = cls.gen_toc_ptr_buffer(*toc_ptrs)
-        full_toc = toc_ptr_buf + toc_buf
-
-        header = cls.gen_archive_header(archive_name,  cls.ARCHIVE_HEADER_SIZE, len(full_toc), cls.ARCHIVE_HEADER_SIZE + len(full_toc), len(file_uncomp_data))
-        return v9.Archive(header, [vdrive_], False)
+        raise TypeError("Not currently supported")
+        # name_buf, name_offsets = cls.gen_name_buffer(folder, file)
+        # vdrive_h = cls.gen_vdrive_header(archive_name, 0, 1, 0, 1)
+        # folder_h = cls.gen_folder_header(name_offsets[folder], 0, 0, 0, 1)
+        # file_h = cls.gen_file_header(name_offsets[file], 0, len(file_uncomp_data))
+        # file_ = FileABC(file_h, file, file_uncomp_data, True)
+        # folder_ = FolderABC(folder_h, folder, [], [file_])
+        # vdrive_ = VirtualDriveABC(vdrive_h, [folder_], [file_])
+        # folder_.parent_drive = file_.parent_drive = vdrive_
+        # file_.parent_folder = folder_
+        #
+        # vdrive_buf = cls.gen_vdrive_header_buffer(archive_name, 0, 1, 0, 1)
+        # folder_buf = cls.gen_folder_header_buffer(name_offsets[folder], 0, 0, 0, 1)
+        # file_buf = cls.gen_file_header_buffer(name_offsets[file], 0, len(file_uncomp_data))
+        # toc_buf, toc_offsets = cls.gen_toc_buffer_and_offsets(vdrive_buf, folder_buf, file_buf, name_buf)
+        # toc_ptrs = splice_toc_offsets(1, 1, 1, len(name_buf), toc_offsets)  # WE NEED TO USE BYTE-SIZE of NAME BUFFER!!!!
+        # toc_ptr_buf = cls.gen_toc_ptr_buffer(*toc_ptrs)
+        # full_toc = toc_ptr_buf + toc_buf
+        #
+        # header = cls.gen_archive_header(archive_name,  cls.ARCHIVE_HEADER_SIZE, len(full_toc), cls.ARCHIVE_HEADER_SIZE + len(full_toc), len(file_uncomp_data))
+        # return v9.Archive(header, [vdrive_], False)

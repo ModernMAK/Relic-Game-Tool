@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import PurePath
 from types import ModuleType
 from typing import TypeVar, Protocol, List, Optional, ForwardRef, Tuple, Iterable, BinaryIO, Type, runtime_checkable
 
 from relic.common import Version
+from relic.sga._core import StorageType
 
 FileFwd = ForwardRef("File")
 FolderFwd = ForwardRef("Folder")
@@ -29,20 +28,6 @@ class StreamSerializer(Protocol[T]):
 
     def pack(self, stream: BinaryIO, value: T) -> int:
         raise NotImplementedError
-
-
-class StorageType(int, Enum):
-    Store = 0
-    BufferCompress = 1
-    StreamCompress = 2
-
-
-class VerificationType(int, Enum):
-    None_ = 0  # unknown real values, assuming incremental
-    CRC = 1  # unknown real values, assuming incremental
-    CRCBlocks = 2  # unknown real values, assuming incremental
-    MD5Blocks = 3  # unknown real values, assuming incremental
-    SHA1Blocks = 4  # unknown real values, assuming incremental
 
 
 @runtime_checkable

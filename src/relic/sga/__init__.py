@@ -1,17 +1,10 @@
-from typing import List, Dict
+from __future__ import annotations
 
-from relic.sga import protocols, v2, v5, v7
-from relic.sga.core import Version
-
-_APIS: List[protocols.API] = [v2.API, v5.API, v7.API]
-apis: Dict[Version, protocols.API] = {api.version: api for api in _APIS}
+from relic.sga._apis import apis as APIs
+from relic.sga._core import Version, MagicWord
 
 __all__ = [
-    "v2",
-    "v5",
-    "v7",
-    "v9",
-    "protocols",
-    "core",
-    "apis"
+    "APIs",
+    "Version",
+    "MagicWord"
 ]

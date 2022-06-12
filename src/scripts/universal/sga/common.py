@@ -5,7 +5,7 @@ from typing import Callable, Dict, Union, List
 
 from serialization_tools.walkutil import blacklisted
 
-from relic.sga.core import MagicWord
+from relic.sga.error import MagicWord
 from scripts.universal.common import print_error, print_wrote, print_reading, PrintOptions, SharedExtractorParser
 
 SharedSgaParser = argparse.ArgumentParser(parents=[SharedExtractorParser], add_help=False)

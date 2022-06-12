@@ -2,18 +2,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional, BinaryIO
 
 from relic.sga import _abc
 from relic.sga._abc import FileDefABC
 from relic.sga.error import Version
 from relic.sga._core import VerificationType
 
-version = Version(7)
+version = Version(9)
 
 
 @dataclass
 class ArchiveMetadata:
+    sha_256:bytes
     unk_a: int
+    unk_b: int
     block_size:int
 
 

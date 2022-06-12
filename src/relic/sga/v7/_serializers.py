@@ -7,8 +7,9 @@ from serialization_tools.structx import Struct
 
 from relic.sga import _abc, _serializers as _s
 from relic.sga._abc import Archive
-from relic.sga.core import MagicWord, Version, MismatchError
-from relic.sga.protocols import StreamSerializer, StorageType, VerificationType
+from relic.sga.error import MismatchError, VersionMismatchError
+from relic.sga.protocols import StreamSerializer
+from relic.sga._core import StorageType, VerificationType, MagicWord, Version
 from relic.sga.v7 import core
 
 folder_layout = Struct("<I 4I")
@@ -32,14 +33,14 @@ class FileDefSerializer(StreamSerializer[core.FileDef]):
 
         modified = datetime.fromtimestamp(modified_seconds, timezone.utc)
         storage_type: StorageType = StorageType(storage_type)
-        verification_type:VerificationType = VerificationType(verification_type)
+        verification_type: VerificationType = VerificationType(verification_type)
 
-        return core.FileDef(name_rel_pos, data_rel_pos, length, store_length, storage_type, modified, verification_type)
+        return core.FileDef(name_rel_pos, data_rel_pos, length, store_length, storage_type, modified, verification_type, crc,hash_pos)
 
     def pack(self, stream: BinaryIO, value: core.FileDef) -> int:
         modified: int = int(value.modified.timestamp())
         storage_type = value.storage_type.value  # convert enum to value
-        verification_type = value.verification.value # convert enum to value
+        verification_type = value.verification.value  # convert enum to value
         args = value.name_pos, value.data_pos, value.length_on_disk, value.length_in_archive, modified, verification_type, storage_type, value.crc, value.hash_pos
         return self.layout.pack_stream(stream, *args)
 
@@ -53,7 +54,9 @@ class APISerializers(_abc.APISerializer):
     def read(self, stream: BinaryIO, lazy: bool = False, decompress: bool = True) -> Archive:
         MagicWord.read_magic_word(stream)
         version = Version.unpack(stream)
-        version.assert_version_matches(self.version)
+        if version != self.version:
+            raise VersionMismatchError(version,self.version)
+
 
         name: bytes
         name, header_size, data_pos, RSV_1 = self.layout.unpack_stream(stream)
@@ -77,7 +80,7 @@ class APISerializers(_abc.APISerializer):
                     file._lazy_info = None
 
         name: str = name.rstrip(b"").decode("utf-16-le")
-        metadata = core.ArchiveMetadata(unk_a,block_size)
+        metadata = core.ArchiveMetadata(unk_a, block_size)
 
         return Archive(name, metadata, drives)
 

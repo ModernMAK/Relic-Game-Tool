@@ -6,9 +6,10 @@ from serialization_tools.structx import Struct
 
 from relic.sga import _abc, _serializers as _s
 from relic.sga._abc import FileDefABC as FileDef, Archive
+from relic.sga.error import VersionMismatchError
 from relic.sga.v2 import core
-from relic.sga.core import MagicWord, Version
-from relic.sga.protocols import StreamSerializer, StorageType
+from relic.sga._core import MagicWord, Version, StorageType
+from relic.sga.protocols import StreamSerializer
 
 folder_layout = Struct("<I 4H")
 folder_serializer = _s.FolderDefSerializer(folder_layout)
@@ -54,7 +55,8 @@ class APISerializers(_abc.APISerializer):
     def read(self, stream: BinaryIO, lazy: bool = False, decompress: bool = True) -> Archive:
         MagicWord.read_magic_word(stream)
         version = Version.unpack(stream)
-        version.assert_version_matches(self.version)
+        if version != self.version:
+            raise VersionMismatchError(version,self.version)
 
         name: bytes
         file_md5, name, header_md5, header_size, data_pos = self.layout.unpack_stream(stream)

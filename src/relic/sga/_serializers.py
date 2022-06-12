@@ -23,7 +23,7 @@ class TocHeaderSerializer(StreamSerializer[TocHeader]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO) -> TocHeader:
-        drive_pos, drive_count, folder_pos, folder_count, file_pos, file_count, name_pos, name_count = self.layout.unpack(stream)
+        drive_pos, drive_count, folder_pos, folder_count, file_pos, file_count, name_pos, name_count = self.layout.unpack_stream(stream)
         return TocHeader((drive_pos, drive_count), (folder_pos, folder_count), (file_pos, file_count), (name_pos, name_count))
 
     def pack(self, stream: BinaryIO, value: TocHeader) -> int:
@@ -57,7 +57,7 @@ class FolderDefSerializer(StreamSerializer[FolderDef]):
         self.layout = layout
 
     def unpack(self, stream: BinaryIO) -> FolderDef:
-        name_pos, folder_start, folder_end, file_start, file_end, root_folder = self.layout.unpack_stream(stream)
+        name_pos, folder_start, folder_end, file_start, file_end = self.layout.unpack_stream(stream)
         folder_range = (folder_start, folder_end)
         file_range = (file_start, file_end)
         return FolderDef(name_pos=name_pos, folder_range=folder_range, file_range=file_range)
@@ -94,8 +94,8 @@ def _assemble_io_from_defs(drive_defs: List[DriveDef], folder_defs: List[FolderD
 
         for folder in folders:
             _apply_self_as_parent(folder)
-
-        drive_folder = folders[drive_def.root_folder]
+        root_folder = drive_def.root_folder - drive_def.folder_range[0]  # make root folder relative to our folder slice
+        drive_folder = folders[root_folder]
         drive = _abc.Drive(drive_def.alias, drive_def.name, drive_folder.sub_folders, drive_folder.files)
         _apply_self_as_parent(drive)
         all_files.extend(files)
@@ -117,8 +117,8 @@ def _unpack_helper(stream: BinaryIO, toc_info: Tuple[int, int], header_pos: int,
 
 def _read_toc_definitions(stream: BinaryIO, toc: TocHeader, header_pos: int, drive_serializer: StreamSerializer[DriveDef], folder_serializer: StreamSerializer[FolderDef], file_serializer: StreamSerializer[FileDefABC]):
     drives = _unpack_helper(stream, toc.drive_info, header_pos, drive_serializer)
-    folders = _unpack_helper(stream, toc.drive_info, header_pos, folder_serializer)
-    files = _unpack_helper(stream, toc.drive_info, header_pos, file_serializer)
+    folders = _unpack_helper(stream, toc.folder_info, header_pos, folder_serializer)
+    files = _unpack_helper(stream, toc.file_info, header_pos, file_serializer)
     return drives, folders, files
 
 
@@ -128,7 +128,7 @@ def _read_toc_names_as_count(stream: BinaryIO, toc_info: Tuple[int, int], header
     names: Dict[int, str] = {}
     running_buffer = bytearray()
     offset = 0
-    while len(names) < toc_info[0]:
+    while len(names) < toc_info[1]:
         buffer = stream.read(buffer_size)
         if len(buffer) == 0:
             raise Exception("Ran out of data!")  # TODO, proper exception
@@ -146,7 +146,7 @@ def _read_toc_names_as_count(stream: BinaryIO, toc_info: Tuple[int, int], header
                 offset += len(buffer)
                 continue
 
-        remaining = toc_info[0] - len(names)
+        remaining = toc_info[1] - len(names)
         available = min(len(parts), remaining)
         for _ in range(available):
             name = parts[_]
@@ -158,7 +158,7 @@ def _read_toc_names_as_count(stream: BinaryIO, toc_info: Tuple[int, int], header
 def _read_toc_names_as_size(stream: BinaryIO, toc_info: Tuple[int, int], header_pos: int) -> Dict[int, str]:
     stream.seek(header_pos + toc_info[0])
     name_buffer = stream.read(toc_info[1])
-    parts = name_buffer.split(b"")
+    parts = name_buffer.split(b"\0")
     names: Dict[int, str] = {}
     offset = 0
     for part in parts:
