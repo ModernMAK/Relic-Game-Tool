@@ -8,8 +8,6 @@ from serialization_tools.structx import Struct
 from serialization_tools.vstruct import VStruct
 
 from ..chunky.header import ChunkyVersion
-from relic.common import VersionLike
-from ...common import VersionError
 
 
 class ChunkType(Enum):

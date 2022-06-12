@@ -7,19 +7,17 @@ from typing import BinaryIO, Dict, Type
 from serialization_tools.magic import MagicWordIO, MagicWord
 from serialization_tools.structx import Struct
 
-from relic.common import VersionError
-# from relic.sga.common import VersionEnum, Version, VersionLike
 VersionEnum = Version = VersionLike = None
 ChunkyVersionLayout = Struct("< 2L")
 
 
 class ChunkyVersion(Enum):
     Unsupported = None
-    v0101 = None # Version(1, 1)
+    v0101 = None  # Version(1, 1)
     Dow = v0101  # ALIAS for Prettiness
-    v0301 = None # Version(3, 1)
+    v0301 = None  # Version(3, 1)
     Dow2 = v0301  # ALIAS for Prettiness
-    v4010 =  None #Version(4, 1)
+    v4010 = None  # Version(4, 1)
 
     @classmethod
     def unpack_version(cls, stream: BinaryIO) -> Version:
