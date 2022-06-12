@@ -1,12 +1,11 @@
 from typing import Iterable, List, Tuple
 
-import relic.sga_old
-from relic.sga_old import v2, v5,archive,v7_old, v9, vX
+from relic.sga import ov2, v5, v7, v9, vX, apis
 import pytest
 
-MODULES = [v2, v5,v7,v7_old, v9]
+MODULES = [v2, v5,v7, v9]
 ATTRS = vX.required_attrs
-APIS = relic.sga.APIS.values()
+APIS = io.APIS.values()
 
 
 def _permutate(*items: List):

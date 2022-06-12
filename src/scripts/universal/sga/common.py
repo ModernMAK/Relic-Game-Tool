@@ -5,7 +5,7 @@ from typing import Callable, Dict, Union, List
 
 from serialization_tools.walkutil import blacklisted
 
-from relic.sga_old.common import ArchiveMagicWord
+from relic.sga.core import MagicWord
 from scripts.universal.common import print_error, print_wrote, print_reading, PrintOptions, SharedExtractorParser
 
 SharedSgaParser = argparse.ArgumentParser(parents=[SharedExtractorParser], add_help=False)
@@ -29,7 +29,7 @@ def is_sga(input_file: str, ext: Union[str, List[str]] = None, magic: bool = Fal
     # Make sure magic word is present
     if magic:
         with open(input_file, "rb") as check_handle:
-            return ArchiveMagicWord.check_magic_word(check_handle)
+            return MagicWord.check_magic_word(check_handle)
     return True
 
 

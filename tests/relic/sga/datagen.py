@@ -3,7 +3,7 @@ from typing import Tuple, Dict
 
 from serialization_tools.ioutil import WindowPtr, Ptr
 
-from relic.sga_old.protocols import ArchiveHeader
+from relic.sga.protocols import ArchiveHeader
 from relic.sga_old.abc_old_ import FileABC, FolderABC, VirtualDriveABC, ArchiveTOC
 from relic.sga_old import v2, v5, v9
 from relic.sga_old.common import ArchiveRange
