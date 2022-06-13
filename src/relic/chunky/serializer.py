@@ -1,7 +1,8 @@
 from typing import BinaryIO, List
 
 from serialization_tools.ioutil import BinaryWindow, has_data
-from .chunk import AbstractChunk, FolderChunk, GenericDataChunk, ChunkHeader, ChunkType
+from .chunk import AbstractChunk, FolderChunk, GenericDataChunk, ChunkHeader
+from ._core import ChunkType
 from .chunky import ChunkyVersion, ChunkyMagic, ChunkyHeader, GenericRelicChunky
 
 

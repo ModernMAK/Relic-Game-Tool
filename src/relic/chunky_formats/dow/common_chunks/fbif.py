@@ -6,7 +6,8 @@ from typing import Union
 
 from serialization_tools.vstruct import VStruct
 
-from ....chunky import ChunkType, ChunkHeader
+from ....chunky import ChunkHeader
+from ....chunky._core import ChunkType
 from ...protocols import ConvertableDataChunk
 from ....chunky.chunk.chunk import DataChunk, GenericDataChunk
 

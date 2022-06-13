@@ -9,7 +9,8 @@ from serialization_tools.vstruct import VStruct
 from ..common_chunks.fbif import FbifChunk
 from ...convertable import ChunkConverterFactory
 from ...util import ChunkCollectionX
-from ....chunky import DataChunk, GenericDataChunk, ChunkType, RelicChunky, GenericRelicChunky, ChunkyVersion, AbstractChunk, FolderChunk
+from ....chunky import DataChunk, GenericDataChunk, RelicChunky, GenericRelicChunky, ChunkyVersion, AbstractChunk, FolderChunk
+from ....chunky._core import ChunkType
 
 
 @dataclass

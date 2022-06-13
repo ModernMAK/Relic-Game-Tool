@@ -4,7 +4,8 @@ import os
 from dataclasses import dataclass
 from typing import List, Iterable, Optional, Protocol, Sized, Type, Union, ClassVar
 
-from relic.chunky import AbstractChunk, ChunkType, RelicChunky, GenericRelicChunky, FolderChunk, GenericDataChunk
+from relic.chunky import AbstractChunk, RelicChunky, GenericRelicChunky, FolderChunk, GenericDataChunk
+from relic.chunky._core import ChunkType
 from relic.chunky_formats.convertable import SupportsDataChunkAutoConvert
 from relic.chunky_formats.protocols import ChunkDefinition
 

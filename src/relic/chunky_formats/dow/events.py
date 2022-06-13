@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List
 
 from relic.chunky import AbstractChunk, FolderChunk, GenericDataChunk
-from relic.chunky.chunk import ChunkType
+from relic.chunky._core import ChunkType
 from relic.chunky.chunky import RelicChunky, GenericRelicChunky
 from relic.chunky_formats.util import find_chunks, find_chunk
 

@@ -7,7 +7,7 @@ from serialization_tools.structx import Struct
 
 from ...util import find_chunk
 from ....chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
-from ....chunky.chunk.header import ChunkType
+from ....chunky._core import ChunkType
 
 
 class ImageFormat(Enum):

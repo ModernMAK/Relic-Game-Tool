@@ -8,7 +8,8 @@ from serialization_tools.ioutil import has_data
 from serialization_tools.structx import Struct
 from serialization_tools.vstruct import VStruct
 
-from relic.chunky import AbstractChunk, ChunkType, GenericDataChunk, FolderChunk
+from relic.chunky import AbstractChunk, GenericDataChunk, FolderChunk
+from relic.chunky._core import ChunkType
 from relic.chunky_formats.convertable import ChunkConverterFactory
 from relic.chunky_formats.dow.whm.shared import Short4, BvolChunk, Byte4
 from relic.chunky_formats.util import ChunkCollectionX

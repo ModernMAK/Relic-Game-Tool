@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol, ClassVar, List
 
-from relic.chunky import ChunkType, ChunkyVersion, FolderChunk, AbstractChunk, GenericDataChunk, GenericRelicChunky, RelicChunky
+from relic.chunky import ChunkyVersion, FolderChunk, AbstractChunk, GenericDataChunk, GenericRelicChunky, RelicChunky
+from relic.chunky._core import ChunkType
 
 
 class ChunkDefinition(Protocol):

@@ -1,62 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import BinaryIO, Dict, Type, Union
+from typing import BinaryIO, Dict, Type
 
 from serialization_tools.structx import Struct
 from serialization_tools.vstruct import VStruct
 
+from .._core import ChunkType
 from ..chunky.header import ChunkyVersion
+from ..errors import ChunkNameError
 from ...common import VersionLike, VersionError
-
-
-class ChunkType(Enum):
-    Folder = "FOLD"
-    Data = "DATA"
-
-    @classmethod
-    def parse(cls, value: Union[str, bytes]) -> ChunkType:
-        if isinstance(value, bytes):
-            try:
-                _ = value.decode("ascii")
-            except UnicodeDecodeError:
-                raise ChunkTypeError(value)
-            value = _
-        try:
-            return ChunkType(value)
-        except ValueError:
-            raise ChunkTypeError(value)
-
-
-class ChunkError(Exception):
-    pass
-
-
-class ChunkTypeError(ChunkError):
-    def __init__(self, chunk_type: Union[bytes, str] = None, *args):
-        super().__init__(*args)
-        self.chunk_type = chunk_type
-
-    def __str__(self):
-        msg = f"ChunkType must be {repr(ChunkType.Folder.value)} or {repr(ChunkType.Data.value)}"
-        if not self.chunk_type:
-            return msg + "!"
-        else:
-            return msg + f"; got {repr(self.chunk_type)}!"
-
-
-class ChunkNameError(ChunkError):
-    def __init__(self, name: Union[bytes, str] = None, *args):
-        super().__init__(*args)
-        self.name = name
-
-    def __str__(self):
-        msg = f"Chunk name was not parsable ascii text"
-        if not self.name:
-            return msg + "!"
-        else:
-            return msg + f"; got {repr(self.name)}!"
 
 
 @dataclass

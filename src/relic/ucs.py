@@ -12,8 +12,6 @@ from typing import TextIO, Optional, Iterable, Union, Mapping
 #   I personally think that's a horribly misleading name for this file
 from serialization_tools.walkutil import filter_by_file_extension, collapse_walk_on_files, filter_by_path
 
-from relic.config import DowIIIGame, DowGame, DowIIGame, filter_latest_dow_game, get_dow_root_directories
-
 
 class UcsDict(UserDict):
     def write_stream(self, stream: TextIO, ordered: bool = False) -> int:
@@ -175,33 +173,3 @@ def get_lang_string_for_file(environment: Union[LangEnvironment, LangFile], file
 
     replacement = _file_safe_string(replacement)
     return join(dir_path, replacement + f" ~ Clip {num}" + ext)
-
-
-if __name__ == "__main__":
-    # A compromise between an automatic location and NOT the local directory
-    #   PyCharm will hang trying to reload the files (just to update the hierarchy, not update references)
-    #       To avoid that, we DO NOT use a local directory, but an external directory
-    #           TODO add a persistent_data path to archive tools
-    Root = Path(r"~\Appdata\Local\ModernMAK\ArchiveTools\Relic-SGA").expanduser()
-    dump_type = "UCS_DUMP"
-    path_lookup = {
-        DowIIIGame: Root / r"DOW_III",
-        DowIIGame: Root / r"DOW_II",
-        DowGame: Root / r"DOW_I"
-    }
-    series = DowGame
-    out_path = path_lookup[series] / dump_type
-    r = filter_latest_dow_game(get_dow_root_directories(), series=series)
-    if r:
-        game, in_path = r
-    else:
-        raise FileNotFoundError("Couldn't find any suitable DOW games!")
-
-    print("Loading Locale Environment...")
-    lang_env = LangEnvironment.load_environment(in_path)
-    print(f"\tReading from '{in_path}'")
-    out_path = out_path.with_suffix(".json")
-    with open(out_path, "w") as handle:
-        lang_env_sorted = dict(sorted(lang_env.items()))
-        json.dump(lang_env_sorted, handle, indent=4)
-        print(f"\tSaved to '{out_path}'")
