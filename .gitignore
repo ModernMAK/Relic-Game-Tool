@@ -18,3 +18,4 @@ dist/*
 # Ignore debug-dev dumped Binary files (Files saved to cwd for fast examination)
 src/scripts/*.bin
 ignore/texconv.exe
+tests/relic/sga/sources.json
