@@ -1,6 +1,6 @@
 from typing import List
 
-from relic.core.errors import MismatchError
+from relic.errors import MismatchError
 from relic.sga._core import Version
 
 

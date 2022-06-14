@@ -3,8 +3,7 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import Dict
 
-from relic.sga.errors import FileABC
-from relic.sga.apis import read_archive
+from relic.sga import read
 from scripts.universal.common import PrintOptions, print_error, print_any, SharedExtractorParser
 from scripts.universal.sga.common import get_runner
 
@@ -26,13 +25,12 @@ def extract_args(args: argparse.Namespace) -> Dict:
 def unpack_archive(in_path: str, out_path: str, print_opts: PrintOptions = None, prepend_archive_path: bool = True, indent_level: int = 0, **kwargs):
     out_path = Path(out_path)
     with open(in_path, "rb") as in_handle:
-        archive = read_archive(in_handle, True)
+        archive = read(in_handle, True)
         archive_name = splitext(basename(in_path))[0]
         # with archive.header.data_ptr.stream_jump_to(in_handle) as data_stream:
         print_any(f"Unpacking \"{archive_name}\"...", indent_level, print_opts)
-        for _, _, _, files in archive.walk():
+        for _, _, files in archive.walk():
             for file in files:
-                file: FileABC
                 try:
                     relative_file_path = file.path
 

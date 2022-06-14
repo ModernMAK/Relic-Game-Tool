@@ -4,8 +4,10 @@ from os import path
 from os.path import splitext, join
 from typing import List, Union, Dict, Callable, Protocol
 
-from relic.chunky import ChunkyMagic, GenericRelicChunky
-from relic.chunky.serializer import read_chunky
+# from relic.chunky import ChunkyMagic, GenericRelicChunky
+# from relic.chunky.serializer import read_chunky
+from relic.chunky import MagicWord, read
+from relic.chunky.protocols import Chunky
 from scripts.universal.common import print_reading, print_wrote, print_error, PrintOptions
 
 
@@ -25,12 +27,12 @@ def is_chunky(input_file: str, ext: Union[str, List[str]] = None, magic: bool = 
     # Make sure magic word is present
     if magic:
         with open(input_file, "rb") as check_handle:
-            return ChunkyMagic.check_magic_word(check_handle)
+            return MagicWord.check_magic_word(check_handle)
     return True
 
 
 class ChunkyExtractor(Protocol):
-    def __call__(self, output_path: str, chunky: GenericRelicChunky, **kwargs) -> float: ...  # Neat ... works as pass?
+    def __call__(self, output_path: str, chunky: Chunky, **kwargs) -> float: ...  # Neat ... works as pass?
 
 
 def extract_file(input_file: str, output_path: str, extractor: ChunkyExtractor, extractor_args: Dict = None, print_opts: PrintOptions = None, indent_level: int = 0, exts: Union[str, List[str]] = None, magic: bool = False):
@@ -41,7 +43,7 @@ def extract_file(input_file: str, output_path: str, extractor: ChunkyExtractor, 
     print_reading(input_file, indent_level, print_opts)
     try:
         with open(input_file, "rb") as in_handle:
-            chunky = read_chunky(in_handle)
+            chunky = read(in_handle)
         extractor(output_path, chunky, **extractor_args)
         print_wrote(input_file, indent_level + 1, print_opts)
     except KeyboardInterrupt:

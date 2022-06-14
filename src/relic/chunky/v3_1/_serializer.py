@@ -10,7 +10,7 @@ from relic.chunky._serializer import ChunkTypeSerializer, chunk_type_serializer,
 from relic.chunky.errors import ChunkNameError, VersionMismatchError
 from relic.chunky.protocols import StreamSerializer
 from relic.chunky.v3_1.core import ChunkMeta, FolderChunk, RawDataChunk, Chunky, ChunkyMetadata, version as version_v3_1
-from relic.core.errors import MismatchError
+from relic.errors import MismatchError
 
 
 @dataclass

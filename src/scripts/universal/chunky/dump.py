@@ -6,7 +6,9 @@ from json import JSONEncoder
 from pathlib import Path
 from typing import Dict, Any, List
 
-from relic.chunky import GenericRelicChunky, GenericDataChunk, FolderChunk, AbstractChunk
+from relic.chunky import read # GenericRelicChunky, GenericDataChunk, FolderChunk, AbstractChunk
+from relic.chunky._abc import RawDataChunk
+from relic.chunky.protocols import DataChunk, FolderChunk, ChunkContainer, Chunky
 from scripts.universal.chunky.extractors.common import get_runner
 from scripts.universal.common import SharedExtractorParser
 
@@ -21,31 +23,32 @@ class DataclassJsonEncoder(JSONEncoder):
             return super().default(o)
 
 
-def dump_data_chunk(output_file: Path, chunk: GenericDataChunk):
+def dump_data_chunk(output_file: Path, chunk: RawDataChunk):
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file.with_suffix(".bin"), "wb") as handle:
-        handle.write(chunk.raw_bytes)
-    with open(output_file.with_suffix(".meta"), "w") as meta:
-        json.dump(chunk.header, meta, cls=DataclassJsonEncoder)
+        handle.write(chunk.data)
+    with open(output_file.with_suffix(".meta"), "w") as metadata_handle:
+        full_meta = {'cc':chunk.fourCC,'cc_path':chunk.fourCC_path,'type':chunk.type,'metadata':chunk.metadata}
+        json.dump(full_meta, metadata_handle, cls=DataclassJsonEncoder)
 
 
 def dump_folder_chunk(output_dir: Path, chunk: FolderChunk):
     output_dir.mkdir(parents=True, exist_ok=True)
-    dump_chunk_col(output_dir, chunk.chunks)
-    with open(output_dir.with_suffix(".meta"), "w") as meta:
-        json.dump(chunk.header, meta, cls=DataclassJsonEncoder)
+    dump_chunk_col(output_dir, chunk)
+    with open(output_dir.with_suffix(".meta"), "w") as metadata_handle:
+        full_meta = {'cc':chunk.fourCC,'cc_path':chunk.fourCC_path,'type':chunk.type,'metadata':chunk.metadata}
+        json.dump(full_meta, metadata_handle, cls=DataclassJsonEncoder)
 
 
-def dump_chunk_col(output_dir: Path, chunks: List[AbstractChunk]):
-    for i, chunk in enumerate(chunks):
-        chunk_path = output_dir / f"{i}-{chunk.header.type.value[0]}-{chunk.header.id}"
-        if isinstance(chunk, FolderChunk):
-            dump_folder_chunk(chunk_path, chunk)
-        elif isinstance(chunk, GenericDataChunk):
-            dump_data_chunk(chunk_path, chunk)
-        else:
-            raise NotImplementedError(chunk)
-
+def dump_chunk_col(output_dir: Path, chunk_col:ChunkContainer):
+    for i, fchunk in enumerate(chunk_col.folders):
+        chunk_path = output_dir / f"{i}-{fchunk.type.value}-{fchunk.fourCC}"
+        dump_folder_chunk(chunk_path, fchunk)
+    max_i = len(chunk_col.folders)
+    for j, dchunk in enumerate(chunk_col.data_chunks):
+        k = j + max_i
+        chunk_path = output_dir / f"{k}-{dchunk.type.value}-{dchunk.fourCC}"
+        dump_data_chunk(chunk_path, dchunk)
 
 def add_args(_: argparse.ArgumentParser):
     pass
@@ -59,11 +62,11 @@ def build_parser():
     return parser
 
 
-def dump_chunky(output_path: str, chunky: GenericRelicChunky) -> None:
+def dump_chunky(output_path: str, chunky: Chunky) -> None:
     p = Path(output_path)
-    dump_chunk_col(p, chunky.chunks)
-    with open(str(p) + ".meta", "w") as meta:
-        json.dump(chunky.header, meta, cls=DataclassJsonEncoder)
+    dump_chunk_col(p, chunky)
+    with open(str(p) + ".meta", "w") as metadata_handle:
+        json.dump(chunky.metadata, metadata_handle, cls=DataclassJsonEncoder)
 
 
 def extract_args(_: argparse.Namespace) -> Dict:

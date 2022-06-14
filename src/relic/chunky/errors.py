@@ -1,7 +1,7 @@
 from typing import Union
 
 from relic.chunky._core import ChunkType, Version
-from relic.core.errors import MismatchError
+from relic.errors import MismatchError
 
 
 class ChunkError(Exception):
