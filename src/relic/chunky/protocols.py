@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import runtime_checkable, TypeVar, Protocol, BinaryIO, Sequence, Optional, Literal, Type, Iterable, Tuple
 
-from relic.chunky._core import ChunkType, Version
+from relic.chunky._core import ChunkType, Version, ChunkFourCCPath, ChunkFourCC
 
 TCFolder = TypeVar("TCFolder")
 TCData = TypeVar("TCData")
@@ -38,11 +38,11 @@ class TypedChunk(Protocol):
 @runtime_checkable
 class IdentifiableChunk(Protocol):
     @property
-    def id(self) -> str:
+    def fourCC(self) -> ChunkFourCC:
         raise NotImplementedError
 
     @property
-    def full_id(self) -> str:
+    def fourCC_path(self) -> ChunkFourCCPath:
         raise NotImplementedError
 
 

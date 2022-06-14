@@ -6,8 +6,8 @@ from io import BytesIO
 from typing import TypeVar, BinaryIO, Optional, Literal, List, Generic, Type
 
 from relic.chunky import protocols as p
-from relic.chunky._core import ChunkType, Version
-from relic.chunky.protocols import TCMetadata, StreamSerializer
+from relic.chunky._core import ChunkType, Version, ChunkFourCCPath, ChunkFourCC
+from relic.chunky.protocols import TCMetadata, ChunkWalk
 
 TCFolder = TypeVar("TCFolder", bound=p.FolderChunk)
 TCData = TypeVar("TCData", bound=p.DataChunk)
@@ -15,28 +15,34 @@ TChunky = TypeVar("TChunky", bound=p.Chunky)
 TChunkyMetadata = TypeVar("TChunkyMetadata")
 
 
-def _resolve_parent_id(chunk_id: str, parent: Optional[p.ChunkNode], delim: str = "."):
+def _resolve_parent_id(cc: ChunkFourCC, parent: Optional[p.ChunkNode]) -> ChunkFourCCPath:
     if parent is not None and isinstance(parent, p.IdentifiableChunk):
-        return parent.full_id + delim + chunk_id
+        return parent.fourCC_path / cc
     else:
-        return chunk_id
+        return ChunkFourCCPath(cc)
 
 
 class FolderChunk(Generic[TCMetadata], p.FolderChunk[TCMetadata]):
-    def __init__(self, chunk_id: str, metadata: TCMetadata, folders: Optional[List[TCFolder]] = None, data_chunks: Optional[List[TCData]] = None, parent: Optional[FolderChunk] = None):
-        self._id = chunk_id
+    def walk(self) -> ChunkWalk:
+        yield self, self.folders, self.data_chunks
+        for folder in self.folders:
+            for _ in folder.walk():
+                yield _
+
+    def __init__(self, chunk_id: ChunkFourCC, metadata: TCMetadata, folders: Optional[List[TCFolder]] = None, data_chunks: Optional[List[TCData]] = None, parent: Optional[FolderChunk] = None):
+        self._fourcc = chunk_id
         self.metadata = metadata
         self.folders = folders if folders is not None else []
         self.data_chunks = data_chunks if data_chunks is not None else []
         self.parent = parent
 
     @property
-    def full_id(self) -> str:
-        return _resolve_parent_id(self._id, self.parent)
+    def fourCC_path(self) -> ChunkFourCCPath:
+        return _resolve_parent_id(self._fourcc, self.parent)
 
     @property
-    def id(self) -> str:
-        return self._id
+    def fourCC(self) -> ChunkFourCC:
+        return self._fourcc
 
     @property
     def type(self) -> Literal[ChunkType.Folder]:  # type: ignore
@@ -59,7 +65,7 @@ class _ChunkLazyInfo:
 
 @dataclass
 class DataChunk(p.DataChunk[TCMetadata]):
-    _id: str
+    _id: ChunkFourCC
     metadata: TCMetadata
     parent: Optional[p.FolderChunk]
 
@@ -68,17 +74,17 @@ class DataChunk(p.DataChunk[TCMetadata]):
         return ChunkType.Data
 
     @property
-    def full_id(self) -> str:
+    def fourCC_path(self) -> ChunkFourCCPath:
         return _resolve_parent_id(self._id, self.parent)
 
     @property
-    def id(self) -> str:
+    def fourCC(self) -> ChunkFourCC:
         return self._id
 
 
 @dataclass
 class RawDataChunk(Generic[TCMetadata], p.DataChunk[TCMetadata]):
-    _id: str
+    _id: ChunkFourCC
     metadata: TCMetadata
     _data: Optional[bytes] = None
     parent: Optional[FolderChunk] = None
@@ -112,11 +118,11 @@ class RawDataChunk(Generic[TCMetadata], p.DataChunk[TCMetadata]):
                 self.data = stream.read()
 
     @property
-    def full_id(self) -> str:
+    def fourCC_path(self) -> ChunkFourCCPath:
         return _resolve_parent_id(self._id, self.parent)
 
     @property
-    def id(self) -> str:
+    def fourCC(self) -> ChunkFourCC:
         return self._id
 
 
@@ -125,6 +131,12 @@ class Chunky(Generic[TChunkyMetadata, TCFolder, TCData], p.Chunky[TChunkyMetadat
     metadata: TChunkyMetadata
     folders: List[TCFolder]
     data_chunks: List[TCData]
+
+    def walk(self) -> ChunkWalk:
+        yield self, self.folders, self.data_chunks
+        for folder in self.folders:
+            for _ in folder.walk():
+                yield _
 
 
 @dataclass
@@ -135,13 +147,13 @@ class API(Generic[TChunky, TCFolder, TCData, TChunkyMetadata, TCMetadata], p.API
     DataChunk: Type[TCData]
     ChunkyMetadata: Type[TChunkyMetadata]
     ChunkMetadata: Type[TCMetadata]
-    _serializer:APISerializer[TChunky]
+    _serializer: APISerializer[TChunky]
 
     def read(self, stream: BinaryIO, lazy: bool = False) -> TChunky:
-        return self._serializer.read(stream,lazy)
+        return self._serializer.read(stream, lazy)
 
     def write(self, stream: BinaryIO, chunky: TChunky) -> int:
-        return self._serializer.write(stream,chunky)
+        return self._serializer.write(stream, chunky)
 
 
 class APISerializer(Generic[TChunky]):

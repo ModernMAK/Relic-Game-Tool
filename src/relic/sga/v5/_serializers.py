@@ -8,7 +8,8 @@ from serialization_tools.structx import Struct
 import relic.sga._serializers
 from relic.sga import _abc, _serializers as _s
 from relic.sga._abc import Archive
-from relic.sga.errors import MismatchError, VersionMismatchError
+from relic.sga.errors import VersionMismatchError
+from relic.core.errors import MismatchError
 from relic.sga.protocols import StreamSerializer
 from relic.sga._core import StorageType, VerificationType, MagicWord, Version
 from relic.sga.v5 import core

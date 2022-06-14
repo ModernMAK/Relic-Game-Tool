@@ -13,6 +13,42 @@ class ChunkType(str, Enum):
     Data = "DATA"
 
 
+class ChunkFourCC:
+    def __init__(self, code: str):
+        if len(code) != 4:
+            raise NotImplementedError
+        self.code = code
+
+    def __str__(self):
+        return self.code
+
+    def __eq__(self, other):
+        return self.code == other.code
+
+
+class ChunkFourCCPath:
+    def __init__(self, *parts: ChunkFourCC):
+        self.parts = parts
+
+    @property
+    def parent(self):
+        parent_parts = self.parts[:-1]
+        return ChunkFourCCPath(*parent_parts)
+
+    def __truediv__(self, value: ChunkFourCC):
+        return ChunkFourCCPath(*self.parts, value)
+
+    def __rtruediv__(self, value: ChunkFourCC):
+        return ChunkFourCCPath(value, *self.parts)
+
+    def __str__(self):
+        part_str = [str(cc) for cc in self.parts]
+        return ".".join(part_str)
+
+    def __eq__(self, other):
+        return self.parts == other.parts
+
+
 @dataclass
 class Version:
     """
