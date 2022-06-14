@@ -1,7 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
-from relic.chunky import RelicChunky, GenericRelicChunky, ChunkType, GenericDataChunk, AbstractChunk
+from relic.chunky import RelicChunky, GenericRelicChunky, GenericDataChunk, AbstractChunk
+from relic.chunky._core import ChunkType
 from relic.chunky_formats.util import find_chunk
 
 

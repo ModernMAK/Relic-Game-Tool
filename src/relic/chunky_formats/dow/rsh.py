@@ -3,7 +3,8 @@ from os.path import basename, splitext
 from pathlib import Path
 from typing import List, BinaryIO
 
-from relic.chunky.chunk import FolderChunk, ChunkType, AbstractChunk
+from relic.chunky.chunk import FolderChunk, AbstractChunk
+from relic.chunky._core import ChunkType
 from relic.chunky.chunky import RelicChunky, GenericRelicChunky
 from relic.chunky_formats.dow.common_chunks.imag import TxtrChunk
 from relic.chunky_formats.dow.common_chunks.imag_writer import ImagConverter

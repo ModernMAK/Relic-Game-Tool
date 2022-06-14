@@ -8,7 +8,8 @@ from serialization_tools.ioutil import has_data
 from serialization_tools.structx import Struct
 from serialization_tools.vstruct import VStruct
 
-from ....chunky import ChunkType, AbstractChunk, GenericDataChunk, FolderChunk
+from ....chunky import AbstractChunk, GenericDataChunk, FolderChunk
+from ....chunky._core import ChunkType
 from ...convertable import ChunkConverterFactory
 from ...util import UnimplementedDataChunk, ChunkCollectionX
 

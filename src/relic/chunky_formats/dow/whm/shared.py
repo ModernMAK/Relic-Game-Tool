@@ -5,7 +5,8 @@ from typing import Tuple
 
 from serialization_tools.structx import Struct
 
-from relic.chunky import AbstractChunk, ChunkType, GenericDataChunk
+from relic.chunky import AbstractChunk, GenericDataChunk
+from relic.chunky._core import ChunkType
 from relic.file_formats.mesh_io import Float4
 
 Byte = int

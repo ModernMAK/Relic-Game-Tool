@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List
 
 from ....chunky.chunk.chunk import AbstractChunk, GenericDataChunk, FolderChunk
-from ....chunky.chunk.header import ChunkType
+from ....chunky._core import ChunkType
 from ...util import find_chunks, find_chunk
 
 

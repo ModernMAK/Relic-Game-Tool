@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from typing import Dict, Type, List, Optional, Iterable, Union, Tuple
 
 from relic.chunky.chunk.chunk import AbstractChunk, GenericDataChunk, FolderChunk
-from relic.chunky.chunk.header import ChunkType, ChunkHeader
+from relic.chunky.chunk.header import ChunkHeader
+from relic.chunky._core import ChunkType
 from relic.chunky.chunky.chunky import GenericRelicChunky
 from relic.chunky_formats.protocols import ChunkDefinition, ChunkyDefinition, ConvertableFolderChunk, ConvertableDataChunk, ConvertableChunky
 

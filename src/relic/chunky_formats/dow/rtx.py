@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from os.path import basename, splitext
 from pathlib import Path
 
-from relic.chunky.chunk import ChunkType
+from relic.chunky._core import ChunkType
 from relic.chunky.chunky import RelicChunky, GenericRelicChunky
 from relic.chunky_formats.dow.common_chunks.imag import TxtrChunk
 from relic.chunky_formats.dow.common_chunks.imag_writer import ImagConverter

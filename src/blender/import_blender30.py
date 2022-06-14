@@ -97,13 +97,13 @@ def create_mesh(data: RawMesh, root_rotation=None):
         positions = data.positions
         normals = data.normals
 
-    mesh = bpy.data.meshes.new(data.name)
+    mesh = bpy.data_chunks.meshes.new(data.name)
     mesh.from_pydata(positions, [], triangles)
     mesh.update()
     for i, v in enumerate(mesh.vertices):
         v.normal = normals[i]
 
-    obj = bpy.data.objects.new(data.name, mesh)
+    obj = bpy.data_chunks.objects.new(data.name, mesh)
     bpy.context.collection.objects.link(obj)
     return obj
 
@@ -135,8 +135,8 @@ def create_armature(data: RawBone, rotation=None):
     # Preserve state after runnign script
     old_mode, old_obj = None, None
     try:
-        root = bpy.data.armatures.new("Armature")
-        root_obj = bpy.data.objects.new("Armature", root)
+        root = bpy.data_chunks.armatures.new("Armature")
+        root_obj = bpy.data_chunks.objects.new("Armature", root)
         bpy.context.collection.objects.link(root_obj)
 
         old_obj = bpy.context.active_object

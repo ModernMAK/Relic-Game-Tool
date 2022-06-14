@@ -21,7 +21,7 @@ from ...convertable import ChunkConverterFactory
 from ...util import UnimplementedFolderChunk, UnimplementedDataChunk, ChunkCollectionX
 from ....chunky import ChunkyVersion
 from ....chunky.chunk.chunk import GenericDataChunk, FolderChunk, AbstractChunk
-from ....chunky.chunk.header import ChunkType
+from ....chunky._core import ChunkType
 from ....chunky.chunky.chunky import RelicChunky, GenericRelicChunky
 from ....file_formats.mesh_io import Float3, Float4
 

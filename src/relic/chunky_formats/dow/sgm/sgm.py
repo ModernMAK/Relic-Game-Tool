@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from serialization_tools.structx import Struct
 
 from ....chunky import RelicChunky, AbstractChunk, FolderChunk, GenericDataChunk
-from ....chunky.chunk import ChunkType
+from ....chunky._core import ChunkType
 from ....chunky.chunky import GenericRelicChunky
 from ..common_chunks.imag import ImagChunk
 from ...util import find_chunk, UnimplementedFolderChunk, UnimplementedDataChunk
