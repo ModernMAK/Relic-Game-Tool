@@ -1,10 +1,9 @@
-from relic.chunky.chunky import *
-from relic.chunky.chunk import *
-from relic.chunky import chunky, chunk, serializer
+from relic.chunky._apis import apis as APIs, read
+from relic.chunky._core import Version, MagicWord
 
 __all__ = [
-    serializer,
+    "read",
+    "APIs",
+    "Version",
+    "MagicWord",
 ]
-__all__.extend(chunky.__all__)
-__all__.extend(chunk.__all__)
-

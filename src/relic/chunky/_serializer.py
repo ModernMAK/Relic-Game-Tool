@@ -1,12 +1,13 @@
 from __future__ import annotations
-from enum import Enum
-from typing import Union, ClassVar, BinaryIO
 
-from archive_tools.structx import Struct
+from typing import Union, BinaryIO
 
+from serialization_tools.structx import Struct
+
+from relic.chunky._abc import RawDataChunk, FolderChunk
 from relic.chunky._core import ChunkType
 from relic.chunky.errors import ChunkTypeError
-from relic.chunky.protocols import StreamSerializer, T
+from relic.chunky.protocols import StreamSerializer
 
 
 class ChunkTypeSerializer(StreamSerializer[ChunkType]):
@@ -31,3 +32,6 @@ class ChunkTypeSerializer(StreamSerializer[ChunkType]):
 
 
 chunk_type_serializer = ChunkTypeSerializer(Struct("<4s"))
+
+RawChunk = Union[FolderChunk, RawDataChunk]
+

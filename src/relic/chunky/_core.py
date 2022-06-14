@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import BinaryIO, ClassVar, Optional
+from typing import BinaryIO, ClassVar
 
-from archive_tools.magic import MagicWordIO
-from archive_tools.structx import Struct
+from serialization_tools.magic import MagicWordIO
+from serialization_tools.structx import Struct
 
 
 class ChunkType(str, Enum):
