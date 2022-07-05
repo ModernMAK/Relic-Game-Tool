@@ -6,11 +6,13 @@ on:
     paths:
       - 'src/relic/**'
       - '.github/workflows/mypy.yml'  
+      - 'mypy.ini'
   pull_request:
     branches: [ main ]
     paths:
       - 'src/relic/**'
       - '.github/workflows/mypy.yml'
+      - 'mypy.ini'
 jobs:
   build:
     runs-on: ubuntu-latest

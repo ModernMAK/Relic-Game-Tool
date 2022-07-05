@@ -7,12 +7,14 @@ on:
       - 'src/**'
       - 'tests/**'
       - '.github/workflows/pylint.yml'
+      - '.pylintrc'
   pull_request:
     branches: [ main ]
     paths:
       - 'src/**'
       - 'tests/**'
       - '.github/workflows/pylint.yml'
+      - '.pylintrc'
 
 jobs:
   build:
