@@ -1,6 +1,7 @@
 # Relic SGA Archive Tool
 [![Pytest](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/pytest.yml/badge.svg)](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/pytest.yml)
 [![MyPy](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/mypy.yml/badge.svg)](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/mypy.yml)
+[![Pylint](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/pylint.yml/badge.svg)](https://github.com/ModernMAK/Relic-Game-Tool/actions/workflows/pylint.yml)
 [![PyPI](https://img.shields.io/pypi/v/relic-game-tool)](https://pypi.org/project/relic-game-tool/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/relic-game-tool)](https://www.python.org/downloads/)
 [![PyPI - License](https://img.shields.io/pypi/l/relic-game-tool)](https://github.com/ModernMAK/Relic-Game-Tool/blob/main/LICENSE.txt)
