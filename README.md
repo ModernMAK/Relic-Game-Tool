@@ -1,3 +1,8 @@
+# ARCHIVE NOTICE
+This repo is no longer maintained; the current repo is maintained at [MAK-Relic-Tool](https://github.com/MAK-Relic-Tool).
+
+-------
+
 # Relic SGA Archive Tool
 [![PyPI](https://img.shields.io/pypi/v/relic-game-tool)](https://pypi.org/project/relic-game-tool/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/relic-game-tool)](https://www.python.org/downloads/)
